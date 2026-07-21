@@ -67,6 +67,12 @@
   .mbtn.b1:hover{border-color:var(--p1)} .mbtn.b2:hover{border-color:var(--p2)} .mbtn.bg:hover{border-color:var(--gold)}
   .mbtn.sm{padding:10px 16px;font-size:14px}
   .note{font-family:var(--mono);color:#4a5164;font-size:10px;letter-spacing:.1em;max-width:82vw;line-height:1.8}
+  .acctchip{cursor:pointer;background:rgba(10,14,24,.9);border:1px solid var(--line);color:var(--ink);
+    padding:9px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;max-width:520px;width:100%;
+    display:flex;align-items:center;gap:10px;justify-content:center;transition:border-color .15s}
+  .acctchip:hover{border-color:var(--p2)}
+  .acctchip b{font-style:normal;font-weight:900;font-family:var(--disp);white-space:nowrap}
+  .acctchip span{color:var(--dim)}
 
   /* loadout */
   .panel{width:min(96vw,880px);pointer-events:auto;display:flex;flex-direction:column;gap:14px}
@@ -253,7 +259,46 @@ function loadSave(){
   save.inv.push(w, a); save.equip.weapon = w.id; save.equip.armor = a.id;
   idcSync(); persist();
 }
-function persist(){ try{ localStorage.setItem('rr_save_v2', JSON.stringify(save)); }catch(e){} }
+function persist(){ try{ localStorage.setItem('rr_save_v2', JSON.stringify(save)); }catch(e){} cloudSync(); }
+/* ---- accounts (username + password, cloud save) ---- */
+const ACCT_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/account';
+let account = null;   // { token, username, handle, aid, rating } when signed in
+function loadToken(){ try{ return localStorage.getItem('rr_token'); }catch(e){ return null; } }
+function storeToken(t){ try{ t ? localStorage.setItem('rr_token', t) : localStorage.removeItem('rr_token'); }catch(e){} }
+async function acctCall(action, extra){
+  try{ const r = await fetch(ACCT_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({action}, extra)) });
+    let j = {}; try{ j = await r.json(); }catch(e){} return { status:r.status, j }; }
+  catch(e){ return { status:0, j:{ error:'network unreachable' } }; }
+}
+function applyCloudSave(cloud){
+  if(cloud && typeof cloud === 'object'){ save = cloud; migrateSave(); idcSync(); }
+  if(account) save.handle = account.handle;
+  persistLocal();
+}
+function persistLocal(){ try{ localStorage.setItem('rr_save_v2', JSON.stringify(save)); }catch(e){} }
+async function tryResume(){
+  const t = loadToken(); if(!t) return;
+  const { status, j } = await acctCall('me', { token:t });
+  if(status===200 && j.account){ account = Object.assign({ token:t }, j.account); applyCloudSave(j.save); refreshRating(); }
+  else if(status===401){ storeToken(null); }
+}
+let cloudTimer = null;
+function cloudSync(){
+  if(!account) return;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(async ()=>{
+    const { status } = await acctCall('save', { token:account.token, save, handle:account.handle });
+    if(status===401){ account = null; storeToken(null); }   // don't touch account.rating — it lives in the ranks table
+  }, 1500);
+}
+async function refreshRating(){   // rating is authoritative in the ranks table, not the account row
+  if(!account) return;
+  try{ const r = await fetch(RANK_URL+'?id='+encodeURIComponent(account.aid), {cache:'no-store'});
+    const j = await r.json(); if(typeof j.rating==='number') account.rating = j.rating; }catch(e){}
+}
+function logout(){ account = null; storeToken(null); }
+const acctId = () => account ? account.aid : save.pid;
+const acctHandle = () => account ? account.handle : save.handle;
 const equippedWeapon = () => save.inv.find(i => i.id === save.equip.weapon) || null;
 const equippedArmor  = () => save.inv.find(i => i.id === save.equip.armor) || null;
 
@@ -940,7 +985,7 @@ function guestUpdate(dt){
 function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
-  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop' || state === 'ranked'){ drawParticlesScreen(); return; }
+  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop' || state === 'ranked' || state === 'account'){ drawParticlesScreen(); return; }
   computeView();
   ctx.save();
   ctx.scale(VIEW, VIEW);
@@ -1118,6 +1163,9 @@ function toMenu(){
       <div class="xptext">${xi.into}/${xi.need} XP</div>
       <div class="credpill">◈ ${p.credits}</div>
     </div>
+    <button class="acctchip" id="btnAcct">${account
+      ? `<b style="color:${rankTierColor(account.rating||1000)}">◕ ${esc(account.handle)}</b> <span>@${esc(account.username)} · synced · tap to manage</span>`
+      : `<b style="color:var(--p2)">◔ GUEST</b> <span>tap to sign in — sync progress across devices</span>`}</button>
     <div class="modes">
       <button class="mbtn b1" id="btnSolo"><b>SPACE</b> BRAWL vs CPU<span>you + 7 bots · FFA or teams</span></button>
       <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE CAMPAIGN<span>defend the town · boss drops a legendary</span></button>
@@ -1136,6 +1184,7 @@ function toMenu(){
   $('#btnShop').onclick = () => openShop();
   $('#btnNet').onclick = () => { rankedMode = false; renderLobby(); };
   $('#btnRanked').onclick = () => renderRanked();
+  $('#btnAcct').onclick = () => renderAccount();
 }
 
 /* ---- loadout ---- */
@@ -1376,58 +1425,130 @@ function rankTierColor(r){ return r>=1300?'#ff9f1c':r>=1150?'#b56bff':r>=1050?'#
 function rankTierName(r){ return r>=1300?'LEGEND':r>=1150?'DIAMOND':r>=1050?'PLATINUM':r>=950?'GOLD':r>=850?'SILVER':'BRONZE'; }
 async function renderRanked(){
   state='ranked'; netCloseAll(true); lobbyCleanup(); mode=null;
+  const signedIn = !!account;
   $('#arena').innerHTML = `<div class="panel">
     <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">RANKED</div>
-      <div class="xptext" style="flex:1">your Elo updates after every online ranked match with 2+ real players</div></div>
+      <div class="xptext" style="flex:1">online FFA · your account Elo updates after every match with 2+ signed-in players</div></div>
     <div class="prow">
       <div class="card"><h3>Your Standing</h3>
-        <div id="myrank" class="netstat">loading your rating…</div>
-        <div style="height:12px"></div>
-        <div class="netlbl">LADDER HANDLE</div>
-        <div class="netrow"><input class="namebox" id="handle" maxlength="16" value="${esc(save.handle)}" autocomplete="off"><button class="mbtn sm bg" id="saveH">SAVE</button></div>
+        <div id="myrank" class="netstat">${signedIn?'loading your rating…':'<span style="color:var(--gold)">sign in to compete on the ladder</span>'}</div>
       </div>
       <div class="card"><h3>Global Leaderboard</h3><div id="lb" class="invlist"><div class="netstat">loading…</div></div></div>
     </div>
     <div class="modes">
-      <button class="mbtn b2" id="btnPlay"><b>▶</b> PLAY RANKED<span>online FFA · results update your Elo</span></button>
+      ${signedIn
+        ? `<button class="mbtn b2" id="btnPlay"><b>▶</b> PLAY RANKED<span>online FFA · results update your Elo</span></button>`
+        : `<button class="mbtn b2" id="btnSignin"><b>▶</b> SIGN IN TO PLAY<span>ranked needs an account</span></button>`}
       <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
     </div></div>`;
-  $('#saveH').onclick = ()=>{ const v=($('#handle').value||'').trim().slice(0,16); if(v){ save.handle=v; persist(); } };
   $('#btnBack').onclick = toMenu;
-  $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  if(signedIn) $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  else $('#btnSignin').onclick = ()=> renderAccount();
   try{
-    const r = await fetch(RANK_URL+'?id='+encodeURIComponent(save.pid), {cache:'no-store'});
-    const j = await r.json(); save.rating = j.rating; persist();
-    if($('#myrank')) $('#myrank').innerHTML =
+    const qid = signedIn ? account.aid : '';
+    const r = await fetch(RANK_URL+'?id='+encodeURIComponent(qid), {cache:'no-store'});
+    const j = await r.json(); if(signedIn){ account.rating = j.rating; }
+    if(signedIn && $('#myrank')) $('#myrank').innerHTML =
       `<div style="font-size:26px;font-weight:900;font-style:italic;color:${rankTierColor(j.rating)}">${j.rating} <span style="font-size:12px;color:var(--dim)">ELO · ${rankTierName(j.rating)}</span></div>
-       <div class="netlbl" style="color:var(--dim)">${j.rank?('rank #'+j.rank+' of '+j.total+' · '):''}${j.wins}W ${j.losses}L</div>`;
+       <div class="netlbl" style="color:var(--dim)">${esc(account.handle)} · ${j.rank?('rank #'+j.rank+' of '+j.total+' · '):''}${j.wins}W ${j.losses}L</div>`;
     if($('#lb')) $('#lb').innerHTML = (j.top&&j.top.length) ? j.top.map((t,i)=>`<div class="stat" style="margin-bottom:4px">
         <span class="nm" style="width:24px;text-align:right;color:var(--dim)">${i+1}</span>
         <span class="nm" style="width:auto;flex:1;color:${rankTierColor(t.rating)}">${esc(t.handle)}</span>
         <span style="font-family:var(--mono);color:#eef2ff">${t.rating}</span></div>`).join('')
       : '<div class="netstat">no ranked games yet — be the first on the board</div>';
-  }catch(e){ if($('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
+  }catch(e){ if(signedIn && $('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
 }
 function showRankDelta(rating, delta){
-  save.rating = rating; persist();
+  save.rating = rating; if(account) account.rating = rating; persist();
   const el = $('#rankStrip'); if(!el) return;
   const up = delta>=0;
   el.innerHTML = `<span style="color:${up?'#3ddc84':'#ff5c5c'};font-weight:900">RANKED ${up?'+':''}${delta}</span>
     <span style="color:var(--dim)"> → </span><span style="color:${rankTierColor(rating)};font-weight:900">${rating} ELO</span>`;
 }
-async function submitRanked(){   // host only, after a ranked brawl ends
+async function submitRanked(){   // host only, after a ranked brawl ends — accounts only, token-verified
   if(mode!=='host' || !rankedMode || !net) return;
-  const humans = [{ id:save.pid, handle:save.handle, kills:(players[0]?players[0].kills:0) }];
-  for(const pr of net.peers){ if(pr.pid) humans.push({ id:pr.pid, handle:pr.handle||'Player', kills:(players[pr.idx]?players[pr.idx].kills:0) }); }
-  if(humans.length < 2){ const el=$('#rankStrip'); if(el) el.textContent='unranked — needs 2+ real players'; return; }
+  const humans = [];
+  if(account) humans.push({ token:account.token, handle:account.handle, aid:account.aid, kills:(players[0]?players[0].kills:0) });
+  for(const pr of net.peers){ if(pr.token) humans.push({ token:pr.token, handle:pr.handle||'Player', aid:pr.aid, kills:(players[pr.idx]?players[pr.idx].kills:0) }); }
+  if(humans.length < 2){ const el=$('#rankStrip'); if(el) el.textContent='unranked — needs 2+ signed-in players'; return; }
   humans.sort((a,b)=> b.kills-a.kills);                    // placement = winner first
   try{
     const r = await fetch(RANK_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ results: humans.map(h=>({id:h.id, handle:h.handle})) }) });
+      body: JSON.stringify({ results: humans.map(h=>({token:h.token, handle:h.handle})) }) });
     const j = await r.json(); if(!j.ratings) throw 0;
     netBroadcast({ t:'rankres', ratings: j.ratings });     // tell guests their new ratings
-    const mine = j.ratings.find(x=>x.id===save.pid); if(mine) showRankDelta(mine.rating, mine.delta);
+    const mine = account && j.ratings.find(x=>x.id===account.aid); if(mine){ showRankDelta(mine.rating, mine.delta); account.rating = mine.rating; }
   }catch(e){ const el=$('#rankStrip'); if(el) el.textContent='ladder submit failed'; }
+}
+/* ---- account screen ---- */
+let acctMode = 'login';
+function renderAccount(){
+  state='account'; netCloseAll(true); lobbyCleanup(); rankedMode=false;
+  if(account){
+    const xi = expInfo(save.exp);
+    $('#arena').innerHTML = `<div class="panel">
+      <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">ACCOUNT</div>
+        <div class="xptext" style="flex:1">signed in — your progress + rating sync across devices</div></div>
+      <div class="card" style="max-width:520px;margin:0 auto;width:100%">
+        <h3>Signed in</h3>
+        <div style="font-size:22px;font-weight:900;font-style:italic;color:${rankTierColor(account.rating||1000)}">${esc(account.handle)}</div>
+        <div class="netlbl" style="color:var(--dim)">@${esc(account.username)} · ${account.rating||1000} ELO · LV ${save.level}</div>
+        <div style="height:14px"></div>
+        <div class="netlbl">DISPLAY HANDLE</div>
+        <div class="netrow"><input class="namebox" id="acctHandle" maxlength="16" value="${esc(account.handle)}" autocomplete="off"><button class="mbtn sm bg" id="btnSaveHandle">SAVE</button></div>
+        <div class="netstat" id="acctMsg"></div>
+      </div>
+      <div class="modes">
+        <button class="mbtn sm" id="btnLogout"><b>⎋</b> LOG OUT</button>
+        <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
+      </div></div>`;
+    $('#btnSaveHandle').onclick = ()=>{ const v=($('#acctHandle').value||'').trim().slice(0,16); if(v){ account.handle=v; save.handle=v; persist(); const m=$('#acctMsg'); if(m) m.textContent='saved'; } };
+    $('#btnLogout').onclick = ()=>{ logout(); renderAccount(); };
+    $('#btnBack').onclick = toMenu;
+    return;
+  }
+  const isSignup = acctMode==='signup';
+  $('#arena').innerHTML = `<div class="panel">
+    <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">ACCOUNT</div>
+      <div class="xptext" style="flex:1">sign in to sync progress across devices &amp; play ranked</div></div>
+    <div class="card" style="max-width:480px;margin:0 auto;width:100%">
+      <div class="modewrap"><div class="seg" id="segAuth">
+        <button data-m="login" class="${!isSignup?'on':''}">LOG IN</button>
+        <button data-m="signup" class="${isSignup?'on':''}">SIGN UP</button></div></div>
+      <div style="height:12px"></div>
+      <div class="netlbl">USERNAME</div>
+      <input class="namebox" id="au" maxlength="16" autocomplete="username" placeholder="3–16 letters/numbers" style="width:100%">
+      <div style="height:8px"></div>
+      <div class="netlbl">PASSWORD</div>
+      <input class="namebox" id="ap" type="password" maxlength="128" autocomplete="${isSignup?'new-password':'current-password'}" placeholder="${isSignup?'at least 8 characters':'your password'}" style="width:100%">
+      ${isSignup?`<div style="height:8px"></div><div class="netlbl">DISPLAY HANDLE (optional)</div>
+        <input class="namebox" id="ah" maxlength="16" autocomplete="off" placeholder="defaults to username" style="width:100%">`:''}
+      <div style="height:12px"></div>
+      <button class="mbtn b2" id="btnAuth" style="width:100%;text-align:center"><b>▶</b> ${isSignup?'CREATE ACCOUNT':'LOG IN'}</button>
+      <div class="netstat" id="acctMsg" style="text-align:center"></div>
+    </div>
+    <div class="modes"><button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button></div>
+    <div class="note">passwords are hashed on the server (never stored in plain text) · no email means no reset — remember it</div></div>`;
+  $('#segAuth').querySelectorAll('button').forEach(b=>b.onclick=()=>{ acctMode=b.dataset.m; renderAccount(); });
+  $('#btnBack').onclick = toMenu;
+  $('#btnAuth').onclick = doAuth;
+}
+async function doAuth(){
+  const u = ($('#au')&&$('#au').value||'').trim().toLowerCase();
+  const p = ($('#ap')&&$('#ap').value||'');
+  const h = ($('#ah')&&$('#ah').value||'').trim();
+  const msg = s => { const m=$('#acctMsg'); if(m) m.textContent = s; };
+  if(!/^[a-z0-9_]{3,16}$/.test(u)) return msg('username: 3–16 letters, numbers, underscore');
+  if(p.length < (acctMode==='signup'?8:1)) return msg(acctMode==='signup'?'password needs 8+ characters':'enter your password');
+  msg('…');
+  const extra = acctMode==='signup' ? { username:u, password:p, handle:h||u, save } : { username:u, password:p };
+  const { status, j } = await acctCall(acctMode, extra);
+  if(status===200 && j.token){
+    account = Object.assign({ token:j.token }, j.account); storeToken(j.token);
+    if(acctMode==='login') applyCloudSave(j.save); else { save.handle = account.handle; persistLocal(); }
+    refreshRating();
+    toMenu();
+  } else msg(j.error || 'that didn’t work — try again');
 }
 const WPS_SUB = 'json.webpubsub.azure.v1';
 let lobby = null;
@@ -1623,7 +1744,7 @@ function hostSeat(jid, pc, ch){
 }
 function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout + level
   if(m && m.t==='ld' && lobby && lobby._chans && lobby._chans.has(jid))
-    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level, pid:m.pid, handle:m.handle };
+    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level, pid:m.pid, handle:m.handle, token:m.token, aid:m.aid };
 }
 function hostStart(){
   if(!lobby || !lobby.hosting || lobby.starting) return;
@@ -1637,7 +1758,7 @@ function hostStart(){
   players = new Array(MAXP);
   players[0] = makePlayer(0, { local:true, name:coop?'You':'Host', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
   for(const cn of seated){ const idx = cn.idx; if(idx<1 || idx>=MAXP || players[idx]) continue;
-    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle };
+    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle, token:cn.ld&&cn.ld.token, aid:cn.ld&&cn.ld.aid };
     const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a) : botLoadout();  // honor the guest's build
     players[idx] = makePlayer(idx, { name:(coop?'Ally ':'Rival ')+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
     const dropHandler = coop
@@ -1692,7 +1813,8 @@ async function joinOffer(roomId, sdp){
 function wireGuest(pc, ch){
   net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false}, inAcc:0, ready:false, matched:false };
   ch.onopen = () => { net.ready = true; net.matched = true; if(lobby) lobby.starting = true;
-    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level, pid:save.pid, handle:save.handle})); }catch(e){}  // send my build + ladder id to the host
+    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level, pid:save.pid,
+      handle:acctHandle(), token: account?account.token:null, aid: account?account.aid:null})); }catch(e){}  // build + ladder identity for the host
     lobbyCleanup();
     mode = 'guest'; state = 'wait'; parts=[]; bullets=[]; players=[]; $('#arena').innerHTML='';
     showAnnounce('<div class="rtitle" style="color:var(--gold)">Connected</div><div class="rsub">waiting for the host to start the brawl…</div>'); };
@@ -1760,7 +1882,7 @@ function guestRecv(m){
       endStandings = m.standings.map((s,i)=>({ i, name:s.name, kills:s.kills, team:s.team, color:s.color, matchExp:s.matchExp||0, level:s.level, local:(i===net.me) }));
       renderEnd(null);
       break;
-    case 'rankres': { const mine = (m.ratings||[]).find(x=>x.id===save.pid); if(mine) showRankDelta(mine.rating, mine.delta); break; }
+    case 'rankres': { const mine = account && (m.ratings||[]).find(x=>x.id===account.aid); if(mine){ showRankDelta(mine.rating, mine.delta); account.rating = mine.rating; } break; }
     case 'bye': guestDropped(); break;
   }
 }
@@ -1776,7 +1898,7 @@ addEventListener('keydown', e => {
   if(e.repeat) return;
   if(e.code==='Escape'){
     if(state==='room'){ lobbyCleanup(); renderLobby(); }
-    else if(state==='loadout'||state==='lobby'||state==='ranked'){ toMenu(); }
+    else if(state==='loadout'||state==='lobby'||state==='ranked'||state==='account'){ toMenu(); }
     else if(state==='shop'){ openLoadout('view'); }
     else if(state==='play' || state==='wait' || state==='end'){ netCloseAll(true); toMenu(); }
     return;
@@ -1790,6 +1912,7 @@ addEventListener('keydown', e => {
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyB') openShop();
     else if(e.code==='KeyR') renderRanked();
+    else if(e.code==='KeyA') renderAccount();
   } else if(state==='end'){
     if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else if(gmode==='zombies') startCampaign(); else startSolo(); }
     else if(e.code==='KeyL') openLoadout('view');
@@ -1853,4 +1976,5 @@ function loop(t){
 loadSave();
 requestAnimationFrame(loop);
 toMenu();
+tryResume().then(()=>{ if(state==='menu') toMenu(); });   // restore signed-in session + cloud save, then refresh the menu
 </script>

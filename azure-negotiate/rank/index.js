@@ -12,6 +12,20 @@ const CONN = parseConn(process.env.AzureWebJobsStorage);
 const TABLE = 'ranks';
 const VER = '2019-02-02';
 const BASE = () => `https://${CONN.account}.table.core.windows.net`;
+// same session-token secret as the account function — used to verify ranked participants
+const SECRET = crypto.createHash('sha256').update((CONN.key || 'x') + '::rr-acct-v1').digest();
+function b64urlJson(s) { return JSON.parse(Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')); }
+function verifyToken(tok) {
+  try {
+    const [h, p, s] = String(tok).split('.');
+    if (!h || !p || !s) return null;
+    const exp = crypto.createHmac('sha256', SECRET).update(h + '.' + p).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    if (s.length !== exp.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(exp))) return null;
+    const payload = b64urlJson(p);
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch (e) { return null; }
+}
 
 function authHeader(dateStr, canonResource) {
   const stringToSign = dateStr + '\n' + canonResource;
@@ -65,11 +79,17 @@ module.exports = async function (context, req) {
            games: me ? (me.games || 0) : 0, wins: me ? (me.wins || 0) : 0, losses: me ? (me.losses || 0) : 0, top });
       return;
     }
-    // POST: submit a ranked match result. body.results = [{id, handle}] ordered winner-first.
-    const results = (req.body && req.body.results) || [];
-    if (!Array.isArray(results) || results.length < 2) { context.res = { status: 400, headers: cors, body: { error: 'need >= 2 ranked players' } }; return; }
+    // POST: submit a ranked result. body.results = [{token, handle}] ordered winner-first.
+    // Each token is verified (issued by the account function) → identity can't be spoofed onto another account.
+    const raw = (req.body && req.body.results) || [];
+    const seen = new Set(), results = [];
+    for (const r of Array.isArray(raw) ? raw : []) {
+      const p = verifyToken(r && r.token);
+      if (!p || !p.aid || seen.has(p.aid)) continue;      // invalid / expired / duplicate → skip
+      seen.add(p.aid); results.push({ id: p.aid, handle: clean(r.handle) });
+    }
+    if (results.length < 2) { context.res = { status: 400, headers: cors, body: { error: 'need >= 2 signed-in players' } }; return; }
     const N = results.length, K = 28;
-    // load current ratings
     const cur = [];
     for (const r of results) {
       const e = await getEntity(r.id) || {};

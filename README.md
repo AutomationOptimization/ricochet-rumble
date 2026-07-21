@@ -13,6 +13,14 @@ One hit kills. Bullets ricochet. Level up, loot gear, climb the board.
 - **Online brawl** — create a room, friends fill the seats (up to 8), empty seats become bots
 - **Ranked** — online FFA whose results feed a persistent global **Elo ladder** with a leaderboard
 
+## Accounts
+- **Username + password** sign-in (optional — you can play as a guest). Passwords are hashed server-side with
+  PBKDF2 (per-user salt, constant-time compare) and never stored or logged in plaintext; sessions use signed
+  JWTs. No email, so there's no password reset — the sign-in screen says so.
+- Your account carries a **cloud save** (level, EXP, inventory, credits) that syncs across devices, plus your
+  ranked identity. **Ranked requires an account** and submissions are token-verified, so a rating can't be
+  spoofed onto someone else's account.
+
 ## Progression (RPG)
 - **Levels & EXP** scaled by the level of who you take down; each level grants a stat point
 - **Customizable stats** across six axes
@@ -27,8 +35,9 @@ One hit kills. Bullets ricochet. Level up, loot gear, climb the board.
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
 - **Azure Functions** (`rr-negotiate-*`, Windows consumption, zero-dep) —
-  `/api/negotiate` mints Web PubSub client tokens; `/api/rank` is the Elo ladder + leaderboard,
-  persisted in **Azure Table Storage** (hand-signed SharedKeyLite REST, no SDK)
+  `/api/negotiate` mints Web PubSub tokens; `/api/rank` is the Elo ladder; `/api/account` is username+password
+  accounts with PBKDF2 hashing, JWT sessions, and cloud saves. Ranks + accounts persist in **Azure Table Storage**
+  (hand-signed SharedKeyLite REST, zero SDK)
 - **Gameplay** is peer-to-peer WebRTC (STUN + TURN); the host runs the authoritative sim (brawl or zombie
   defense) and broadcasts 20Hz snapshots. Guests send inputs; disconnected brawl guests convert to bots
 
