@@ -1,35 +1,35 @@
 # RICOCHET RUMBLE 🎯
 
-Neon 8-player arena brawler + zombie-defense campaign. One hit kills. Bullets ricochet.
-Level up, loot gear, build your fighter.
+Neon 8-player arena brawler + co-op zombie defense + ranked Elo ladder.
+One hit kills. Bullets ricochet. Level up, loot gear, climb the board.
 
 **Play:** https://automationoptimization.github.io/ricochet-rumble/
 
 ## Modes
-- **Brawl vs CPU** — you + 7 bots on a big scrolling arena; FFA or Teams 4v4; first to N kills, instant respawns
-- **Zombie Campaign** — defend a town of citizens across 5 escalating waves; zombies convert any citizen they
-  touch (the horde snowballs), keep enough alive to the end. The final **boss** guarantees a legendary drop
+- **Brawl vs CPU** — you + 7 bots on a big scrolling arena; FFA or Teams 4v4; first to N kills, respawns
+- **Zombie Campaign** — defend a town across 5 waves; zombies convert citizens they touch; keep enough alive.
+  **Solo or online co-op** — friends join a co-op room and defend together (shared reinforcements, scaled hordes).
+  The final boss guarantees a legendary
 - **Online brawl** — create a room, friends fill the seats (up to 8), empty seats become bots
+- **Ranked** — online FFA whose results feed a persistent global **Elo ladder** with a leaderboard
 
 ## Progression (RPG)
-- **Levels & EXP** — earn EXP scaled by the level of who you take down; each level grants a stat point
-- **Customizable stats** — allocate points across Move Speed, Fire Rate, Muzzle Velocity, Magazine, Reload, Vitality
-- **Loot & rarities** — white (common) → green (uncommon) → blue (unique) → purple (rare) → orange (legendary).
-  Loot quality scales with the EXP you earn. Legendaries never drop from normal matches
-- **Legendary sources** — the **Shop** (buy with credits earned each match) and the **Zombie Campaign boss**.
-  Ranked is a planned third source (needs real matchmaking)
-- Everything saves on your device; your build follows you online (the host applies each player's stats + gear)
+- **Levels & EXP** scaled by the level of who you take down; each level grants a stat point
+- **Customizable stats** across six axes
+- **Loot & rarities**: white → green → blue (unique) → purple (rare) → orange (legendary). Loot quality scales
+  with EXP earned; legendaries never drop from normal matches
+- **Legendary sources**: the **Shop** (credits), the **zombie campaign boss**, and now the **Ranked ladder** progression
+- Everything saves on your device; your build + level follow you online
 
 ## Controls
-- **Keyboard:** WASD / Arrows move · Space / Enter fire
-- **Touch:** left half = move joystick, right half = fire
+- **Keyboard:** WASD / Arrows move · Space / Enter fire · **Touch:** left half = move, right half = fire
 
-## Online architecture (all Azure, free/consumption tiers)
-- **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling over pub/sub groups
-- **Azure Function** (`rr-negotiate-*`, Windows consumption) — `/api/negotiate` mints short-lived Web PubSub
-  client tokens (hand-signed JWT, zero deps); the browser never holds a key
-- **Gameplay** is peer-to-peer WebRTC (STUN + TURN); the host runs the authoritative sim and broadcasts 20Hz
-  snapshots. Guests send inputs; disconnected guests convert to bots
+## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
+- **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
+- **Azure Functions** (`rr-negotiate-*`, Windows consumption, zero-dep) —
+  `/api/negotiate` mints Web PubSub client tokens; `/api/rank` is the Elo ladder + leaderboard,
+  persisted in **Azure Table Storage** (hand-signed SharedKeyLite REST, no SDK)
+- **Gameplay** is peer-to-peer WebRTC (STUN + TURN); the host runs the authoritative sim (brawl or zombie
+  defense) and broadcasts 20Hz snapshots. Guests send inputs; disconnected brawl guests convert to bots
 
-Single-file game (`index.html`), no build step. Infra lives in resource group `ricochet-rumble-rg`;
-the `/negotiate` function source is in `azure-negotiate/`.
+Single-file game (`index.html`), no build step. Function sources in `azure-negotiate/`.

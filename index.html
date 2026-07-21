@@ -237,6 +237,9 @@ function migrateSave(){
   for(const k in DEFAULT_ALLOC) if(typeof save.alloc[k] !== 'number') save.alloc[k] = DEFAULT_ALLOC[k];
   for(const k of ['kills','wins','matches','exp','credits','saved']) if(typeof save[k] !== 'number') save[k] = 0;
   if(!Array.isArray(save.inv)) save.inv = [];
+  if(!save.pid) save.pid = 'p' + Math.random().toString(36).slice(2,11);   // stable device id for the ladder
+  if(!save.handle) save.handle = 'Player' + irand(1000,9999);
+  if(typeof save.rating !== 'number') save.rating = 1000;
   save.level = levelFromExp(save.exp);                      // level is always derived from exp
   // drop dangling equip references
   if(save.equip.weapon != null && !save.inv.some(i=>i.id===save.equip.weapon)) save.equip.weapon = null;
@@ -244,7 +247,8 @@ function migrateSave(){
 }
 function loadSave(){
   try{ const s = JSON.parse(localStorage.getItem('rr_save_v2')); if(s && s.inv){ save = s; migrateSave(); idcSync(); return; } }catch(e){}
-  save = { inv:[], equip:{weapon:null, armor:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0 };
+  save = { inv:[], equip:{weapon:null, armor:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0,
+    pid:'p'+Math.random().toString(36).slice(2,11), handle:'Player'+irand(1000,9999), rating:1000 };
   const w = rollItem('weapon', 0, 'pistol'), a = rollItem('armor', 0, 'vest');
   save.inv.push(w, a); save.equip.weapon = w.id; save.equip.armor = a.id;
   idcSync(); persist();
@@ -487,17 +491,28 @@ function spawnZombie(level, boss){
   else if(e===2){ x=24; y=rand(40,WORLD.h-40); } else { x=WORLD.w-24; y=rand(40,WORLD.h-40); }
   zombies.push(makeZombie(x, y, level, boss));
 }
-function startCampaign(){
+function startCampaign(){                 // solo entry
   mode='solo'; me=0; gmode='zombies';
-  campaign = { wave:0, maxWave:5, lives:3, citizensStart:14, goal:6, waveClearedT:0 };
-  clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
-  bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; teamScore=[0,0];
-  WORLD.w=2400; WORLD.h=1600; spawns = makeSpawns(); genWalls();
   players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }) ];
-  const you = players[0]; you.alive=true; you.x=WORLD.w/2; you.y=WORLD.h/2; you.shield=2.2; you.ammo=you.ld.maxAmmo; you.kills=0; you.matchExp=0;
+  beginCampaign();
+}
+function beginCampaign(){                 // shared solo + co-op; assumes `players` already built
+  gmode='zombies'; clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
+  bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; teamScore=[0,0];
+  const list = players.filter(Boolean), np = list.length;
+  campaign = { wave:0, maxWave:5, lives:2+np, citizensStart:14, goal:6, waveClearedT:0, np };
+  WORLD.w=2400; WORLD.h=1600; spawns = makeSpawns(); genWalls();
+  list.forEach((p,i)=>{ const a = i/Math.max(1,np)*TAU;
+    p.x=WORLD.w/2+Math.cos(a)*(np>1?110:0); p.y=WORLD.h/2+Math.sin(a)*(np>1?110:0);
+    p.vx=p.vy=0; p.alive=true; p.shield=2.4; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.kills=0; p.matchExp=0; p.deaths=0; });
   for(let i=0;i<campaign.citizensStart;i++) citizens.push(spawnCitizen());
   $('#arena').innerHTML='';
-  showAnnounce(`<div class="eyebrow">ZOMBIE DEFENSE</div><div class="gtitle">Protect the town</div>
+  if(mode==='host') netBroadcast({ t:'zsetup', world:{w:WORLD.w,h:WORLD.h},
+    walls: walls.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]),
+    players: players.map(p=>p?{color:p.color,name:p.name}:null),
+    goal:campaign.goal, citizensStart:campaign.citizensStart, maxWave:campaign.maxWave, lives:campaign.lives });
+  const coop = np>1;
+  showAnnounce(`<div class="eyebrow">ZOMBIE DEFENSE${coop?' · CO-OP':''}</div><div class="gtitle">Protect the town</div>
     <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>Zombies convert anyone they touch — shoot them, bank shots through the horde.</div>`, 2400);
   after(2400, ()=>{ roundLive=true; sfxGo(); nextWave(); });
 }
@@ -505,38 +520,53 @@ function nextWave(){
   if(!campaign) return;
   campaign.wave++;
   if(campaign.wave > campaign.maxWave){ campaignEnd(true); return; }
-  const w = campaign.wave, boss = (w === campaign.maxWave), count = 5 + w*3;
+  const w = campaign.wave, boss = (w === campaign.maxWave);
+  const count = Math.round((5 + w*3) * (0.7 + 0.34*campaign.np));   // scale horde with player count
   showAnnounce(`<div class="eyebrow">WAVE ${w} / ${campaign.maxWave}${boss?' · BOSS':''}</div>
     <div class="gtitle" style="color:${boss?'#ff9f1c':'var(--p1)'}">${boss?'THE BEHEMOTH':'Wave '+w}</div>`, 1500);
-  for(let i=0;i<count;i++) after(400 + i*90, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w, false); });
-  if(boss) after(900, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w + 6, true); });
+  campaign.spawning = true;                       // block wave-clear until the whole batch has spawned
+  let last = 0;
+  for(let i=0;i<count;i++){ const d = 400 + i*80; last = Math.max(last, d); after(d, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w, false); }); }
+  if(boss){ const n = campaign.np>2?2:1; for(let k=0;k<n;k++){ const d = 900+k*300; last = Math.max(last, d); after(d, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w + 6, true); }); } }
+  after(last + 60, ()=>{ if(campaign) campaign.spawning = false; });
 }
-function youDieZombie(){
-  const you = players[0]; if(!you.alive) return;
-  you.alive=false; you.deaths++; burst(you.x,you.y,you.color,42); sfxDie(); shake(); flashScreen(you.color);
-  if(campaign.lives > 0){ campaign.lives--; you.respT=1.6; pushFeed(`overrun — ${campaign.lives} ${campaign.lives===1?'life':'lives'} left`); }
-  else campaignEnd(false);
+function playerInputZ(p){
+  if(p.local) return localInput();
+  if(mode==='host'){ const pr = netPeerFor(p.i); return pr ? pr.rin : {x:0,y:0,s:false}; }
+  return {x:0,y:0,s:false};
+}
+function respawnZ(p){
+  let best={x:WORLD.w/2,y:WORLD.h/2}, bd=-1;
+  for(const s of [{x:WORLD.w/2,y:WORLD.h/2}, ...spawns]){ let d=1e9;
+    for(const z of zombies){ if(!z.alive) continue; d=Math.min(d, Math.hypot(z.x-s.x,z.y-s.y)); } if(d>bd){ bd=d; best=s; } }
+  p.x=best.x; p.y=best.y; p.vx=p.vy=0; p.alive=true; p.shield=(p.ld.spawnShield||1)+1.5; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.burst=0;
+  sfxSpawn(); spark(p.x,p.y,p.color,14);
+}
+function playerDieZ(p){
+  if(!p.alive) return; p.alive=false; p.deaths=(p.deaths||0)+1;
+  burst(p.x,p.y,p.color,42); sfxDie(); if(p.local){ shake(); flashScreen(p.color); }
+  if(campaign.lives > 0){ campaign.lives--; p.respT=1.8; pushFeed(`${p.name} went down — ${campaign.lives} reinforcement${campaign.lives===1?'':'s'} left`); }
+  else { p.respT=-1; pushFeed(`${p.name} is down!`); }
+  if(!players.some(q=>q&&q.alive)) campaignEnd(false);        // team wipe
+}
+function stepPlayerZ(p, dt){
+  if(!p.alive){ if(p.respT>0){ p.respT-=dt; if(p.respT<=0) respawnZ(p); } return; }
+  const inp = playerInputZ(p); p.inX=inp.x; p.inY=inp.y; p.wantShoot=!!inp.s;
+  if(p.inX||p.inY){ const want=Math.atan2(p.inY,p.inX); p.aim += clamp(angDiff(p.aim,want), -16*dt, 16*dt); }
+  if(p.burst>0){ p.burstT-=dt; if(p.burstT<=0){ p.burstT=0.06; p.burst--; const spd=p.ld.bulletSpeed;
+    bullets.push({x:p.x+Math.cos(p.aim)*(p.r+9),y:p.y+Math.sin(p.aim)*(p.r+9),px:0,py:0,vx:Math.cos(p.aim)*spd,vy:Math.sin(p.aim)*spd,r:4.5,owner:p.i,team:-1,b:0,maxB:p.ld.wbase.bounce,life:2.6,c:p.color}); sfxShoot(); } }
+  const il=Math.hypot(p.inX,p.inY)||1; p.vx+=(p.inX/il)*p.ld.accel*dt; p.vy+=(p.inY/il)*p.ld.accel*dt;
+  const sp=Math.hypot(p.vx,p.vy); if(sp>p.ld.maxV){ const k=p.ld.maxV/sp; p.vx*=k; p.vy*=k; }
+  const damp=Math.max(0,1-7*dt); p.vx*=damp; p.vy*=damp; p.x+=p.vx*dt; p.y+=p.vy*dt;
+  p.x=clamp(p.x,p.r,WORLD.w-p.r); p.y=clamp(p.y,p.r,WORLD.h-p.r);
+  for(const wl of walls){ const q=circleRectPush(p.x,p.y,p.r,wl); if(q){ p.x+=q.x; p.y+=q.y; if(q.x)p.vx=0; if(q.y)p.vy=0; } }
+  p.cd-=dt; p.shield-=dt; if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime){ p.ammo++; p.regen=0; } }
+  if(p.wantShoot) fire(p);
 }
 function updateZombies(dt){
-  const you = players[0];
   if(roundLive){
-    // ---- you ----
-    if(!you.alive){ you.respT -= dt; if(you.respT<=0 && campaign.lives>=0){
-      you.alive=true; you.x=WORLD.w/2; you.y=WORLD.h/2; you.vx=you.vy=0; you.shield=you.ld.spawnShield+1.5; you.ammo=you.ld.maxAmmo; you.cd=0; you.regen=0; sfxSpawn(); spark(you.x,you.y,you.color,14); } }
-    else {
-      const inp = localInput(); you.inX=inp.x; you.inY=inp.y; you.wantShoot=!!inp.s;
-      if(you.inX||you.inY){ const want=Math.atan2(you.inY,you.inX); you.aim += clamp(angDiff(you.aim,want), -16*dt, 16*dt); }
-      if(you.burst>0){ you.burstT-=dt; if(you.burstT<=0){ you.burstT=0.06; you.burst--; const spd=you.ld.bulletSpeed;
-        bullets.push({x:you.x+Math.cos(you.aim)*(you.r+9),y:you.y+Math.sin(you.aim)*(you.r+9),px:0,py:0,vx:Math.cos(you.aim)*spd,vy:Math.sin(you.aim)*spd,r:4.5,owner:0,team:-1,b:0,maxB:you.ld.wbase.bounce,life:2.6,c:you.color}); sfxShoot(); } }
-      const il=Math.hypot(you.inX,you.inY)||1; you.vx+=(you.inX/il)*you.ld.accel*dt; you.vy+=(you.inY/il)*you.ld.accel*dt;
-      const sp=Math.hypot(you.vx,you.vy); if(sp>you.ld.maxV){ const k=you.ld.maxV/sp; you.vx*=k; you.vy*=k; }
-      const damp=Math.max(0,1-7*dt); you.vx*=damp; you.vy*=damp; you.x+=you.vx*dt; you.y+=you.vy*dt;
-      you.x=clamp(you.x,you.r,WORLD.w-you.r); you.y=clamp(you.y,you.r,WORLD.h-you.r);
-      for(const wl of walls){ const p=circleRectPush(you.x,you.y,you.r,wl); if(p){ you.x+=p.x; you.y+=p.y; if(p.x)you.vx=0; if(p.y)you.vy=0; } }
-      you.cd-=dt; you.shield-=dt; if(you.ammo<you.ld.maxAmmo){ you.regen+=dt; if(you.regen>=you.ld.regenTime){ you.ammo++; you.regen=0; } }
-      if(you.wantShoot) fire(you);
-    }
-    // ---- citizens ----
+    for(const p of players){ if(p) stepPlayerZ(p, dt); }
+    // ---- citizens (flee nearest zombie) ----
     for(const c of citizens){ if(!c.alive) continue;
       if(c.converting>0){ c.converting-=dt; if(c.converting<=0){ c.alive=false; spark(c.x,c.y,'#7cff9b',12);
         zombies.push(makeZombie(c.x,c.y, save.level+campaign.wave, false)); } continue; }
@@ -549,18 +579,21 @@ function updateZombies(dt){
       c.x=clamp(c.x,c.r,WORLD.w-c.r); c.y=clamp(c.y,c.r,WORLD.h-c.r);
       for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
     }
-    // ---- zombies ----
+    // ---- zombies (target nearest citizen, else nearest player) ----
     for(const z of zombies){ if(!z.alive) continue;
       let cn=null, cd=1e9; for(const c of citizens){ if(!c.alive||c.converting>0) continue; const d=Math.hypot(c.x-z.x,c.y-z.y); if(d<cd){ cd=d; cn=c; } }
-      let tx, ty; if(cn){ tx=cn.x; ty=cn.y; } else if(you.alive){ tx=you.x; ty=you.y; } else { tx=WORLD.w/2; ty=WORLD.h/2; }
+      let tx, ty;
+      if(cn){ tx=cn.x; ty=cn.y; }
+      else { let pn=null, pd=1e9; for(const p of players){ if(!p||!p.alive) continue; const d=Math.hypot(p.x-z.x,p.y-z.y); if(d<pd){ pd=d; pn=p; } }
+        if(pn){ tx=pn.x; ty=pn.y; } else { tx=WORLD.w/2; ty=WORLD.h/2; } }
       const a=Math.atan2(ty-z.y, tx-z.x); z.vx += Math.cos(a)*z.speed*5*dt; z.vy += Math.sin(a)*z.speed*5*dt;
       const zs=Math.hypot(z.vx,z.vy); if(zs>z.speed){ const k=z.speed/zs; z.vx*=k; z.vy*=k; }
       z.x+=z.vx*dt; z.y+=z.vy*dt; z.x=clamp(z.x,z.r,WORLD.w-z.r); z.y=clamp(z.y,z.r,WORLD.h-z.r);
       for(const wl of walls){ const p=circleRectPush(z.x,z.y,z.r,wl); if(p){ z.x+=p.x; z.y+=p.y; } }
       if(cn && cd < z.r+cn.r+2 && cn.converting<=0){ cn.converting = 0.85; }
-      if(you.alive && you.shield<=0 && Math.hypot(you.x-z.x,you.y-z.y) < z.r+you.r) youDieZombie();
+      for(const p of players){ if(p && p.alive && p.shield<=0 && Math.hypot(p.x-z.x,p.y-z.y) < z.r+p.r){ playerDieZ(p); break; } }
     }
-    // ---- bullets (yours) vs walls + zombies ----
+    // ---- bullets (all players) vs walls + zombies ----
     for(const bl of bullets){ bl.px=bl.x; bl.py=bl.y;
       for(let s=0;s<2 && bl.life>0;s++){ const h=dt/2; bl.x+=bl.vx*h; bl.y+=bl.vy*h;
         if(bl.x<bl.r){bl.x=bl.r;bl.vx=Math.abs(bl.vx);bl.b++;sfxBounce();} else if(bl.x>WORLD.w-bl.r){bl.x=WORLD.w-bl.r;bl.vx=-Math.abs(bl.vx);bl.b++;sfxBounce();}
@@ -571,7 +604,7 @@ function updateZombies(dt){
           if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){ bl.life=0;
             if(z.hp>1){ z.hp--; spark(bl.x,bl.y,'#ff6b6b',7); }
             else { z.alive=false; burst(z.x,z.y, z.boss?'#ff9f1c':'#8bd67a', z.boss?64:22); sfxDie();
-              you.kills++; you.matchExp += expForKill(z.level) * (z.boss?5:1);
+              const ow = players[bl.owner]; if(ow){ ow.kills++; ow.matchExp += expForKill(z.level) * (z.boss?5:1); }
               if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed('THE BEHEMOTH FALLS'); }
               else if(Math.random()<0.3) pushFeed(`zombie down`); } } }
       }
@@ -582,7 +615,7 @@ function updateZombies(dt){
     // ---- win / lose / wave advance ----
     const alive = citizens.filter(c=>c.alive).length;
     if(alive===0){ campaignEnd(false); }
-    else if(campaign.wave>=1 && zombies.length===0 && !citizens.some(c=>c.converting>0)){
+    else if(campaign.wave>=1 && !campaign.spawning && zombies.length===0 && !citizens.some(c=>c.converting>0)){
       campaign.waveClearedT += dt;
       if(campaign.waveClearedT > 1.2){ campaign.waveClearedT = 0; nextWave(); }
     } else campaign.waveClearedT = 0;
@@ -594,36 +627,45 @@ function campaignEnd(won){
   if(state!=='play') return;
   state='end'; roundLive=false; clearTimers(); $('#announce').classList.remove('show'); sfxWin();
   const saved = citizens.filter(c=>c.alive).length;
-  save.saved += saved;
-  renderCampaignEnd(won, saved);
+  if(mode==='host') netBroadcast({ t:'zend', won, saved, citizensStart:campaign.citizensStart,
+    goal:campaign.goal, maxWave:campaign.maxWave, wave:campaign.wave,
+    standings: players.map(p=>p?{name:p.name,color:p.color,kills:p.kills,matchExp:p.matchExp}:null) });
+  const you = players[me] || players[0];
+  renderCampaignEnd({ won, saved, gained:(you&&you.matchExp)||0, kills:(you&&you.kills)||0,
+    citizensStart:campaign.citizensStart, goal:campaign.goal, maxWave:campaign.maxWave, wave:campaign.wave,
+    standings: players.filter(Boolean).map(p=>({name:p.name,color:p.color,kills:p.kills,local:!!p.local})) });
 }
-function renderCampaignEnd(won, saved){
-  const you = players[0]; const gained = (you && you.matchExp) || 0;
-  if(you) save.kills += you.kills;
-  const metGoal = won && saved >= campaign.goal;
-  const credits = 20 + Math.round(gained/4) + (won?60:0) + saved*4;
-  const prog = applyProgression(gained, won, won?1:5, { legendary: metGoal, credits });
+function renderCampaignEnd(ctx){
+  const gained = ctx.gained || 0;
+  save.kills += ctx.kills||0; save.saved += ctx.saved||0;
+  const metGoal = ctx.won && ctx.saved >= ctx.goal;
+  const credits = 20 + Math.round(gained/4) + (ctx.won?60:0) + (ctx.saved||0)*4;
+  const prog = applyProgression(gained, ctx.won, ctx.won?1:5, { legendary: metGoal, credits });
   prog.drops.forEach((d,i)=> after(300+i*220, ()=> sfxLoot(d.rr)));
-  const title = won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell';
-  const tc = won ? 'var(--gold)' : 'var(--p1)';
-  const wavesSurvived = won ? campaign.maxWave : Math.max(0, campaign.wave-1);
+  const title = ctx.won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell';
+  const tc = ctx.won ? 'var(--gold)' : 'var(--p1)';
+  const wavesSurvived = ctx.won ? ctx.maxWave : Math.max(0, ctx.wave-1);
+  const coop = ctx.standings.length > 1;
+  const squad = coop ? `<div class="card"><h3>Squad</h3>${ctx.standings.slice().sort((a,b)=>b.kills-a.kills).map(s=>
+      `<div class="stat" style="margin-bottom:5px"><span class="nm" style="width:auto;flex:1;color:${s.color}${s.local?';font-weight:900':''}">${esc(s.name)}${s.local?' (you)':''}</span>
+       <span style="font-family:var(--mono);color:#eef2ff">${s.kills} kills</span></div>`).join('')}</div>` : '';
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div>
-      <div class="rsub">${won ? `${saved} / ${campaign.citizensStart} citizens survived · goal ${campaign.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${campaign.wave} · ${saved} citizens left`}</div></div>
+      <div class="rsub">${ctx.won ? `${ctx.saved} / ${ctx.citizensStart} citizens survived · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${ctx.wave} · ${ctx.saved} citizens left`}</div></div>
     ${progressStrip(prog, gained)}
     <div class="prow">
-      <div class="card"><h3>Defense Report</h3>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Waves survived</span><span style="font-family:var(--mono);color:#eef2ff">${wavesSurvived} / ${campaign.maxWave}</span></div>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Citizens saved</span><span style="font-family:var(--mono);color:#7cff9b">${saved}</span></div>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${you?you.kills:0}</span></div>
-      </div>
+      ${squad || `<div class="card"><h3>Defense Report</h3>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Waves survived</span><span style="font-family:var(--mono);color:#eef2ff">${wavesSurvived} / ${ctx.maxWave}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Citizens saved</span><span style="font-family:var(--mono);color:#7cff9b">${ctx.saved}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.kills}</span></div></div>`}
       <div class="card"><h3>Loot — ${prog.drops.length} drop${prog.drops.length!==1?'s':''}</h3>
         <div class="invlist">${lootRow(prog.drops)}</div>
         <div style="height:8px"></div><div class="ptsline" style="color:var(--dim)">saved to your stash · equip in Loadout</div></div>
     </div>
-    ${endButtons('REDEPLOY')}</div>`;
-  wireEndButtons(() => startCampaign());
+    ${endButtons(mode==='guest'?'BACK TO LOBBY':'REDEPLOY')}</div>`;
+  wireEndButtons(() => { if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host'){ hostRecampaign(); } else startCampaign(); });
 }
+function hostRecampaign(){ if(mode==='host'){ beginCampaign(); } }
 
 function beginMatch(){
   state = 'play'; roundLive = false; freezeT = 0; clearTimers(); endStandings = null;
@@ -671,16 +713,17 @@ function matchEnd(winner){
   $('#announce').classList.remove('show');   // clearTimers cancels the announce auto-dismiss
   matchOverAt = tnow();
   sfxWin();
-  if(mode === 'host') netBroadcast({t:'end', gmode, teamScore,
+  if(mode === 'host') netBroadcast({t:'end', gmode, teamScore, ranked: rankedMode?1:0,
     standings: players.map(p=>({name:p.name, kills:p.kills, team:p.team, color:p.color, matchExp:p.matchExp, level:p.level})),
     winnerTeam: gmode==='teams' ? (teamScore[0]>teamScore[1]?0:1) : -1,
     winnerName: winner ? winner.name : '' });
   renderEnd(winner);
+  if(rankedMode && mode==='host') after(400, submitRanked);   // report placements to the Elo ladder
 }
 
 /* ================= start modes ================= */
 function startSolo(){
-  mode = 'solo'; me = 0; gmode = (gmode==='zombies'?'ffa':gmode);
+  mode = 'solo'; me = 0; rankedMode = false; gmode = (gmode==='zombies'?'ffa':gmode);
   players = [];
   players.push(makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }));
   const names = BOT_NAMES.slice().sort(()=>Math.random()-0.5);
@@ -897,7 +940,7 @@ function guestUpdate(dt){
 function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
-  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop'){ drawParticlesScreen(); return; }
+  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop' || state === 'ranked'){ drawParticlesScreen(); return; }
   computeView();
   ctx.save();
   ctx.scale(VIEW, VIEW);
@@ -992,9 +1035,10 @@ function drawHUD(){
     for(let i=feed.length-1;i>=0;i--){ const f=feed[i]; const a=clamp(3.5-f.t,0,1); if(a<=0) continue;
       ctx.globalAlpha=a; ctx.fillStyle='#c9d2e6'; ctx.fillText(f.txt, 16, fy); fy-=18; }
     ctx.globalAlpha=1;
-    const you=players[0];
-    if(you && !you.alive){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.85)';
-      ctx.font='900 italic 22px system-ui,sans-serif'; ctx.fillText('RESPAWNING…', W/2, H/2); }
+    const you=players[me];
+    if(you && !you.alive && state==='play'){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.85)';
+      ctx.font='900 italic 22px system-ui,sans-serif';
+      ctx.fillText(campaign && campaign.lives>0 ? 'RESPAWNING…' : 'DOWN — allies fighting on', W/2, H/2); }
     return;
   }
   // score banner top-center
@@ -1061,7 +1105,7 @@ function drawTouch(){
 
 /* ================= menus ================= */
 function toMenu(){
-  state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = [];
+  state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = []; rankedMode = false;
   netCloseAll(true); lobbyCleanup();
   $('#announce').classList.remove('show');
   const p = save; const xi = expInfo(p.exp);
@@ -1082,7 +1126,7 @@ function toMenu(){
     <div class="modes">
       <button class="mbtn" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · ${p.inv.length}-item stash</span></button>
       <button class="mbtn bg" id="btnShop"><b>B</b> SHOP<span>spend credits · buy legendaries</span></button>
-      <button class="mbtn locked" id="btnRanked" title="coming soon"><b>R</b> RANKED<span>needs matchmaking · coming soon</span></button>
+      <button class="mbtn b2" id="btnRanked"><b>R</b> RANKED<span>Elo ladder · ${p.rating} rating</span></button>
     </div>
     <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · ${isTouch?'TOUCH: LEFT MOVE, RIGHT FIRE · ':''}KILLS ${p.kills} · WINS ${p.wins} · CITIZENS SAVED ${p.saved}</div>
   </div>`;
@@ -1090,7 +1134,8 @@ function toMenu(){
   $('#btnCamp').onclick = () => startCampaign();
   $('#btnLoad').onclick = () => openLoadout('view');
   $('#btnShop').onclick = () => openShop();
-  $('#btnNet').onclick = renderLobby;
+  $('#btnNet').onclick = () => { rankedMode = false; renderLobby(); };
+  $('#btnRanked').onclick = () => renderRanked();
 }
 
 /* ---- loadout ---- */
@@ -1299,6 +1344,7 @@ function renderEnd(winner){
       <span style="font-family:var(--mono);color:#eef2ff">${p.kills}</span></div>`).join('');
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div></div>
+    ${rankedMode?'<div class="lvlbar" style="justify-content:center"><div class="netstat" id="rankStrip" style="color:var(--p2)">submitting to the ranked ladder…</div></div>':''}
     ${progressStrip(prog, gained)}
     <div class="prow">
       <div class="card"><h3>Final Standings</h3>${board}</div>
@@ -1324,6 +1370,65 @@ function rollLoot(place, won, gained, opts){
 /* ================= networking (Azure Web PubSub lobby + WebRTC mesh) ================= */
 const HOSTED_URL = 'https://automationoptimization.github.io/ricochet-rumble/';
 const NEG_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/negotiate?hub=lobby';
+const RANK_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/rank';
+let rankedMode = false;   // true while queued/playing a ranked online match
+function rankTierColor(r){ return r>=1300?'#ff9f1c':r>=1150?'#b56bff':r>=1050?'#3aa0ff':r>=950?'#3ddc84':'#eef2ff'; }
+function rankTierName(r){ return r>=1300?'LEGEND':r>=1150?'DIAMOND':r>=1050?'PLATINUM':r>=950?'GOLD':r>=850?'SILVER':'BRONZE'; }
+async function renderRanked(){
+  state='ranked'; netCloseAll(true); lobbyCleanup(); mode=null;
+  $('#arena').innerHTML = `<div class="panel">
+    <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">RANKED</div>
+      <div class="xptext" style="flex:1">your Elo updates after every online ranked match with 2+ real players</div></div>
+    <div class="prow">
+      <div class="card"><h3>Your Standing</h3>
+        <div id="myrank" class="netstat">loading your rating…</div>
+        <div style="height:12px"></div>
+        <div class="netlbl">LADDER HANDLE</div>
+        <div class="netrow"><input class="namebox" id="handle" maxlength="16" value="${esc(save.handle)}" autocomplete="off"><button class="mbtn sm bg" id="saveH">SAVE</button></div>
+      </div>
+      <div class="card"><h3>Global Leaderboard</h3><div id="lb" class="invlist"><div class="netstat">loading…</div></div></div>
+    </div>
+    <div class="modes">
+      <button class="mbtn b2" id="btnPlay"><b>▶</b> PLAY RANKED<span>online FFA · results update your Elo</span></button>
+      <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
+    </div></div>`;
+  $('#saveH').onclick = ()=>{ const v=($('#handle').value||'').trim().slice(0,16); if(v){ save.handle=v; persist(); } };
+  $('#btnBack').onclick = toMenu;
+  $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  try{
+    const r = await fetch(RANK_URL+'?id='+encodeURIComponent(save.pid), {cache:'no-store'});
+    const j = await r.json(); save.rating = j.rating; persist();
+    if($('#myrank')) $('#myrank').innerHTML =
+      `<div style="font-size:26px;font-weight:900;font-style:italic;color:${rankTierColor(j.rating)}">${j.rating} <span style="font-size:12px;color:var(--dim)">ELO · ${rankTierName(j.rating)}</span></div>
+       <div class="netlbl" style="color:var(--dim)">${j.rank?('rank #'+j.rank+' of '+j.total+' · '):''}${j.wins}W ${j.losses}L</div>`;
+    if($('#lb')) $('#lb').innerHTML = (j.top&&j.top.length) ? j.top.map((t,i)=>`<div class="stat" style="margin-bottom:4px">
+        <span class="nm" style="width:24px;text-align:right;color:var(--dim)">${i+1}</span>
+        <span class="nm" style="width:auto;flex:1;color:${rankTierColor(t.rating)}">${esc(t.handle)}</span>
+        <span style="font-family:var(--mono);color:#eef2ff">${t.rating}</span></div>`).join('')
+      : '<div class="netstat">no ranked games yet — be the first on the board</div>';
+  }catch(e){ if($('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
+}
+function showRankDelta(rating, delta){
+  save.rating = rating; persist();
+  const el = $('#rankStrip'); if(!el) return;
+  const up = delta>=0;
+  el.innerHTML = `<span style="color:${up?'#3ddc84':'#ff5c5c'};font-weight:900">RANKED ${up?'+':''}${delta}</span>
+    <span style="color:var(--dim)"> → </span><span style="color:${rankTierColor(rating)};font-weight:900">${rating} ELO</span>`;
+}
+async function submitRanked(){   // host only, after a ranked brawl ends
+  if(mode!=='host' || !rankedMode || !net) return;
+  const humans = [{ id:save.pid, handle:save.handle, kills:(players[0]?players[0].kills:0) }];
+  for(const pr of net.peers){ if(pr.pid) humans.push({ id:pr.pid, handle:pr.handle||'Player', kills:(players[pr.idx]?players[pr.idx].kills:0) }); }
+  if(humans.length < 2){ const el=$('#rankStrip'); if(el) el.textContent='unranked — needs 2+ real players'; return; }
+  humans.sort((a,b)=> b.kills-a.kills);                    // placement = winner first
+  try{
+    const r = await fetch(RANK_URL, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ results: humans.map(h=>({id:h.id, handle:h.handle})) }) });
+    const j = await r.json(); if(!j.ratings) throw 0;
+    netBroadcast({ t:'rankres', ratings: j.ratings });     // tell guests their new ratings
+    const mine = j.ratings.find(x=>x.id===save.pid); if(mine) showRankDelta(mine.rating, mine.delta);
+  }catch(e){ const el=$('#rankStrip'); if(el) el.textContent='ladder submit failed'; }
+}
 const WPS_SUB = 'json.webpubsub.azure.v1';
 let lobby = null;
 let net = null;   // host: {role, peers:[{pc,ch,idx,rin,ready}]}; guest: {role, pc, ch, me, hab, lastIn, inAcc, ready, matched}
@@ -1333,7 +1438,7 @@ function wpsJoin(g){ wpsSend({type:'joinGroup', group:g}); }
 function wpsTo(g,d){ wpsSend({type:'sendToGroup', group:g, dataType:'json', data:d}); }
 const sigGroup = id => 'sig-' + id;
 function announceRoom(){ if(lobby && lobby.hosting && !lobby.starting)
-  wpsTo('rooms', {t:'room', from:lobby.cid, name:lobby.hosting.name, gm:gmode, n: lobby.seats.length+1}); }
+  wpsTo('rooms', {t:'room', from:lobby.cid, name:lobby.hosting.name, gm:gmode, n: lobby.seats.length+1, rk: rankedMode?1:0}); }
 
 function netBroadcast(o){ if(!net || net.role!=='host') return; const s = JSON.stringify(o);
   for(const pr of net.peers){ if(pr.ch && pr.ch.readyState==='open'){ try{ pr.ch.send(s); }catch(e){} } } }
@@ -1355,24 +1460,27 @@ function newPC(){ return new RTCPeerConnection({ iceServers:[
 async function renderLobby(){
   netCloseAll(true); lobbyCleanup(); clearTimers(); mode = null; endStandings = null;
   state = 'lobby';
-  $('#arena').innerHTML = `<div class="menu"><div class="tag">ONLINE BRAWL — LIVE ROOMS · ONE-TAP JOIN</div>
+  if(rankedMode) gmode = 'ffa';
+  $('#arena').innerHTML = `<div class="menu"><div class="tag">${rankedMode?'<span style="color:var(--p2)">RANKED</span> — FFA · RESULTS UPDATE YOUR ELO':'ONLINE BRAWL — LIVE ROOMS · ONE-TAP JOIN'}</div>
     <div class="netwrap">
       <div class="netrow">
         <input class="namebox" id="roomName" maxlength="22" placeholder="name your room" autocomplete="off">
         <button class="mbtn b1 sm" id="btnMake"><b>+</b> CREATE</button>
       </div>
-      <div class="modewrap"><div class="seg" id="segGM">
+      ${rankedMode?'':`<div class="modewrap"><div class="seg" id="segGM">
         <button data-m="ffa" class="${gmode==='ffa'?'on':''}">FFA</button>
-        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button></div></div>
-      <div class="netlbl">OPEN ROOMS — CLICK TO JOIN</div>
+        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button>
+        <button data-m="zombies" class="${gmode==='zombies'?'on':''}">CO-OP</button></div></div>`}
+      <div class="netlbl">${rankedMode?'RANKED ROOMS — CLICK TO JOIN':'OPEN ROOMS — CLICK TO JOIN'}</div>
       <div id="roomList" class="roomlist"><div class="netstat">connecting to Azure lobby…</div></div>
       <div class="netstat" id="netStat"></div>
       <div class="netrow"><button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button></div>
     </div></div>`;
   $('#btnBack').onclick = () => { lobbyCleanup(); toMenu(); };
   $('#btnMake').onclick = createRoom;
-  $('#segGM').querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m;
-    $('#segGM').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.m===gmode)); });
+  const seg = $('#segGM');
+  if(seg) seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m;
+    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.m===gmode)); });
 
   const cid = 'rr' + Math.random().toString(36).slice(2, 10);
   let url;
@@ -1396,9 +1504,10 @@ async function renderLobby(){
 }
 function renderRoomList(){
   const el = $('#roomList'); if(!el || !lobby) return;
-  if(!lobby.rooms.size){ el.innerHTML = '<div class="netstat">no open rooms — create one; it shows up on every lobby</div>'; return; }
-  el.innerHTML = [...lobby.rooms.entries()].map(([id,r]) =>
-    `<button class="roomrow" data-id="${esc(id)}"><span>${esc(r.name)} <span style="color:var(--dim)">· ${r.gm==='teams'?'TEAMS':'FFA'} · ${r.n}/8</span></span><span class="rjoin">JOIN ▶</span></button>`).join('');
+  const rooms = [...lobby.rooms.entries()].filter(([id,r]) => (!!r.rk) === rankedMode);   // ranked & casual lobbies are separate
+  if(!rooms.length){ el.innerHTML = `<div class="netstat">no open ${rankedMode?'ranked ':''}rooms — create one; it shows up on every lobby</div>`; return; }
+  el.innerHTML = rooms.map(([id,r]) =>
+    `<button class="roomrow" data-id="${esc(id)}"><span>${esc(r.name)} <span style="color:var(--dim)">· ${r.rk?'<span style="color:var(--p2)">RANKED</span> · ':''}${r.gm==='teams'?'TEAMS':r.gm==='zombies'?'CO-OP 🧟':'FFA'} · ${r.n}/8</span></span><span class="rjoin">JOIN ▶</span></button>`).join('');
   el.querySelectorAll('.roomrow').forEach(b => b.onclick = () => joinRoom(b.dataset.id));
 }
 function lobbyCleanup(){
@@ -1417,7 +1526,7 @@ function lobbyMsg(raw){
   if(env.type!=='message'||env.from!=='group') return;
   const m = env.data; if(!m||typeof m!=='object'||m.from===lobby.cid) return;
   if(env.group === 'rooms'){
-    if(m.t==='room'){ lobby.rooms.set(m.from, {name:String(m.name||'room').slice(0,22), gm:m.gm||'ffa', n:m.n||1, seen:Date.now()}); renderRoomList(); }
+    if(m.t==='room'){ lobby.rooms.set(m.from, {name:String(m.name||'room').slice(0,22), gm:m.gm||'ffa', n:m.n||1, rk:!!m.rk, seen:Date.now()}); renderRoomList(); }
     else if(m.t==='gone'){ if(lobby.rooms.delete(m.from)) renderRoomList(); }
     return;
   }
@@ -1446,25 +1555,30 @@ function createRoom(){
 function renderRoom(){
   if(!lobby || !lobby.hosting) return;
   state = 'room';
-  const seatList = ['You (host)', ...lobby.seats.map((s,i)=>'Challenger '+(i+1))];
-  while(seatList.length < 8) seatList.push('— CPU bot —');
+  const coop = gmode === 'zombies';
+  const humanLabel = coop ? 'defender' : 'human';
+  const seatList = [coop?'You (host)':'You (host)', ...lobby.seats.map((s,i)=>(coop?'Ally ':'Challenger ')+(i+1))];
+  if(!coop){ while(seatList.length < 8) seatList.push('— CPU bot —'); }
   $('#arena').innerHTML = `<div class="menu"><div class="tag">ROOM LIVE — VISIBLE IN EVERY LOBBY</div>
     <div class="netwrap">
       <div class="gtitle" style="font-size:clamp(22px,4.6vw,40px)">${esc(lobby.hosting.name)}</div>
-      <div class="modewrap"><div class="seg" id="segGM2">
+      ${rankedMode
+        ? `<div class="tag" style="color:var(--p2)">RANKED · FFA · your Elo is on the line</div>`
+        : `<div class="modewrap"><div class="seg" id="segGM2">
         <button data-m="ffa" class="${gmode==='ffa'?'on':''}">FFA</button>
-        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button></div></div>
-      <div class="netlbl">SEATS (${1+lobby.seats.length} human${lobby.seats.length?'s':''} · rest are bots)</div>
+        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button>
+        <button data-m="zombies" class="${gmode==='zombies'?'on':''}">CO-OP ZOMBIES</button></div></div>`}
+      <div class="netlbl">${coop?'DEFENDERS':'SEATS'} (${1+lobby.seats.length} ${humanLabel}${lobby.seats.length?'s':''}${coop?'':' · rest are bots'})</div>
       <div class="roomlist">${seatList.map((s,i)=>`<div class="roomrow" style="cursor:default">
         <span style="color:${gmode==='teams'?TEAM_COLORS[i<4?0:1]:FFA_COLORS[i]}">${esc(s)}</span>
         <span style="color:var(--dim)">SEAT ${i+1}${gmode==='teams'?(i<4?' · A':' · B'):''}</span></div>`).join('')}</div>
-      <div class="netstat" id="netStat">waiting for challengers — start any time; empty seats fill with bots</div>
+      <div class="netstat" id="netStat">${coop?'waiting for defenders — start any time (you can solo it too)':'waiting for challengers — start any time; empty seats fill with bots'}</div>
       <div class="netrow">
-        <button class="mbtn b1 sm" id="btnStart"><b>▶</b> START BRAWL</button>
+        <button class="mbtn b1 sm" id="btnStart"><b>▶</b> ${coop?'START DEFENSE':'START BRAWL'}</button>
         <button class="mbtn sm" id="btnCancel"><b>ESC</b> CLOSE ROOM</button>
       </div>
     </div></div>`;
-  $('#segGM2').querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; announceRoom(); renderRoom(); });
+  { const s2=$('#segGM2'); if(s2) s2.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; announceRoom(); renderRoom(); }); }
   $('#btnCancel').onclick = () => { lobbyCleanup(); renderLobby(); };
   $('#btnStart').onclick = hostStart;
 }
@@ -1509,7 +1623,7 @@ function hostSeat(jid, pc, ch){
 }
 function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout + level
   if(m && m.t==='ld' && lobby && lobby._chans && lobby._chans.has(jid))
-    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level };
+    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level, pid:m.pid, handle:m.handle };
 }
 function hostStart(){
   if(!lobby || !lobby.hosting || lobby.starting) return;
@@ -1518,23 +1632,34 @@ function hostStart(){
   clearInterval(lobby.hb);
   mode = 'host'; me = 0;
   net = { role:'host', peers:[] };
+  const coop = gmode === 'zombies';
   const seated = lobby._chans ? [...lobby._chans.values()] : [];   // seat order
   players = new Array(MAXP);
-  players[0] = makePlayer(0, { local:true, name:'Host', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
+  players[0] = makePlayer(0, { local:true, name:coop?'You':'Host', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
   for(const cn of seated){ const idx = cn.idx; if(idx<1 || idx>=MAXP || players[idx]) continue;
-    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true };
+    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle };
     const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a) : botLoadout();  // honor the guest's build
-    players[idx] = makePlayer(idx, { name:'Rival '+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
-    const dropToBot = () => { pr.ready = false; const pl = players[idx];
-      if(pl && !pl.bot){ pl.bot = {retarget:0,tx:0,ty:0,dodge:0,dx:0,dy:0,wob:rand(0,9),skill:1}; pl.wantShoot = false; pushFeed(`${pl.name} disconnected — bot took over`); } };
+    players[idx] = makePlayer(idx, { name:(coop?'Ally ':'Rival ')+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
+    const dropHandler = coop
+      ? () => { pr.ready = false; }   // co-op: a dropped ally just stops shooting (no bot takeover of a defender)
+      : () => { pr.ready = false; const pl = players[idx];
+          if(pl && !pl.bot){ pl.bot = {retarget:0,tx:0,ty:0,dodge:0,dx:0,dy:0,wob:rand(0,9),skill:1}; pl.wantShoot = false; pushFeed(`${pl.name} disconnected — bot took over`); } };
     cn.ch.onmessage = e => { try{ const m=JSON.parse(e.data);
-      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s}; } else if(m.t==='bye'){ dropToBot(); } }catch(err){} };
-    cn.pc.onconnectionstatechange = () => { if(['failed','disconnected','closed'].includes(cn.pc.connectionState)) dropToBot(); };
+      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s}; } else if(m.t==='bye'){ dropHandler(); } }catch(err){} };
+    cn.pc.onconnectionstatechange = () => { if(['failed','disconnected','closed'].includes(cn.pc.connectionState)) dropHandler(); };
     net.peers.push(pr);
     try{ cn.ch.send(JSON.stringify({t:'welcome', idx, world:WORLD})); }catch(e){}   // resend for safety
   }
-  for(let i=0;i<MAXP;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), level: clamp(save.level+irand(-2,3),1,99), ld: botLoadout() });
-  beginMatch();
+  if(coop){
+    players = players.filter(Boolean);   // co-op: just the humans, no bot fill
+    players.forEach((p,i)=>{ const old = p.i; p.i = i;   // compact 0..N-1 (heals any seat gap)
+      const pr = net.peers.find(x=>x.idx===old); if(pr){ pr.idx = i;
+        try{ pr.ch.send(JSON.stringify({t:'welcome', idx:i, world:WORLD})); }catch(e){} } });
+    beginCampaign();
+  } else {
+    for(let i=0;i<MAXP;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), level: clamp(save.level+irand(-2,3),1,99), ld: botLoadout() });
+    beginMatch();
+  }
 }
 function hostRematch(){ if(mode==='host'){ beginMatch(); } }
 
@@ -1542,7 +1667,7 @@ function hostRematch(){ if(mode==='host'){ beginMatch(); } }
 function joinRoom(id){
   if(!lobby || lobby.join || lobby.hosting) return;
   lobby.join = id; const r = lobby.rooms.get(id);
-  if(r) gmode = r.gm;
+  if(r){ gmode = r.gm; rankedMode = !!r.rk; }
   lobbyStatus('knocking on “'+(r?r.name:'room')+'”…');
   wpsJoin(sigGroup(id));
   setTimeout(()=> wpsTo(sigGroup(id), {t:'knock', from:lobby.cid, to:id}), 250);
@@ -1567,7 +1692,7 @@ async function joinOffer(roomId, sdp){
 function wireGuest(pc, ch){
   net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false}, inAcc:0, ready:false, matched:false };
   ch.onopen = () => { net.ready = true; net.matched = true; if(lobby) lobby.starting = true;
-    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level})); }catch(e){}  // send my build to the host
+    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level, pid:save.pid, handle:save.handle})); }catch(e){}  // send my build + ladder id to the host
     lobbyCleanup();
     mode = 'guest'; state = 'wait'; parts=[]; bullets=[]; players=[]; $('#arena').innerHTML='';
     showAnnounce('<div class="rtitle" style="color:var(--gold)">Connected</div><div class="rsub">waiting for the host to start the brawl…</div>'); };
@@ -1600,15 +1725,42 @@ function guestRecv(m){
         g.tx=a[0]; g.ty=a[1]; g.taim=a[2]; g.alive=!!a[3]; g.kills=a[4]; g.shield=a[5]?1:0; g.ammo=a[6]; g.ld.maxAmmo=a[7]||3; }); }
       bullets = m.b.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],r:a[4],owner:a[5],px:a[0]-a[2]*0.02,py:a[1]-a[3]*0.02,c:(players[a[5]]&&players[a[5]].color)||'#fff',life:1}));
       break;
+    case 'zsetup':
+      gmode='zombies'; WORLD.w=m.world.w; WORLD.h=m.world.h; net.hab=m.world;
+      if(net.me==null) net.me=1;
+      walls = m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]}));
+      players = m.players.map((meta,i)=> meta ? guestGhost(i, {team:-1,color:meta.color,name:meta.name}) : null);
+      players.forEach(p=>{ if(p) p.local = (p.i===net.me); });
+      campaign = { wave:0, maxWave:m.maxWave, lives:m.lives, citizensStart:m.citizensStart, goal:m.goal, np:m.players.filter(Boolean).length };
+      me=net.me; citizens=[]; zombies=[]; bullets=[]; parts=[]; feed=[]; state='play';
+      $('#arena').innerHTML=''; $('#announce').classList.remove('show');
+      break;
+    case 'zs':
+      if(campaign){ campaign.wave=m.w; campaign.lives=m.lv; campaign.citizensAlive=m.ca; }
+      if(players.length){ m.p.forEach((a,i)=>{ const g=players[i]; if(!g||!a) return;
+        g.tx=a[0]; g.ty=a[1]; g.taim=a[2]; g.alive=!!a[3]; g.shield=a[4]?1:0; g.ammo=a[5]; g.ld.maxAmmo=a[6]||3; g.kills=a[7]; }); }
+      citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],r:11,wob:0}));
+      zombies = m.z.map(a=>({x:a[0],y:a[1],boss:!!a[2],hp:a[3],maxhp:a[4],alive:true,r:a[2]?34:13}));
+      bullets = m.b.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],r:a[4],owner:a[5],px:a[0]-a[2]*0.02,py:a[1]-a[3]*0.02,c:(players[a[5]]&&players[a[5]].color)||'#eef2ff',life:1}));
+      break;
+    case 'zend': {
+      state='end';
+      const mine = m.standings[net.me] || {};
+      renderCampaignEnd({ won:m.won, saved:m.saved, gained:mine.matchExp||0, kills:mine.kills||0,
+        citizensStart:m.citizensStart, goal:m.goal, maxWave:m.maxWave, wave:m.wave,
+        standings: m.standings.map((s,i)=> s?{name:s.name,color:s.color,kills:s.kills,local:(i===net.me)}:null).filter(Boolean) });
+      break;
+    }
     case 'feed': feed.push({txt:m.x, t:0}); if(feed.length>6) feed.shift(); break;
     case 'ann': showAnnounce(m.h, m.ms); break;
     case 'fx': if(FXMAP[m.n]) FXMAP[m.n](...(m.a||[])); break;
     case 'end':
-      state='end'; teamScore = m.teamScore || teamScore;
+      state='end'; teamScore = m.teamScore || teamScore; rankedMode = !!m.ranked;
       // keep `players` (ghosts with x/y) intact for the camera; standings go in a side array
       endStandings = m.standings.map((s,i)=>({ i, name:s.name, kills:s.kills, team:s.team, color:s.color, matchExp:s.matchExp||0, level:s.level, local:(i===net.me) }));
       renderEnd(null);
       break;
+    case 'rankres': { const mine = (m.ratings||[]).find(x=>x.id===save.pid); if(mine) showRankDelta(mine.rating, mine.delta); break; }
     case 'bye': guestDropped(); break;
   }
 }
@@ -1624,7 +1776,7 @@ addEventListener('keydown', e => {
   if(e.repeat) return;
   if(e.code==='Escape'){
     if(state==='room'){ lobbyCleanup(); renderLobby(); }
-    else if(state==='loadout'||state==='lobby'){ toMenu(); }
+    else if(state==='loadout'||state==='lobby'||state==='ranked'){ toMenu(); }
     else if(state==='shop'){ openLoadout('view'); }
     else if(state==='play' || state==='wait' || state==='end'){ netCloseAll(true); toMenu(); }
     return;
@@ -1634,9 +1786,10 @@ addEventListener('keydown', e => {
   if(state==='menu'){
     if(e.code==='Space') openLoadout('solo');
     else if(e.code==='KeyZ') startCampaign();
-    else if(e.code==='KeyO') renderLobby();
+    else if(e.code==='KeyO'){ rankedMode=false; renderLobby(); }
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyB') openShop();
+    else if(e.code==='KeyR') renderRanked();
   } else if(state==='end'){
     if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else if(gmode==='zombies') startCampaign(); else startSolo(); }
     else if(e.code==='KeyL') openLoadout('view');
@@ -1672,9 +1825,18 @@ function loop(t){
   if(mode==='host' && net && state==='play'){
     net.snapAcc = (net.snapAcc||0) + dt;
     if(net.snapAcc >= 0.05){ net.snapAcc = 0;
-      netBroadcast({ t:'s', ts:teamScore,
-        p: players.map(p=>[p.x|0,p.y|0,+p.aim.toFixed(2), p.alive?1:0, p.kills, p.shield>0?1:0, p.ammo, p.ld.maxAmmo]),
-        b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) }); }
+      if(gmode==='zombies'){
+        netBroadcast({ t:'zs', w:campaign?campaign.wave:0, lv:campaign?campaign.lives:0, ca: citizens.filter(c=>c.alive).length,
+          p: players.map(p=>p?[p.x|0,p.y|0,+p.aim.toFixed(2), p.alive?1:0, p.shield>0?1:0, p.ammo, p.ld.maxAmmo, p.kills]:null),
+          c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0]),
+          z: zombies.map(z=>[z.x|0,z.y|0,z.boss?1:0,z.hp,z.maxhp]),
+          b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) });
+      } else {
+        netBroadcast({ t:'s', ts:teamScore,
+          p: players.map(p=>[p.x|0,p.y|0,+p.aim.toFixed(2), p.alive?1:0, p.kills, p.shield>0?1:0, p.ammo, p.ld.maxAmmo]),
+          b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) });
+      }
+    }
   }
   if(mode==='guest' && net && net.ready){
     net.inAcc += dt; const cur = localInput();
