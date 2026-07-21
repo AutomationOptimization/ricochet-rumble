@@ -15,11 +15,12 @@ One hit kills. Bullets ricochet. Level up, loot gear, climb the board.
 
 ## Accounts
 - **Username + password** sign-in (optional — you can play as a guest). Passwords are hashed server-side with
-  PBKDF2 (per-user salt, constant-time compare) and never stored or logged in plaintext; sessions use signed
-  JWTs. No email, so there's no password reset — the sign-in screen says so.
+  PBKDF2 (per-user salt, constant-time compare) and never stored or logged in plaintext; sessions use signed JWTs.
+- **Email confirmation** on signup (a 6-digit code via Azure Communication Services). One account per email.
+  Everything is playable before confirming; **ranked requires a confirmed email**, enforced server-side.
 - Your account carries a **cloud save** (level, EXP, inventory, credits) that syncs across devices, plus your
-  ranked identity. **Ranked requires an account** and submissions are token-verified, so a rating can't be
-  spoofed onto someone else's account.
+  ranked identity. Ranked submissions are token-verified, so a rating can't be spoofed onto someone else's account.
+- No password reset (no support desk) — the sign-in screen says so.
 
 ## Progression (RPG)
 - **Levels & EXP** scaled by the level of who you take down; each level grants a stat point
@@ -36,7 +37,8 @@ One hit kills. Bullets ricochet. Level up, loot gear, climb the board.
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
 - **Azure Functions** (`rr-negotiate-*`, Windows consumption, zero-dep) —
   `/api/negotiate` mints Web PubSub tokens; `/api/rank` is the Elo ladder; `/api/account` is username+password
-  accounts with PBKDF2 hashing, JWT sessions, and cloud saves. Ranks + accounts persist in **Azure Table Storage**
+  accounts with PBKDF2 hashing, JWT sessions, cloud saves, and email confirmation via **Azure Communication
+  Services Email** (`rr-email`/`rr-comms`, hand-signed HMAC REST). Ranks + accounts persist in **Azure Table Storage**
   (hand-signed SharedKeyLite REST, zero SDK)
 - **Gameplay** is peer-to-peer WebRTC (STUN + TURN); the host runs the authoritative sim (brawl or zombie
   defense) and broadcasts 20Hz snapshots. Guests send inputs; disconnected brawl guests convert to bots

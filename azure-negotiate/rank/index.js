@@ -80,15 +80,19 @@ module.exports = async function (context, req) {
       return;
     }
     // POST: submit a ranked result. body.results = [{token, handle}] ordered winner-first.
-    // Each token is verified (issued by the account function) → identity can't be spoofed onto another account.
+    // Each token is verified, and the account must have a confirmed email → no farming with throwaway accounts.
     const raw = (req.body && req.body.results) || [];
     const seen = new Set(), results = [];
     for (const r of Array.isArray(raw) ? raw : []) {
       const p = verifyToken(r && r.token);
       if (!p || !p.aid || seen.has(p.aid)) continue;      // invalid / expired / duplicate → skip
+      const ar = await tbl('GET', `/accounts(PartitionKey='u',RowKey='${p.u}')`);   // cross-check email is confirmed
+      if (ar.status !== 200) continue;
+      const acc = await ar.json();
+      if (!(acc.verified === true || acc.verified === 'true')) continue;            // unverified email → excluded
       seen.add(p.aid); results.push({ id: p.aid, handle: clean(r.handle) });
     }
-    if (results.length < 2) { context.res = { status: 400, headers: cors, body: { error: 'need >= 2 signed-in players' } }; return; }
+    if (results.length < 2) { context.res = { status: 400, headers: cors, body: { error: 'need >= 2 email-verified players' } }; return; }
     const N = results.length, K = 28;
     const cur = [];
     for (const r of results) {

@@ -15,6 +15,30 @@ const BASE = () => `https://${CONN.account}.table.core.windows.net`;
 // session-token secret derived from the storage key (secret, stable, no extra config)
 const SECRET = crypto.createHash('sha256').update((CONN.key || 'x') + '::rr-acct-v1').digest();
 const PBKDF2_ITER = 210000;
+// Azure Communication Services Email (for verification codes)
+function parseAcs(conn) { const o = {}; String(conn || '').split(';').forEach(p => { const i = p.indexOf('='); if (i > 0) o[p.slice(0, i).trim().toLowerCase()] = p.slice(i + 1).trim(); }); return { endpoint: o.endpoint || '', key: o.accesskey || '' }; }
+const ACS = parseAcs(process.env.ACS_CONN);
+const ACS_FROM = process.env.ACS_FROM || '';
+const emailHash = e => crypto.createHash('sha256').update(String(e).toLowerCase()).digest('hex');
+const validEmail = e => /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(e) && e.length <= 254;
+const genCode = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+function maskEmail(e) { const [l, d] = String(e || '').split('@'); if (!d) return ''; return (l.length <= 2 ? (l[0] || '') : l.slice(0, 2)) + '***@' + d; }
+async function sendCode(to, code) {
+  if (!ACS.endpoint || !ACS.key || !ACS_FROM) return false;
+  try {
+    const url = new URL(ACS.endpoint.replace(/\/$/, '') + '/emails:send?api-version=2023-03-31');
+    const subject = 'Your Ricochet Rumble code: ' + code;
+    const plain = `Your Ricochet Rumble verification code is ${code}\n\nEnter it in the game to confirm your email and unlock ranked. It expires in 20 minutes.\nIf you didn't sign up, you can ignore this email.`;
+    const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:440px"><h2 style="color:#ff2d55;margin:0 0 4px">RICOCHET RUMBLE</h2><p>Your verification code is:</p><p style="font-size:30px;font-weight:800;letter-spacing:6px;color:#0a0e1a;background:#ffcf3f;display:inline-block;padding:8px 18px;border-radius:6px">${code}</p><p>Enter it in the game to confirm your email and unlock <b>ranked</b>. Expires in 20 minutes.</p><p style="color:#888;font-size:12px">If you didn't sign up, ignore this email.</p></div>`;
+    const body = JSON.stringify({ senderAddress: ACS_FROM, recipients: { to: [{ address: to }] }, content: { subject, plainText: plain, html } });
+    const contentHash = crypto.createHash('sha256').update(body, 'utf8').digest('base64');
+    const date = new Date().toUTCString();
+    const sts = `POST\n${url.pathname}${url.search}\n${date};${url.host};${contentHash}`;
+    const sig = crypto.createHmac('sha256', Buffer.from(ACS.key, 'base64')).update(sts, 'utf8').digest('base64');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-ms-date': date, 'x-ms-content-sha256': contentHash, 'Authorization': `HMAC-SHA256 SignedHeaders=x-ms-date;host;x-ms-content-sha256&Signature=${sig}`, 'Operation-Id': crypto.randomUUID() }, body });
+    return res.status === 202;
+  } catch (e) { return false; }
+}
 
 function authHeader(dateStr, canonResource) {
   const sts = dateStr + '\n' + canonResource;
@@ -30,7 +54,7 @@ async function tbl(method, path, query, body) {
 async function ensureTable() { try { await tbl('POST', '/Tables', '', { TableName: TABLE }); } catch (e) {} }
 const ekey = u => `/${TABLE}(PartitionKey='u',RowKey='${u}')`;
 async function getAcct(u) { const r = await tbl('GET', ekey(u)); return r.status === 200 ? r.json() : null; }
-async function putAcct(e) { await tbl('PUT', ekey(e.RowKey), '', e); }
+async function putAcct(e) { await tbl('PUT', `/${TABLE}(PartitionKey='${e.PartitionKey || 'u'}',RowKey='${e.RowKey}')`, '', e); }
 
 function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function b64urlJson(s) { return JSON.parse(Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')); }
@@ -55,7 +79,8 @@ function hashPw(pw, salt) { return crypto.pbkdf2Sync(String(pw), salt, PBKDF2_IT
 const cleanHandle = h => String(h || 'Player').replace(/[^\w .\-]/g, '').trim().slice(0, 16) || 'Player';
 const validUser = u => /^[a-z0-9_]{3,16}$/.test(u);
 const capSave = s => { try { const j = JSON.stringify(s); return j.length > 60000 ? '' : j; } catch (e) { return ''; } };
-const pub = a => ({ aid: a.aid, username: a.username, handle: a.handle, rating: a.rating || 1000 });
+const pub = a => ({ aid: a.aid, username: a.username, handle: a.handle, rating: a.rating || 1000,
+  verified: a.verified === true || a.verified === 'true', email: a.email ? maskEmail(a.email) : '' });
 
 module.exports = async function (context, req) {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
@@ -72,15 +97,24 @@ module.exports = async function (context, req) {
     if (action === 'signup') {
       const uname = String(body.username || '').toLowerCase();
       const pw = String(body.password || '');
+      const email = String(body.email || '').trim();
       if (!validUser(uname)) return done(400, { error: 'username must be 3–16 chars: letters, numbers, underscore' });
       if (pw.length < 8 || pw.length > 128) return done(400, { error: 'password must be at least 8 characters' });
+      if (!validEmail(email)) return done(400, { error: 'enter a valid email address' });
       if (await getAcct(uname)) return done(409, { error: 'that username is taken' });
+      const eh = emailHash(email);
+      const idxRow = await tbl('GET', `/${TABLE}(PartitionKey='e',RowKey='${eh}')`);   // one-account-per-email index
+      if (idxRow.status === 200) return done(409, { error: 'that email already has an account' });
       const salt = crypto.randomBytes(16);
+      const code = genCode();
       const a = { PartitionKey: 'u', RowKey: uname, username: String(body.username).slice(0, 16), aid: 'a' + crypto.randomBytes(6).toString('hex'),
         handle: cleanHandle(body.handle || body.username), salt: salt.toString('hex'), hash: hashPw(pw, salt).toString('hex'), iter: PBKDF2_ITER,
+        email, verified: false, vcode: code, vexp: nowSec + 1200, vsent: nowSec,
         rating: 1000, created: new Date().toISOString(), save: capSave(body.save) };
       await putAcct(a);
-      return done(200, { token: mkToken(a), account: pub(a), save: body.save || null });
+      await putAcct({ PartitionKey: 'e', RowKey: eh, username: uname });   // one account per email
+      const sent = await sendCode(email, code);
+      return done(200, { token: mkToken(a), account: pub(a), save: body.save || null, emailSent: sent });
     }
 
     if (action === 'login') {
@@ -111,6 +145,22 @@ module.exports = async function (context, req) {
       if (body.handle) a.handle = cleanHandle(body.handle);
       await putAcct(a);
       return done(200, { ok: true, account: pub(a) });
+    }
+    if (action === 'confirm') {
+      if (a.verified === true || a.verified === 'true') return done(200, { ok: true, account: pub(a) });
+      const code = String(body.code || '').trim();
+      if (!a.vcode || !code || code !== String(a.vcode)) return done(400, { error: 'that code is wrong' });
+      if (a.vexp && a.vexp < nowSec) return done(400, { error: 'that code expired — send a new one' });
+      a.verified = true; a.vcode = ''; await putAcct(a);
+      return done(200, { ok: true, account: pub(a) });
+    }
+    if (action === 'resend') {
+      if (a.verified === true || a.verified === 'true') return done(200, { ok: true, account: pub(a) });
+      if (!a.email) return done(400, { error: 'no email on file' });
+      if (a.vsent && (nowSec - a.vsent) < 30) return done(429, { error: 'hold on — wait a moment before resending' });
+      a.vcode = genCode(); a.vexp = nowSec + 1200; a.vsent = nowSec; await putAcct(a);
+      const sent = await sendCode(a.email, a.vcode);
+      return done(200, { ok: sent, account: pub(a) });
     }
     return done(400, { error: 'unknown action' });
   } catch (e) {

@@ -1425,30 +1425,36 @@ function rankTierColor(r){ return r>=1300?'#ff9f1c':r>=1150?'#b56bff':r>=1050?'#
 function rankTierName(r){ return r>=1300?'LEGEND':r>=1150?'DIAMOND':r>=1050?'PLATINUM':r>=950?'GOLD':r>=850?'SILVER':'BRONZE'; }
 async function renderRanked(){
   state='ranked'; netCloseAll(true); lobbyCleanup(); mode=null;
-  const signedIn = !!account;
+  const signedIn = !!account, canRank = signedIn && account.verified;
+  const standMsg = canRank ? 'loading your rating…'
+    : signedIn ? '<span style="color:var(--gold)">confirm your email to unlock ranked</span>'
+    : '<span style="color:var(--gold)">sign in to compete on the ladder</span>';
   $('#arena').innerHTML = `<div class="panel">
     <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">RANKED</div>
-      <div class="xptext" style="flex:1">online FFA · your account Elo updates after every match with 2+ signed-in players</div></div>
+      <div class="xptext" style="flex:1">online FFA · email-verified accounts only · Elo updates after every match</div></div>
     <div class="prow">
       <div class="card"><h3>Your Standing</h3>
-        <div id="myrank" class="netstat">${signedIn?'loading your rating…':'<span style="color:var(--gold)">sign in to compete on the ladder</span>'}</div>
+        <div id="myrank" class="netstat">${standMsg}</div>
       </div>
       <div class="card"><h3>Global Leaderboard</h3><div id="lb" class="invlist"><div class="netstat">loading…</div></div></div>
     </div>
     <div class="modes">
-      ${signedIn
+      ${canRank
         ? `<button class="mbtn b2" id="btnPlay"><b>▶</b> PLAY RANKED<span>online FFA · results update your Elo</span></button>`
-        : `<button class="mbtn b2" id="btnSignin"><b>▶</b> SIGN IN TO PLAY<span>ranked needs an account</span></button>`}
+        : signedIn
+        ? `<button class="mbtn bg" id="btnVerify2"><b>✉</b> CONFIRM EMAIL<span>required to play ranked</span></button>`
+        : `<button class="mbtn b2" id="btnSignin"><b>▶</b> SIGN IN TO PLAY<span>ranked needs a verified account</span></button>`}
       <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
     </div></div>`;
   $('#btnBack').onclick = toMenu;
-  if(signedIn) $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  if(canRank) $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  else if(signedIn) $('#btnVerify2').onclick = ()=>{ doResend(); renderVerify(); };
   else $('#btnSignin').onclick = ()=> renderAccount();
   try{
-    const qid = signedIn ? account.aid : '';
+    const qid = canRank ? account.aid : '';
     const r = await fetch(RANK_URL+'?id='+encodeURIComponent(qid), {cache:'no-store'});
-    const j = await r.json(); if(signedIn){ account.rating = j.rating; }
-    if(signedIn && $('#myrank')) $('#myrank').innerHTML =
+    const j = await r.json(); if(canRank){ account.rating = j.rating; }
+    if(canRank && $('#myrank')) $('#myrank').innerHTML =
       `<div style="font-size:26px;font-weight:900;font-style:italic;color:${rankTierColor(j.rating)}">${j.rating} <span style="font-size:12px;color:var(--dim)">ELO · ${rankTierName(j.rating)}</span></div>
        <div class="netlbl" style="color:var(--dim)">${esc(account.handle)} · ${j.rank?('rank #'+j.rank+' of '+j.total+' · '):''}${j.wins}W ${j.losses}L</div>`;
     if($('#lb')) $('#lb').innerHTML = (j.top&&j.top.length) ? j.top.map((t,i)=>`<div class="stat" style="margin-bottom:4px">
@@ -1456,7 +1462,7 @@ async function renderRanked(){
         <span class="nm" style="width:auto;flex:1;color:${rankTierColor(t.rating)}">${esc(t.handle)}</span>
         <span style="font-family:var(--mono);color:#eef2ff">${t.rating}</span></div>`).join('')
       : '<div class="netstat">no ranked games yet — be the first on the board</div>';
-  }catch(e){ if(signedIn && $('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
+  }catch(e){ if(canRank && $('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
 }
 function showRankDelta(rating, delta){
   save.rating = rating; if(account) account.rating = rating; persist();
@@ -1493,7 +1499,15 @@ function renderAccount(){
         <h3>Signed in</h3>
         <div style="font-size:22px;font-weight:900;font-style:italic;color:${rankTierColor(account.rating||1000)}">${esc(account.handle)}</div>
         <div class="netlbl" style="color:var(--dim)">@${esc(account.username)} · ${account.rating||1000} ELO · LV ${save.level}</div>
-        <div style="height:14px"></div>
+        <div style="height:12px"></div>
+        <div class="netlbl">EMAIL</div>
+        <div class="netrow" style="justify-content:space-between">
+          <span style="font-family:var(--mono);font-size:13px">${esc(account.email||'—')}</span>
+          ${account.verified
+            ? '<span style="color:#3ddc84;font-weight:700;font-family:var(--mono);font-size:12px">✓ VERIFIED</span>'
+            : '<button class="mbtn sm bg" id="btnVerify">VERIFY FOR RANKED</button>'}
+        </div>
+        <div style="height:12px"></div>
         <div class="netlbl">DISPLAY HANDLE</div>
         <div class="netrow"><input class="namebox" id="acctHandle" maxlength="16" value="${esc(account.handle)}" autocomplete="off"><button class="mbtn sm bg" id="btnSaveHandle">SAVE</button></div>
         <div class="netstat" id="acctMsg"></div>
@@ -1503,6 +1517,7 @@ function renderAccount(){
         <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
       </div></div>`;
     $('#btnSaveHandle').onclick = ()=>{ const v=($('#acctHandle').value||'').trim().slice(0,16); if(v){ account.handle=v; save.handle=v; persist(); const m=$('#acctMsg'); if(m) m.textContent='saved'; } };
+    if($('#btnVerify')) $('#btnVerify').onclick = ()=>{ doResend(); renderVerify(); };
     $('#btnLogout').onclick = ()=>{ logout(); renderAccount(); };
     $('#btnBack').onclick = toMenu;
     return;
@@ -1521,14 +1536,16 @@ function renderAccount(){
       <div style="height:8px"></div>
       <div class="netlbl">PASSWORD</div>
       <input class="namebox" id="ap" type="password" maxlength="128" autocomplete="${isSignup?'new-password':'current-password'}" placeholder="${isSignup?'at least 8 characters':'your password'}" style="width:100%">
-      ${isSignup?`<div style="height:8px"></div><div class="netlbl">DISPLAY HANDLE (optional)</div>
+      ${isSignup?`<div style="height:8px"></div><div class="netlbl">EMAIL</div>
+        <input class="namebox" id="ae" type="email" maxlength="254" autocomplete="email" placeholder="for ranked · we send a confirmation code" style="width:100%">
+        <div style="height:8px"></div><div class="netlbl">DISPLAY HANDLE (optional)</div>
         <input class="namebox" id="ah" maxlength="16" autocomplete="off" placeholder="defaults to username" style="width:100%">`:''}
       <div style="height:12px"></div>
       <button class="mbtn b2" id="btnAuth" style="width:100%;text-align:center"><b>▶</b> ${isSignup?'CREATE ACCOUNT':'LOG IN'}</button>
       <div class="netstat" id="acctMsg" style="text-align:center"></div>
     </div>
     <div class="modes"><button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button></div>
-    <div class="note">passwords are hashed on the server (never stored in plain text) · no email means no reset — remember it</div></div>`;
+    <div class="note">passwords are hashed on the server (never stored in plain text) · email confirms ranked · no reset — remember your password</div></div>`;
   $('#segAuth').querySelectorAll('button').forEach(b=>b.onclick=()=>{ acctMode=b.dataset.m; renderAccount(); });
   $('#btnBack').onclick = toMenu;
   $('#btnAuth').onclick = doAuth;
@@ -1536,19 +1553,58 @@ function renderAccount(){
 async function doAuth(){
   const u = ($('#au')&&$('#au').value||'').trim().toLowerCase();
   const p = ($('#ap')&&$('#ap').value||'');
+  const em = ($('#ae')&&$('#ae').value||'').trim();
   const h = ($('#ah')&&$('#ah').value||'').trim();
   const msg = s => { const m=$('#acctMsg'); if(m) m.textContent = s; };
   if(!/^[a-z0-9_]{3,16}$/.test(u)) return msg('username: 3–16 letters, numbers, underscore');
   if(p.length < (acctMode==='signup'?8:1)) return msg(acctMode==='signup'?'password needs 8+ characters':'enter your password');
+  if(acctMode==='signup' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return msg('enter a valid email address');
   msg('…');
-  const extra = acctMode==='signup' ? { username:u, password:p, handle:h||u, save } : { username:u, password:p };
+  const extra = acctMode==='signup' ? { username:u, password:p, email:em, handle:h||u, save } : { username:u, password:p };
   const { status, j } = await acctCall(acctMode, extra);
   if(status===200 && j.token){
     account = Object.assign({ token:j.token }, j.account); storeToken(j.token);
     if(acctMode==='login') applyCloudSave(j.save); else { save.handle = account.handle; persistLocal(); }
     refreshRating();
-    toMenu();
+    if(account.verified) toMenu(); else renderVerify();   // signup → go confirm the email
   } else msg(j.error || 'that didn’t work — try again');
+}
+function renderVerify(){
+  state='account';
+  $('#arena').innerHTML = `<div class="panel">
+    <div class="lvlbar"><div class="lvlbadge" style="color:var(--gold)">CONFIRM EMAIL</div>
+      <div class="xptext" style="flex:1">unlocks ranked · everything else is playable now</div></div>
+    <div class="card" style="max-width:460px;margin:0 auto;width:100%">
+      <h3>Check your inbox</h3>
+      <div class="netlbl" style="color:var(--dim)">we sent a 6-digit code to <b style="color:var(--ink)">${esc(account&&account.email||'your email')}</b> (check spam)</div>
+      <div style="height:12px"></div>
+      <div class="netlbl">6-DIGIT CODE</div>
+      <input class="namebox" id="vcode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" style="width:100%;letter-spacing:.4em;text-align:center;font-size:20px">
+      <div style="height:12px"></div>
+      <button class="mbtn b2" id="btnConfirm" style="width:100%;text-align:center"><b>▶</b> CONFIRM</button>
+      <div class="netrow" style="margin-top:8px"><button class="mbtn sm" id="btnResend">RESEND CODE</button><button class="mbtn sm" id="btnLater">LATER</button></div>
+      <div class="netstat" id="acctMsg" style="text-align:center"></div>
+    </div></div>`;
+  $('#btnConfirm').onclick = doConfirm;
+  $('#btnResend').onclick = doResend;
+  $('#btnLater').onclick = toMenu;
+}
+async function doConfirm(){
+  const code = ($('#vcode')&&$('#vcode').value||'').trim();
+  const msg = s => { const m=$('#acctMsg'); if(m) m.textContent = s; };
+  if(!/^\d{6}$/.test(code)) return msg('enter the 6-digit code');
+  if(!account) return;
+  msg('…');
+  const { status, j } = await acctCall('confirm', { token:account.token, code });
+  if(status===200 && j.ok){ account.verified = true; msg('✓ email confirmed — ranked unlocked'); setTimeout(toMenu, 900); }
+  else if(status===401){ account=null; storeToken(null); toMenu(); }
+  else msg(j.error || 'that code didn’t work');
+}
+async function doResend(){
+  const msg = s => { const m=$('#acctMsg'); if(m) m.textContent = s; };
+  if(!account) return; msg('sending…');
+  const { status, j } = await acctCall('resend', { token:account.token });
+  msg(status===200 ? 'sent — check your inbox (and spam)' : (j.error||'could not resend'));
 }
 const WPS_SUB = 'json.webpubsub.azure.v1';
 let lobby = null;
