@@ -103,6 +103,28 @@
   .seg button{cursor:pointer;background:#0a0e1a;color:var(--dim);border:0;padding:9px 16px;
     font-family:var(--disp);font-weight:900;font-style:italic;font-size:14px}
   .seg button.on{background:var(--ink);color:#04060c}
+  .lvlbar{display:flex;align-items:center;gap:12px;width:100%;background:rgba(10,14,24,.9);
+    border:1px solid var(--line);padding:10px 14px}
+  .lvlbadge{font-weight:900;font-style:italic;color:var(--gold);font-size:clamp(14px,1.9vw,18px);white-space:nowrap}
+  .xptrack{flex:1;height:12px;background:#0a0e1a;border:1px solid var(--line);overflow:hidden}
+  .xptrack i{display:block;height:100%;transform-origin:left;
+    background:linear-gradient(90deg,#ffcf3f,#ff9f1c);transition:transform .3s}
+  .xptext{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.06em;white-space:nowrap}
+  .credpill{font-family:var(--mono);font-weight:700;color:var(--gold);font-size:13px;
+    border:1px solid var(--line);padding:4px 10px;white-space:nowrap}
+  .shopgrid{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto}
+  .shopitem{display:flex;align-items:center;gap:11px;background:#0a0e1a;border:1px solid var(--line);
+    border-left-width:4px;padding:10px 13px;text-align:left}
+  .shopitem .ic{font-size:20px;width:26px;text-align:center}
+  .shopitem .col{flex:1;min-width:0}
+  .shopitem .nm2{font-weight:900;font-style:italic;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .shopitem .mods{font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .buybtn{cursor:pointer;background:var(--gold);color:#04060c;border:0;font-family:var(--disp);font-weight:900;
+    font-style:italic;padding:8px 13px;font-size:13px;white-space:nowrap}
+  .buybtn:disabled{background:#2a3348;color:#5a6178;cursor:not-allowed}
+  .buybtn.sold{background:transparent;color:var(--dim);border:1px solid var(--line)}
+  .mbtn.locked{opacity:.55;cursor:not-allowed}
+  .mbtn.locked:hover{transform:none;border-color:var(--line)}
 
   /* net */
   .netwrap{display:flex;flex-direction:column;gap:12px;width:min(94vw,560px);pointer-events:auto}
@@ -199,21 +221,30 @@ addEventListener('resize', resize); resize();
 
 /* ================= save / progression ================= */
 const DEFAULT_ALLOC = { spd:2, rof:2, vel:2, mag:1, rld:1, vit:2 };
+/* ---- leveling / exp ---- */
+function expToNext(L){ return 90 + (L-1)*55; }             // exp needed from level L → L+1
+function levelFromExp(exp){ let L=1, need=expToNext(1), acc=0;
+  while(exp >= acc+need && L<200){ acc+=need; L++; need=expToNext(L); } return L; }
+function expInfo(exp){ let L=1, need=expToNext(1), acc=0;
+  while(exp >= acc+need && L<200){ acc+=need; L++; need=expToNext(L); }
+  return { level:L, into: exp-acc, need, frac: clamp((exp-acc)/need,0,1) }; }
+function expForKill(lvl){ return 16 + (lvl||1)*8; }        // more exp for downing higher-level foes
 let save = null;
 function idcSync(){ let mx = 0; for(const it of save.inv) if(it.id > mx) mx = it.id; idc = mx + 1; }
 function migrateSave(){
   if(!save.equip) save.equip = {weapon:null, armor:null};
   if(!save.alloc) save.alloc = {...DEFAULT_ALLOC};
   for(const k in DEFAULT_ALLOC) if(typeof save.alloc[k] !== 'number') save.alloc[k] = DEFAULT_ALLOC[k];
-  for(const k of ['kills','wins','matches']) if(typeof save[k] !== 'number') save[k] = 0;
+  for(const k of ['kills','wins','matches','exp','credits','saved']) if(typeof save[k] !== 'number') save[k] = 0;
   if(!Array.isArray(save.inv)) save.inv = [];
+  save.level = levelFromExp(save.exp);                      // level is always derived from exp
   // drop dangling equip references
   if(save.equip.weapon != null && !save.inv.some(i=>i.id===save.equip.weapon)) save.equip.weapon = null;
   if(save.equip.armor  != null && !save.inv.some(i=>i.id===save.equip.armor))  save.equip.armor  = null;
 }
 function loadSave(){
   try{ const s = JSON.parse(localStorage.getItem('rr_save_v2')); if(s && s.inv){ save = s; migrateSave(); idcSync(); return; } }catch(e){}
-  save = { inv:[], equip:{weapon:null, armor:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0 };
+  save = { inv:[], equip:{weapon:null, armor:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0 };
   const w = rollItem('weapon', 0, 'pistol'), a = rollItem('armor', 0, 'vest');
   save.inv.push(w, a); save.equip.weapon = w.id; save.equip.armor = a.id;
   idcSync(); persist();
@@ -224,12 +255,13 @@ const equippedArmor  = () => save.inv.find(i => i.id === save.equip.armor) || nu
 
 /* ================= loot ================= */
 const RARITIES = [
-  { k:'common',    c:'#9aa4bd', w:46, s:1.0 },
-  { k:'uncommon',  c:'#3ddc84', w:28, s:1.4 },
-  { k:'rare',      c:'#4dabff', w:16, s:1.85 },
-  { k:'epic',      c:'#b56bff', w:7,  s:2.35 },
-  { k:'legendary', c:'#ffcf3f', w:3,  s:3.0 },
+  { k:'common',    c:'#dfe6f2', w:46, s:1.0,  price:40   },   // white
+  { k:'uncommon',  c:'#3ddc84', w:28, s:1.4,  price:110  },   // green
+  { k:'unique',    c:'#3aa0ff', w:16, s:1.85, price:260  },   // blue
+  { k:'rare',      c:'#b56bff', w:7,  s:2.35, price:560  },   // purple
+  { k:'legendary', c:'#ff9f1c', w:3,  s:3.05, price:1400 },   // orange — gated: shop / campaign boss / ranked
 ];
+const DROP_MAX_TIER = 3;   // normal matches never drop legendary (tier 4)
 const WEAPONS = {
   pistol:  { name:'Pistol',  ic:'🔫', pattern:'single', cd:0.27, vel:1.0,  mag:3, bounce:2 },
   burst:   { name:'Burst',   ic:'🔩', pattern:'burst',  cd:0.46, vel:1.05, mag:3, n:3, bounce:2 },
@@ -247,14 +279,16 @@ const A_PREFIX = ['Worn','Standard','Reinforced','Hardened','Aegis','Bastion','I
 const W_SUFFIX = ['of Speed','of Fury','of the Bank','of Reach','of Excess','of the Duelist',''];
 const A_SUFFIX = ['of Guard','of Nerve','of Haste','of the Wall','of Recovery',''];
 let idc = 1;
-function rollRarity(minTier){
-  let pool = RARITIES; if(minTier) pool = RARITIES.slice(minTier);
+function rollRarity(minTier, maxTier){
+  minTier = minTier || 0; maxTier = (maxTier == null) ? RARITIES.length-1 : maxTier;
+  minTier = clamp(minTier, 0, maxTier);
+  const pool = RARITIES.slice(minTier, maxTier+1);
   const tot = pool.reduce((a,r)=>a+r.w,0); let x = rand(0, tot);
-  for(const r of pool){ if((x -= r.w) <= 0) return RARITIES.indexOf(r); }
-  return RARITIES.indexOf(pool[0]);
+  for(let i=0;i<pool.length;i++){ if((x -= pool[i].w) <= 0) return minTier + i; }
+  return minTier;
 }
-function rollItem(kind, minTier, forceBase){
-  const rr = rollRarity(minTier), R = RARITIES[rr];
+function rollItem(kind, minTier, forceBase, maxTier){
+  const rr = rollRarity(minTier, maxTier), R = RARITIES[rr];
   const bonus = (R.s - 1);
   const mods = {};
   if(kind === 'weapon'){
@@ -328,6 +362,7 @@ let state = 'menu';       // menu | loadout | lobby | room | play | end
 let mode = null;          // solo | host | guest
 let gmode = 'ffa';        // ffa | teams
 let players = [], bullets = [], parts = [], walls = [], pickups = [];
+let citizens = [], zombies = [], campaign = null;   // zombie-campaign entities
 let feed = [];            // kill feed [{txt, t}]
 let teamScore = [0,0];
 let me = 0;               // local player index
@@ -399,6 +434,7 @@ function makePlayer(i, opts){
     i, team, color, name: opts.name || ('P'+(i+1)),
     x:0, y:0, vx:0, vy:0, r:15, aim: rand(0,TAU),
     alive:false, respT: 0.15 + i*0.05, kills:0, deaths:0,
+    level: opts.level || 1, matchExp: 0,
     shield:0, cd:0, ammo:3, regen:0, burst:0, burstT:0,
     inX:0, inY:0, wantShoot:false, local: !!opts.local,
     bot: opts.bot ? { retarget:0, tx:0, ty:0, dodge:0, dx:0, dy:0, wob:rand(0,9), skill: opts.skill||1 } : null,
@@ -408,9 +444,10 @@ function makePlayer(i, opts){
 }
 function randBotAlloc(){ const a={spd:0,rof:0,vel:0,mag:0,rld:0,vit:0}, ks=Object.keys(a);
   let pts = 10; while(pts>0){ const k=pick(ks); if(a[k]<8){ a[k]++; pts--; } } return a; }
-function botLoadout(){
-  const wItem = Math.random()<0.6 ? rollItem('weapon',0) : null;
-  const aItem = Math.random()<0.5 ? rollItem('armor',0) : null;
+function botLoadout(tierCap){
+  const mx = tierCap == null ? DROP_MAX_TIER : tierCap;   // bots never roll legendary
+  const wItem = Math.random()<0.6 ? rollItem('weapon',0,null,mx) : null;
+  const aItem = Math.random()<0.5 ? rollItem('armor',0,null,mx) : null;
   return resolveLoadout(randBotAlloc(), wItem, aItem);
 }
 function spawnPlayer(p){
@@ -433,8 +470,164 @@ function showAnnounce(html, ms){
 function pushFeed(txt){ feed.push({ txt, t: 0 }); if(feed.length > 6) feed.shift();
   if(mode === 'host') netBroadcast({t:'feed', x:txt}); }
 
+/* ================= zombie campaign ================= */
+function spawnCitizen(){
+  const c = { x: rand(WORLD.w*0.18, WORLD.w*0.82), y: rand(WORLD.h*0.18, WORLD.h*0.82),
+    vx:0, vy:0, r:11, alive:true, converting:0, wob:rand(0,TAU) };
+  for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
+  return c;
+}
+function makeZombie(x, y, level, boss){
+  return { x, y, vx:0, vy:0, r: boss?34:13, alive:true, boss:!!boss,
+    hp: boss?16:1, maxhp: boss?16:1, level, speed: boss?78:rand(60,92), wob:rand(0,TAU) };
+}
+function spawnZombie(level, boss){
+  const e = irand(0,3); let x,y;
+  if(e===0){ x=rand(40,WORLD.w-40); y=24; } else if(e===1){ x=rand(40,WORLD.w-40); y=WORLD.h-24; }
+  else if(e===2){ x=24; y=rand(40,WORLD.h-40); } else { x=WORLD.w-24; y=rand(40,WORLD.h-40); }
+  zombies.push(makeZombie(x, y, level, boss));
+}
+function startCampaign(){
+  mode='solo'; me=0; gmode='zombies';
+  campaign = { wave:0, maxWave:5, lives:3, citizensStart:14, goal:6, waveClearedT:0 };
+  clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
+  bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; teamScore=[0,0];
+  WORLD.w=2400; WORLD.h=1600; spawns = makeSpawns(); genWalls();
+  players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }) ];
+  const you = players[0]; you.alive=true; you.x=WORLD.w/2; you.y=WORLD.h/2; you.shield=2.2; you.ammo=you.ld.maxAmmo; you.kills=0; you.matchExp=0;
+  for(let i=0;i<campaign.citizensStart;i++) citizens.push(spawnCitizen());
+  $('#arena').innerHTML='';
+  showAnnounce(`<div class="eyebrow">ZOMBIE DEFENSE</div><div class="gtitle">Protect the town</div>
+    <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>Zombies convert anyone they touch — shoot them, bank shots through the horde.</div>`, 2400);
+  after(2400, ()=>{ roundLive=true; sfxGo(); nextWave(); });
+}
+function nextWave(){
+  if(!campaign) return;
+  campaign.wave++;
+  if(campaign.wave > campaign.maxWave){ campaignEnd(true); return; }
+  const w = campaign.wave, boss = (w === campaign.maxWave), count = 5 + w*3;
+  showAnnounce(`<div class="eyebrow">WAVE ${w} / ${campaign.maxWave}${boss?' · BOSS':''}</div>
+    <div class="gtitle" style="color:${boss?'#ff9f1c':'var(--p1)'}">${boss?'THE BEHEMOTH':'Wave '+w}</div>`, 1500);
+  for(let i=0;i<count;i++) after(400 + i*90, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w, false); });
+  if(boss) after(900, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w + 6, true); });
+}
+function youDieZombie(){
+  const you = players[0]; if(!you.alive) return;
+  you.alive=false; you.deaths++; burst(you.x,you.y,you.color,42); sfxDie(); shake(); flashScreen(you.color);
+  if(campaign.lives > 0){ campaign.lives--; you.respT=1.6; pushFeed(`overrun — ${campaign.lives} ${campaign.lives===1?'life':'lives'} left`); }
+  else campaignEnd(false);
+}
+function updateZombies(dt){
+  const you = players[0];
+  if(roundLive){
+    // ---- you ----
+    if(!you.alive){ you.respT -= dt; if(you.respT<=0 && campaign.lives>=0){
+      you.alive=true; you.x=WORLD.w/2; you.y=WORLD.h/2; you.vx=you.vy=0; you.shield=you.ld.spawnShield+1.5; you.ammo=you.ld.maxAmmo; you.cd=0; you.regen=0; sfxSpawn(); spark(you.x,you.y,you.color,14); } }
+    else {
+      const inp = localInput(); you.inX=inp.x; you.inY=inp.y; you.wantShoot=!!inp.s;
+      if(you.inX||you.inY){ const want=Math.atan2(you.inY,you.inX); you.aim += clamp(angDiff(you.aim,want), -16*dt, 16*dt); }
+      if(you.burst>0){ you.burstT-=dt; if(you.burstT<=0){ you.burstT=0.06; you.burst--; const spd=you.ld.bulletSpeed;
+        bullets.push({x:you.x+Math.cos(you.aim)*(you.r+9),y:you.y+Math.sin(you.aim)*(you.r+9),px:0,py:0,vx:Math.cos(you.aim)*spd,vy:Math.sin(you.aim)*spd,r:4.5,owner:0,team:-1,b:0,maxB:you.ld.wbase.bounce,life:2.6,c:you.color}); sfxShoot(); } }
+      const il=Math.hypot(you.inX,you.inY)||1; you.vx+=(you.inX/il)*you.ld.accel*dt; you.vy+=(you.inY/il)*you.ld.accel*dt;
+      const sp=Math.hypot(you.vx,you.vy); if(sp>you.ld.maxV){ const k=you.ld.maxV/sp; you.vx*=k; you.vy*=k; }
+      const damp=Math.max(0,1-7*dt); you.vx*=damp; you.vy*=damp; you.x+=you.vx*dt; you.y+=you.vy*dt;
+      you.x=clamp(you.x,you.r,WORLD.w-you.r); you.y=clamp(you.y,you.r,WORLD.h-you.r);
+      for(const wl of walls){ const p=circleRectPush(you.x,you.y,you.r,wl); if(p){ you.x+=p.x; you.y+=p.y; if(p.x)you.vx=0; if(p.y)you.vy=0; } }
+      you.cd-=dt; you.shield-=dt; if(you.ammo<you.ld.maxAmmo){ you.regen+=dt; if(you.regen>=you.ld.regenTime){ you.ammo++; you.regen=0; } }
+      if(you.wantShoot) fire(you);
+    }
+    // ---- citizens ----
+    for(const c of citizens){ if(!c.alive) continue;
+      if(c.converting>0){ c.converting-=dt; if(c.converting<=0){ c.alive=false; spark(c.x,c.y,'#7cff9b',12);
+        zombies.push(makeZombie(c.x,c.y, save.level+campaign.wave, false)); } continue; }
+      let zn=null, zd=1e9; for(const z of zombies){ if(!z.alive) continue; const d=Math.hypot(z.x-c.x,z.y-c.y); if(d<zd){ zd=d; zn=z; } }
+      c.wob += dt*2.4;
+      if(zn && zd<250){ const a=Math.atan2(c.y-zn.y,c.x-zn.x)+Math.sin(c.wob)*0.35; c.vx+=Math.cos(a)*1100*dt; c.vy+=Math.sin(a)*1100*dt; }
+      else { c.vx+=Math.cos(c.wob*0.7)*160*dt; c.vy+=Math.sin(c.wob*0.9)*160*dt; }
+      const cs=Math.hypot(c.vx,c.vy); if(cs>165){ const k=165/cs; c.vx*=k; c.vy*=k; }
+      c.vx*=Math.max(0,1-5*dt); c.vy*=Math.max(0,1-5*dt); c.x+=c.vx*dt; c.y+=c.vy*dt;
+      c.x=clamp(c.x,c.r,WORLD.w-c.r); c.y=clamp(c.y,c.r,WORLD.h-c.r);
+      for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
+    }
+    // ---- zombies ----
+    for(const z of zombies){ if(!z.alive) continue;
+      let cn=null, cd=1e9; for(const c of citizens){ if(!c.alive||c.converting>0) continue; const d=Math.hypot(c.x-z.x,c.y-z.y); if(d<cd){ cd=d; cn=c; } }
+      let tx, ty; if(cn){ tx=cn.x; ty=cn.y; } else if(you.alive){ tx=you.x; ty=you.y; } else { tx=WORLD.w/2; ty=WORLD.h/2; }
+      const a=Math.atan2(ty-z.y, tx-z.x); z.vx += Math.cos(a)*z.speed*5*dt; z.vy += Math.sin(a)*z.speed*5*dt;
+      const zs=Math.hypot(z.vx,z.vy); if(zs>z.speed){ const k=z.speed/zs; z.vx*=k; z.vy*=k; }
+      z.x+=z.vx*dt; z.y+=z.vy*dt; z.x=clamp(z.x,z.r,WORLD.w-z.r); z.y=clamp(z.y,z.r,WORLD.h-z.r);
+      for(const wl of walls){ const p=circleRectPush(z.x,z.y,z.r,wl); if(p){ z.x+=p.x; z.y+=p.y; } }
+      if(cn && cd < z.r+cn.r+2 && cn.converting<=0){ cn.converting = 0.85; }
+      if(you.alive && you.shield<=0 && Math.hypot(you.x-z.x,you.y-z.y) < z.r+you.r) youDieZombie();
+    }
+    // ---- bullets (yours) vs walls + zombies ----
+    for(const bl of bullets){ bl.px=bl.x; bl.py=bl.y;
+      for(let s=0;s<2 && bl.life>0;s++){ const h=dt/2; bl.x+=bl.vx*h; bl.y+=bl.vy*h;
+        if(bl.x<bl.r){bl.x=bl.r;bl.vx=Math.abs(bl.vx);bl.b++;sfxBounce();} else if(bl.x>WORLD.w-bl.r){bl.x=WORLD.w-bl.r;bl.vx=-Math.abs(bl.vx);bl.b++;sfxBounce();}
+        if(bl.y<bl.r){bl.y=bl.r;bl.vy=Math.abs(bl.vy);bl.b++;sfxBounce();} else if(bl.y>WORLD.h-bl.r){bl.y=WORLD.h-bl.r;bl.vy=-Math.abs(bl.vy);bl.b++;sfxBounce();}
+        for(const wl of walls){ const p=circleRectPush(bl.x,bl.y,bl.r,wl); if(p){ bl.x+=p.x; bl.y+=p.y; if(Math.abs(p.x)>Math.abs(p.y))bl.vx=-bl.vx; else bl.vy=-bl.vy; bl.b++; sfxBounce(); } }
+        if(bl.b>bl.maxB){ bl.life=0; spark(bl.x,bl.y,bl.c,5); }
+        for(const z of zombies){ if(!z.alive||bl.life<=0) continue;
+          if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){ bl.life=0;
+            if(z.hp>1){ z.hp--; spark(bl.x,bl.y,'#ff6b6b',7); }
+            else { z.alive=false; burst(z.x,z.y, z.boss?'#ff9f1c':'#8bd67a', z.boss?64:22); sfxDie();
+              you.kills++; you.matchExp += expForKill(z.level) * (z.boss?5:1);
+              if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed('THE BEHEMOTH FALLS'); }
+              else if(Math.random()<0.3) pushFeed(`zombie down`); } } }
+      }
+      bl.life-=dt;
+    }
+    bullets = bullets.filter(b=>b.life>0);
+    zombies = zombies.filter(z=>z.alive);
+    // ---- win / lose / wave advance ----
+    const alive = citizens.filter(c=>c.alive).length;
+    if(alive===0){ campaignEnd(false); }
+    else if(campaign.wave>=1 && zombies.length===0 && !citizens.some(c=>c.converting>0)){
+      campaign.waveClearedT += dt;
+      if(campaign.waveClearedT > 1.2){ campaign.waveClearedT = 0; nextWave(); }
+    } else campaign.waveClearedT = 0;
+  }
+  for(const f of feed) f.t += dt;
+  updateParts(dt); updateCamera(dt);
+}
+function campaignEnd(won){
+  if(state!=='play') return;
+  state='end'; roundLive=false; clearTimers(); $('#announce').classList.remove('show'); sfxWin();
+  const saved = citizens.filter(c=>c.alive).length;
+  save.saved += saved;
+  renderCampaignEnd(won, saved);
+}
+function renderCampaignEnd(won, saved){
+  const you = players[0]; const gained = (you && you.matchExp) || 0;
+  if(you) save.kills += you.kills;
+  const metGoal = won && saved >= campaign.goal;
+  const credits = 20 + Math.round(gained/4) + (won?60:0) + saved*4;
+  const prog = applyProgression(gained, won, won?1:5, { legendary: metGoal, credits });
+  prog.drops.forEach((d,i)=> after(300+i*220, ()=> sfxLoot(d.rr)));
+  const title = won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell';
+  const tc = won ? 'var(--gold)' : 'var(--p1)';
+  const wavesSurvived = won ? campaign.maxWave : Math.max(0, campaign.wave-1);
+  $('#arena').innerHTML = `<div class="panel">
+    <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div>
+      <div class="rsub">${won ? `${saved} / ${campaign.citizensStart} citizens survived · goal ${campaign.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${campaign.wave} · ${saved} citizens left`}</div></div>
+    ${progressStrip(prog, gained)}
+    <div class="prow">
+      <div class="card"><h3>Defense Report</h3>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Waves survived</span><span style="font-family:var(--mono);color:#eef2ff">${wavesSurvived} / ${campaign.maxWave}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Citizens saved</span><span style="font-family:var(--mono);color:#7cff9b">${saved}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${you?you.kills:0}</span></div>
+      </div>
+      <div class="card"><h3>Loot — ${prog.drops.length} drop${prog.drops.length!==1?'s':''}</h3>
+        <div class="invlist">${lootRow(prog.drops)}</div>
+        <div style="height:8px"></div><div class="ptsline" style="color:var(--dim)">saved to your stash · equip in Loadout</div></div>
+    </div>
+    ${endButtons('REDEPLOY')}</div>`;
+  wireEndButtons(() => startCampaign());
+}
+
 function beginMatch(){
   state = 'play'; roundLive = false; freezeT = 0; clearTimers(); endStandings = null;
+  WORLD.w = 2600; WORLD.h = 1700; citizens = []; zombies = []; campaign = null;
   bullets = []; parts = []; pickups = []; feed = []; teamScore = [0,0];
   target = gmode === 'teams' ? TEAM_TARGET : FFA_TARGET;
   spawns = makeSpawns(); genWalls();
@@ -462,6 +655,7 @@ function onKill(victim, killer, banked){
     pushFeed(`${killer.name} teamkilled ${victim.name}`);   // shouldn't happen (ff off) but safe
   } else {
     killer.kills++;
+    killer.matchExp += expForKill(victim.level);            // exp scales with the victim's level
     if(gmode === 'teams') teamScore[killer.team]++;
     sfxKill();
     pushFeed(`${killer.name} ${banked?'banked':'tagged'} ${victim.name}`);
@@ -474,10 +668,11 @@ function onKill(victim, killer, banked){
 function matchEnd(winner){
   if(state !== 'play') return;
   state = 'end'; roundLive = false; clearTimers();
+  $('#announce').classList.remove('show');   // clearTimers cancels the announce auto-dismiss
   matchOverAt = tnow();
   sfxWin();
   if(mode === 'host') netBroadcast({t:'end', gmode, teamScore,
-    standings: players.map(p=>({name:p.name, kills:p.kills, team:p.team, color:p.color})),
+    standings: players.map(p=>({name:p.name, kills:p.kills, team:p.team, color:p.color, matchExp:p.matchExp, level:p.level})),
     winnerTeam: gmode==='teams' ? (teamScore[0]>teamScore[1]?0:1) : -1,
     winnerName: winner ? winner.name : '' });
   renderEnd(winner);
@@ -485,11 +680,12 @@ function matchEnd(winner){
 
 /* ================= start modes ================= */
 function startSolo(){
-  mode = 'solo'; me = 0;
+  mode = 'solo'; me = 0; gmode = (gmode==='zombies'?'ffa':gmode);
   players = [];
-  players.push(makePlayer(0, { local:true, name:'You', ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }));
+  players.push(makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }));
   const names = BOT_NAMES.slice().sort(()=>Math.random()-0.5);
-  for(let i=1;i<MAXP;i++) players.push(makePlayer(i, { bot:true, name:names[i-1], skill:rand(0.8,1.25), ld: botLoadout() }));
+  for(let i=1;i<MAXP;i++) players.push(makePlayer(i, { bot:true, name:names[i-1], skill:rand(0.8,1.25),
+    level: clamp(save.level + irand(-2,3), 1, 99), ld: botLoadout() }));
   beginMatch();
 }
 
@@ -585,6 +781,7 @@ function tnow(){ return performance.now(); }
 function update(dt){
   if(freezeT > 0){ freezeT -= dt; updateParts(dt); return; }
   if(mode === 'guest'){ guestUpdate(dt); updateParts(dt); return; }
+  if(gmode === 'zombies'){ if(state==='play') updateZombies(dt); else { updateParts(dt); updateCamera(dt); } return; }
   if(state === 'play' && roundLive){
     for(const p of players){
       if(!p) continue;
@@ -700,7 +897,7 @@ function guestUpdate(dt){
 function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
-  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait'){ drawParticlesScreen(); return; }
+  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop'){ drawParticlesScreen(); return; }
   computeView();
   ctx.save();
   ctx.scale(VIEW, VIEW);
@@ -711,6 +908,7 @@ function draw(){
   // walls
   for(const wl of walls){ ctx.fillStyle = '#12182a'; ctx.strokeStyle = '#2b3452'; ctx.lineWidth = 2/VIEW;
     ctx.fillRect(wl.x,wl.y,wl.w,wl.h); ctx.strokeRect(wl.x,wl.y,wl.w,wl.h); }
+  if(gmode === 'zombies') drawZombieEntities();
   // bullets
   for(const bl of bullets){ ctx.strokeStyle = bl.c; ctx.lineWidth = bl.r*1.3; ctx.lineCap='round';
     ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.moveTo(bl.px,bl.py); ctx.lineTo(bl.x,bl.y); ctx.stroke(); ctx.globalAlpha=1;
@@ -743,12 +941,62 @@ function draw(){
   drawMinimap();
   drawTouch();
 }
+function drawZombieEntities(){
+  // citizens
+  for(const c of citizens){ if(!c.alive) continue;
+    const conv = c.converting>0;
+    ctx.fillStyle = conv ? `rgba(255,${120+Math.sin(c.wob*6)*80|0},80,1)` : '#7cff9b';
+    ctx.shadowColor = conv ? '#ff7a3c' : '#3ddc84'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(4,8,14,.6)'; ctx.beginPath(); ctx.arc(c.x, c.y-1, c.r*0.5, 0, TAU); ctx.fill();
+  }
+  // zombies
+  for(const z of zombies){ if(!z.alive) continue;
+    ctx.save(); ctx.translate(z.x, z.y);
+    ctx.shadowColor = z.boss ? '#ff9f1c' : '#6ab04c'; ctx.shadowBlur = z.boss?20:10;
+    ctx.fillStyle = z.boss ? '#b56bff' : '#5a8f3c';
+    ctx.beginPath(); ctx.arc(0,0,z.r,0,TAU); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = z.boss ? '#ff9f1c' : '#89c559';
+    ctx.beginPath(); ctx.arc(-z.r*0.3,-z.r*0.2,z.r*0.22,0,TAU); ctx.arc(z.r*0.3,-z.r*0.2,z.r*0.22,0,TAU); ctx.fill();
+    ctx.restore();
+    if(z.boss){ // hp bar
+      const bw=z.r*2.2, f=z.hp/z.maxhp;
+      ctx.fillStyle='rgba(4,8,14,.8)'; ctx.fillRect(z.x-bw/2, z.y-z.r-16, bw, 6);
+      ctx.fillStyle='#ff9f1c'; ctx.fillRect(z.x-bw/2, z.y-z.r-16, bw*f, 6);
+    }
+  }
+}
 function drawParticlesWorld(){ for(const p of parts){ ctx.globalAlpha = clamp(1-p.t/p.life,0,1);
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
 function drawParticlesScreen(){ for(const p of parts){ ctx.globalAlpha = clamp(1-p.t/p.life,0,1);
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
 function drawHUD(){
   ctx.textAlign = 'left';
+  if(gmode === 'zombies' && campaign){
+    const alive = citizens.filter(c=>c.alive).length;
+    ctx.textAlign='center'; ctx.font='700 12px ui-monospace,monospace';
+    ctx.fillStyle = campaign.wave>=campaign.maxWave ? '#ff9f1c' : '#8b93a8';
+    ctx.fillText(`WAVE ${campaign.wave} / ${campaign.maxWave}${campaign.wave>=campaign.maxWave?' · BOSS':''}`, W/2, 26);
+    // citizens alive vs goal
+    ctx.textAlign='left'; ctx.font='900 italic 15px system-ui,sans-serif';
+    ctx.fillStyle = alive>=campaign.goal ? '#7cff9b' : '#ff5c5c';
+    ctx.fillText(`🧍 ${alive}`, 16, 30);
+    ctx.font='600 11px ui-monospace,monospace'; ctx.fillStyle='#8b93a8';
+    ctx.fillText(`/ ${campaign.goal} needed`, 60, 30);
+    // lives (top-right)
+    ctx.textAlign='right'; ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle='#ff2d55';
+    ctx.fillText('❤'.repeat(Math.max(0,campaign.lives+1)) || '—', W-16, 30);
+    // kill feed
+    ctx.textAlign='left'; ctx.font='600 12px ui-monospace,monospace';
+    let fy = H - 16 - (isTouch?70:0);
+    for(let i=feed.length-1;i>=0;i--){ const f=feed[i]; const a=clamp(3.5-f.t,0,1); if(a<=0) continue;
+      ctx.globalAlpha=a; ctx.fillStyle='#c9d2e6'; ctx.fillText(f.txt, 16, fy); fy-=18; }
+    ctx.globalAlpha=1;
+    const you=players[0];
+    if(you && !you.alive){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.85)';
+      ctx.font='900 italic 22px system-ui,sans-serif'; ctx.fillText('RESPAWNING…', W/2, H/2); }
+    return;
+  }
   // score banner top-center
   ctx.font = '900 italic 16px system-ui,sans-serif'; ctx.textAlign='center';
   if(gmode === 'teams'){
@@ -791,6 +1039,12 @@ function drawMinimap(){
   const sx = mw/WORLD.w, sy = mh/WORLD.h;
   ctx.fillStyle = 'rgba(43,52,82,.9)';
   for(const wl of walls) ctx.fillRect(mx+wl.x*sx, my+wl.y*sy, Math.max(1,wl.w*sx), Math.max(1,wl.h*sy));
+  if(gmode === 'zombies'){
+    for(const c of citizens){ if(!c.alive) continue; ctx.fillStyle = c.converting>0?'#ff7a3c':'#7cff9b';
+      ctx.fillRect(mx+c.x*sx-1, my+c.y*sy-1, 2, 2); }
+    for(const z of zombies){ if(!z.alive) continue; ctx.fillStyle = z.boss?'#ff9f1c':'#ff5c5c';
+      ctx.beginPath(); ctx.arc(mx+z.x*sx, my+z.y*sy, z.boss?3:1.6, 0, TAU); ctx.fill(); }
+  }
   for(const p of players){ if(!p || !p.alive) continue;
     ctx.fillStyle = p.color; const d = p.local ? 4 : 2.6;
     ctx.beginPath(); ctx.arc(mx+p.x*sx, my+p.y*sy, d, 0, TAU); ctx.fill();
@@ -810,19 +1064,32 @@ function toMenu(){
   state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = [];
   netCloseAll(true); lobbyCleanup();
   $('#announce').classList.remove('show');
-  const p = save;
+  const p = save; const xi = expInfo(p.exp);
   $('#arena').innerHTML = `<div class="menu">
     <div class="logo"><span class="l1">Ricochet</span><span class="l2">Rumble</span></div>
-    <div class="tag">8-PLAYER BRAWL · ONE HIT KILLS · BANK THE SHOT</div>
+    <div class="tag">8-PLAYER BRAWL · ZOMBIE DEFENSE · ONE HIT KILLS</div>
+    <div class="lvlbar" style="max-width:520px">
+      <div class="lvlbadge">LV ${p.level}</div>
+      <div class="xptrack"><i style="transform:scaleX(${xi.frac})"></i></div>
+      <div class="xptext">${xi.into}/${xi.need} XP</div>
+      <div class="credpill">◈ ${p.credits}</div>
+    </div>
     <div class="modes">
       <button class="mbtn b1" id="btnSolo"><b>SPACE</b> BRAWL vs CPU<span>you + 7 bots · FFA or teams</span></button>
-      <button class="mbtn bg" id="btnNet"><b>O</b> ONLINE BRAWL<span>make a room · friends fill the seats</span></button>
-      <button class="mbtn b2" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · your ${p.inv.length}-item stash</span></button>
+      <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE CAMPAIGN<span>defend the town · boss drops a legendary</span></button>
+      <button class="mbtn b2" id="btnNet"><b>O</b> ONLINE BRAWL<span>make a room · friends fill the seats</span></button>
     </div>
-    <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · ${isTouch?'TOUCH: LEFT MOVE, RIGHT FIRE · ':''}LIFETIME KILLS ${p.kills} · WINS ${p.wins}</div>
+    <div class="modes">
+      <button class="mbtn" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · ${p.inv.length}-item stash</span></button>
+      <button class="mbtn bg" id="btnShop"><b>B</b> SHOP<span>spend credits · buy legendaries</span></button>
+      <button class="mbtn locked" id="btnRanked" title="coming soon"><b>R</b> RANKED<span>needs matchmaking · coming soon</span></button>
+    </div>
+    <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · ${isTouch?'TOUCH: LEFT MOVE, RIGHT FIRE · ':''}KILLS ${p.kills} · WINS ${p.wins} · CITIZENS SAVED ${p.saved}</div>
   </div>`;
   $('#btnSolo').onclick = () => openLoadout('solo');
+  $('#btnCamp').onclick = () => startCampaign();
   $('#btnLoad').onclick = () => openLoadout('view');
+  $('#btnShop').onclick = () => openShop();
   $('#btnNet').onclick = renderLobby;
 }
 
@@ -832,18 +1099,27 @@ const STAT_ROWS = [
   ['spd','MOVE SPEED'], ['rof','FIRE RATE'], ['vel','MUZZLE VEL'],
   ['mag','MAGAZINE'], ['rld','RELOAD'], ['vit','VITALITY'],
 ];
-const STAT_CAP = 8, STAT_POOL = 12;
+const STAT_CAP = 10, STAT_POOL_BASE = 12;
+function statPool(){ return STAT_POOL_BASE + (save.level - 1); }   // +1 point per level
 function allocUsed(){ return Object.values(save.alloc).reduce((a,b)=>a+b,0); }
 function openLoadout(next){
   loadoutNext = next; state = 'loadout';
+  if(gmode === 'zombies') gmode = 'ffa';   // loadout mode toggle is FFA/Teams only
   netCloseAll(true); lobbyCleanup();
   renderLoadout();
 }
 function renderLoadout(){
   const w = equippedWeapon(), a = equippedArmor();
-  const left = STAT_POOL - allocUsed();
+  const left = statPool() - allocUsed();
   const rarC = it => RARITIES[it.rr].c;
+  const xi = expInfo(save.exp);
   $('#arena').innerHTML = `<div class="panel">
+    <div class="lvlbar">
+      <div class="lvlbadge">LV ${save.level}</div>
+      <div class="xptrack"><i style="transform:scaleX(${xi.frac})"></i></div>
+      <div class="xptext">${xi.into} / ${xi.need} XP</div>
+      <div class="credpill">◈ ${save.credits}</div>
+    </div>
     <div class="modewrap">
       <div class="seg" id="segMode">
         <button data-m="ffa" class="${gmode==='ffa'?'on':''}">FREE-FOR-ALL</button>
@@ -859,7 +1135,7 @@ function renderLoadout(){
           <div class="bar"><i style="transform:scaleX(${save.alloc[k]/STAT_CAP})"></i></div>
           <button class="sbtn" data-inc="${k}" ${(left<=0||save.alloc[k]>=STAT_CAP)?'disabled':''}>+</button>
         </div>`).join('')}
-        <div class="ptsline">each point ≈ +7% · max ${STAT_CAP}/stat</div>
+        <div class="ptsline">each point ≈ +7% · max ${STAT_CAP}/stat · +1 point per level</div>
       </div>
       <div class="card">
         <h3>Equipped</h3>
@@ -883,7 +1159,7 @@ function renderLoadout(){
   </div>`;
   $('#segMode').querySelectorAll('button').forEach(b => b.onclick = () => { gmode = b.dataset.m; renderLoadout(); });
   $('#arena').querySelectorAll('[data-inc]').forEach(b => b.onclick = () => { const k=b.dataset.inc;
-    if(STAT_POOL-allocUsed()>0 && save.alloc[k]<STAT_CAP){ save.alloc[k]++; persist(); renderLoadout(); } });
+    if(statPool()-allocUsed()>0 && save.alloc[k]<STAT_CAP){ save.alloc[k]++; persist(); renderLoadout(); } });
   $('#arena').querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { const k=b.dataset.dec;
     if(save.alloc[k]>0){ save.alloc[k]--; persist(); renderLoadout(); } });
   $('#slotW').onclick = () => renderStash('weapon');
@@ -917,10 +1193,93 @@ function renderStash(kind){
   $('#btnBack').onclick = renderLoadout;
 }
 
+/* ---- shop (the reliable legendary source: buy with credits) ---- */
+let shopStock = null;
+function genShopStock(){
+  const stock = [];
+  for(let i=0;i<4;i++){ const kind = Math.random()<0.5?'weapon':'armor'; stock.push(rollItem(kind, 1, null, 3)); } // green→purple
+  stock.push(rollItem('weapon', 4, null, 4));   // guaranteed legendary weapon
+  stock.push(rollItem('armor',  4, null, 4));   // guaranteed legendary armor
+  for(const it of stock){ it.price = Math.round(RARITIES[it.rr].price * rand(0.92,1.12)); it.sold = false; }
+  return stock.sort((a,b)=> a.rr-b.rr || a.price-b.price);
+}
+function openShop(){ state='shop'; netCloseAll(true); lobbyCleanup(); if(!shopStock) shopStock = genShopStock(); renderShop(); }
+function renderShop(){
+  $('#arena').innerHTML = `<div class="panel">
+    <div class="lvlbar">
+      <div class="lvlbadge">SHOP</div>
+      <div class="xptext" style="flex:1">buy gear with credits — the only place to grab a guaranteed <span style="color:#ff9f1c;font-weight:700">LEGENDARY</span></div>
+      <div class="credpill">◈ ${save.credits}</div>
+    </div>
+    <div class="card"><h3>Stock</h3>
+      <div class="shopgrid" id="stock">
+        ${shopStock.map((it,i)=>`<div class="shopitem" style="border-left-color:${RARITIES[it.rr].c}">
+          <div class="ic">${it.kind==='weapon'?WEAPONS[it.base].ic:ARMORS[it.base].ic}</div>
+          <div class="col"><div class="nm2" style="color:${RARITIES[it.rr].c}">${esc(it.name)}</div>
+            <div class="mods">${modLabel(it)}</div></div>
+          <span class="rr" style="color:${RARITIES[it.rr].c}">${RARITIES[it.rr].k}</span>
+          ${it.sold ? '<button class="buybtn sold" disabled>OWNED</button>'
+            : `<button class="buybtn" data-i="${i}" ${save.credits<it.price?'disabled':''}>◈ ${it.price}</button>`}
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="modes">
+      <button class="mbtn sm bg" id="btnRefresh"><b>↻</b> REFRESH STOCK (◈ 25)</button>
+      <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
+    </div>
+  </div>`;
+  $('#stock').querySelectorAll('.buybtn[data-i]').forEach(b => b.onclick = () => {
+    const it = shopStock[+b.dataset.i];
+    if(!it || it.sold || save.credits < it.price) return;
+    save.credits -= it.price; it.sold = true;
+    const bought = { id: idc++, kind:it.kind, base:it.base, rr:it.rr, name:it.name, mods:it.mods };
+    save.inv.push(bought); capStash(); persist(); sfxLoot(it.rr); renderShop();
+  });
+  $('#btnRefresh').onclick = () => { if(save.credits>=25){ save.credits-=25; shopStock=genShopStock(); persist(); renderShop(); } };
+  $('#btnBack').onclick = () => openLoadout('view');
+}
+
 /* ---- end + loot ---- */
 let endStandings = null;   // guest: standings without live x/y (kept off `players` so the camera never sees NaN)
+function capStash(){ if(save.inv.length>80){ const keep=new Set([save.equip.weapon,save.equip.armor].filter(x=>x!=null));
+  const eq=save.inv.filter(i=>keep.has(i.id)), rest=save.inv.filter(i=>!keep.has(i.id));
+  save.inv = rest.slice(-(80-eq.length)).concat(eq); } }
+function applyProgression(gained, won, place, opts){
+  opts = opts || {};
+  const before = save.level;
+  save.exp += Math.max(0, Math.round(gained)); save.level = levelFromExp(save.exp);
+  const creditsGained = opts.credits != null ? opts.credits : (14 + Math.round(gained/4) + (won?45:0));
+  save.credits += creditsGained;
+  save.matches++; if(won) save.wins++;
+  const drops = rollLoot(place, won, gained, opts);
+  drops.forEach(d => save.inv.push(d)); capStash(); persist();
+  return { leveled: save.level-before, before, creditsGained, drops };
+}
+function progressStrip(prog, gained){
+  const xi = expInfo(save.exp);
+  return `<div class="lvlbar">
+    <div class="lvlbadge">${prog.leveled>0?`LV ${prog.before} → <span style="color:#fff">${save.level}</span>`:`LV ${save.level}`}</div>
+    <div class="xptrack"><i style="transform:scaleX(${xi.frac})"></i></div>
+    <div class="xptext">+${Math.round(gained)} XP</div>
+    <div class="credpill">◈ +${prog.creditsGained}</div>
+  </div>${prog.leveled>0?`<div class="rsub" style="color:var(--gold);text-align:center">LEVEL UP! +${prog.leveled} stat point${prog.leveled>1?'s':''} — spend in Loadout</div>`:''}`;
+}
+function lootRow(drops){ return drops.length ? drops.map(d => `<div class="item" style="border-left-color:${RARITIES[d.rr].c};cursor:default">
+    <div class="ic">${d.kind==='weapon'?WEAPONS[d.base].ic:ARMORS[d.base].ic}</div>
+    <div class="col"><div class="nm2" style="color:${RARITIES[d.rr].c}">${esc(d.name)}</div>
+      <div class="mods">${modLabel(d)}</div></div>
+    <span class="rr" style="color:${RARITIES[d.rr].c}">${RARITIES[d.rr].k}</span></div>`).join('')
+    : '<div class="mods" style="padding:8px">no drops this run</div>'; }
+function endButtons(againLabel){ return `<div class="modes">
+    <button class="mbtn b1" id="btnAgain"><b>SPACE</b> ${againLabel}</button>
+    <button class="mbtn b2" id="btnLoot"><b>L</b> LOADOUT</button>
+    <button class="mbtn sm" id="btnMenu"><b>M</b> MENU</button></div>`; }
+function wireEndButtons(again){
+  $('#btnAgain').onclick = again;
+  $('#btnLoot').onclick = () => openLoadout('view');
+  $('#btnMenu').onclick = () => { netCloseAll(true); toMenu(); };
+}
 function renderEnd(winner){
-  // local placement + loot roll
   const src = endStandings || players.filter(Boolean);
   const ranked = src.slice().sort((a,b)=>b.kills-a.kills);
   const lp = src.find(p=>p.local) || src[me] || players[me];
@@ -928,60 +1287,37 @@ function renderEnd(winner){
   let won;
   if(gmode === 'teams'){ const wt = teamScore[0]>teamScore[1]?0:1; won = lp && lp.team===wt; place = won?1:5; }
   else won = place === 1;
-  // progression
-  save.matches++; if(lp) save.kills += lp.kills; if(won) save.wins++;
-  const drops = rollLoot(place, won);
-  drops.forEach(d => save.inv.push(d));
-  // cap stash, never dropping equipped items
-  if(save.inv.length > 80){
-    const keepIds = new Set([save.equip.weapon, save.equip.armor].filter(x=>x!=null));
-    const eq = save.inv.filter(i=>keepIds.has(i.id));
-    const rest = save.inv.filter(i=>!keepIds.has(i.id));
-    save.inv = rest.slice(-(80-eq.length)).concat(eq);
-  }
-  persist();
-  drops.forEach((d,i)=> after(300 + i*220, () => sfxLoot(d.rr)));
-
-  const title = gmode==='teams'
-    ? (won ? 'Your team wins' : 'Team defeat')
-    : (won ? 'You take the crown' : `#${place} of ${ranked.length}`);
+  if(lp) save.kills += lp.kills;
+  const gained = (lp && lp.matchExp) || 0;
+  const prog = applyProgression(gained, won, place, {});
+  prog.drops.forEach((d,i)=> after(300 + i*220, () => sfxLoot(d.rr)));
+  const title = gmode==='teams' ? (won ? 'Your team wins' : 'Team defeat') : (won ? 'You take the crown' : `#${place} of ${ranked.length}`);
   const tc = won ? 'var(--gold)' : (lp?lp.color:'#eef2ff');
   const board = ranked.slice(0,8).map((p,i)=>`<div class="stat" style="margin-bottom:5px">
       <span class="nm" style="width:26px;text-align:right;color:var(--dim)">${i+1}</span>
       <span class="nm" style="width:auto;flex:1;color:${p.color}${p.local?';font-weight:900':''}">${esc(p.name)}${p.local?' (you)':''}</span>
       <span style="font-family:var(--mono);color:#eef2ff">${p.kills}</span></div>`).join('');
-  const lootHtml = drops.map(d => `<div class="item" style="border-left-color:${RARITIES[d.rr].c};cursor:default">
-      <div class="ic">${d.kind==='weapon'?WEAPONS[d.base].ic:ARMORS[d.base].ic}</div>
-      <div class="col"><div class="nm2" style="color:${RARITIES[d.rr].c}">${esc(d.name)}</div>
-        <div class="mods">${modLabel(d)}</div></div>
-      <span class="rr" style="color:${RARITIES[d.rr].c}">${RARITIES[d.rr].k}</span></div>`).join('');
   $('#arena').innerHTML = `<div class="panel">
-    <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div>
-      <div class="rsub">${winner?('top fragger: '+esc(ranked[0].name)+' · '+ranked[0].kills+' kills'):''}</div></div>
+    <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div></div>
+    ${progressStrip(prog, gained)}
     <div class="prow">
       <div class="card"><h3>Final Standings</h3>${board}</div>
-      <div class="card"><h3>Loot Earned — ${drops.length} drop${drops.length!==1?'s':''}</h3>
-        <div class="invlist">${lootHtml}</div>
-        <div style="height:8px"></div>
-        <div class="ptsline" style="color:var(--dim)">saved to your stash · equip in Loadout</div>
-      </div>
+      <div class="card"><h3>Loot — ${prog.drops.length} drop${prog.drops.length!==1?'s':''}</h3>
+        <div class="invlist">${lootRow(prog.drops)}</div>
+        <div style="height:8px"></div><div class="ptsline" style="color:var(--dim)">saved to your stash · equip in Loadout</div></div>
     </div>
-    <div class="modes">
-      <button class="mbtn b1" id="btnAgain"><b>SPACE</b> ${mode==='guest'?'BACK TO LOBBY':'REMATCH'}</button>
-      <button class="mbtn b2" id="btnLoot"><b>L</b> LOADOUT</button>
-      <button class="mbtn sm" id="btnMenu"><b>M</b> MENU</button>
-    </div>
-  </div>`;
-  $('#btnAgain').onclick = () => { if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host'){ hostRematch(); } else startSolo(); };
-  $('#btnLoot').onclick = () => openLoadout('view');
-  $('#btnMenu').onclick = () => { netCloseAll(true); toMenu(); };
+    ${endButtons(mode==='guest'?'BACK TO LOBBY':'AGAIN')}</div>`;
+  wireEndButtons(() => { if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else startSolo(); });
 }
-function rollLoot(place, won){
+function rollLoot(place, won, gained, opts){
+  opts = opts || {};
+  const boost = clamp(Math.floor((gained||0)/140), 0, 3);
+  const minTier = clamp((won?1:0) + boost, 0, DROP_MAX_TIER);
   const n = won ? (Math.random()<0.5?2:3) : (place<=3 ? 2 : 1);
-  const minTier = won ? 1 : 0;
   const out = [];
+  if(opts.legendary) out.push(rollItem(pick(['weapon','armor']), 4, null, 4));   // guaranteed orange (campaign boss)
   for(let i=0;i<n;i++){ const kind = Math.random()<0.55 ? 'weapon' : 'armor';
-    out.push(rollItem(kind, Math.random()<0.35 ? minTier : 0)); }
+    out.push(rollItem(kind, Math.random()<0.5 ? minTier : Math.max(0,minTier-1), null, DROP_MAX_TIER)); }
   return out;
 }
 
@@ -1171,9 +1507,9 @@ function hostSeat(jid, pc, ch){
   lobbyStatus(`${lobby.seats.length} challenger${lobby.seats.length>1?'s':''} joined — start when ready`);
   if(1 + lobby.seats.length >= MAXP) hostStart();
 }
-function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout
+function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout + level
   if(m && m.t==='ld' && lobby && lobby._chans && lobby._chans.has(jid))
-    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a };
+    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level };
 }
 function hostStart(){
   if(!lobby || !lobby.hosting || lobby.starting) return;
@@ -1184,11 +1520,11 @@ function hostStart(){
   net = { role:'host', peers:[] };
   const seated = lobby._chans ? [...lobby._chans.values()] : [];   // seat order
   players = new Array(MAXP);
-  players[0] = makePlayer(0, { local:true, name:'Host', ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
+  players[0] = makePlayer(0, { local:true, name:'Host', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
   for(const cn of seated){ const idx = cn.idx; if(idx<1 || idx>=MAXP || players[idx]) continue;
     const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true };
     const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a) : botLoadout();  // honor the guest's build
-    players[idx] = makePlayer(idx, { name:'Rival '+idx, ld });
+    players[idx] = makePlayer(idx, { name:'Rival '+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
     const dropToBot = () => { pr.ready = false; const pl = players[idx];
       if(pl && !pl.bot){ pl.bot = {retarget:0,tx:0,ty:0,dodge:0,dx:0,dy:0,wob:rand(0,9),skill:1}; pl.wantShoot = false; pushFeed(`${pl.name} disconnected — bot took over`); } };
     cn.ch.onmessage = e => { try{ const m=JSON.parse(e.data);
@@ -1197,7 +1533,7 @@ function hostStart(){
     net.peers.push(pr);
     try{ cn.ch.send(JSON.stringify({t:'welcome', idx, world:WORLD})); }catch(e){}   // resend for safety
   }
-  for(let i=0;i<MAXP;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), ld: botLoadout() });
+  for(let i=0;i<MAXP;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), level: clamp(save.level+irand(-2,3),1,99), ld: botLoadout() });
   beginMatch();
 }
 function hostRematch(){ if(mode==='host'){ beginMatch(); } }
@@ -1231,7 +1567,7 @@ async function joinOffer(roomId, sdp){
 function wireGuest(pc, ch){
   net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false}, inAcc:0, ready:false, matched:false };
   ch.onopen = () => { net.ready = true; net.matched = true; if(lobby) lobby.starting = true;
-    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor()})); }catch(e){}  // send my build to the host
+    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level})); }catch(e){}  // send my build to the host
     lobbyCleanup();
     mode = 'guest'; state = 'wait'; parts=[]; bullets=[]; players=[]; $('#arena').innerHTML='';
     showAnnounce('<div class="rtitle" style="color:var(--gold)">Connected</div><div class="rsub">waiting for the host to start the brawl…</div>'); };
@@ -1270,7 +1606,7 @@ function guestRecv(m){
     case 'end':
       state='end'; teamScore = m.teamScore || teamScore;
       // keep `players` (ghosts with x/y) intact for the camera; standings go in a side array
-      endStandings = m.standings.map((s,i)=>({ i, name:s.name, kills:s.kills, team:s.team, color:s.color, local:(i===net.me) }));
+      endStandings = m.standings.map((s,i)=>({ i, name:s.name, kills:s.kills, team:s.team, color:s.color, matchExp:s.matchExp||0, level:s.level, local:(i===net.me) }));
       renderEnd(null);
       break;
     case 'bye': guestDropped(); break;
@@ -1289,6 +1625,7 @@ addEventListener('keydown', e => {
   if(e.code==='Escape'){
     if(state==='room'){ lobbyCleanup(); renderLobby(); }
     else if(state==='loadout'||state==='lobby'){ toMenu(); }
+    else if(state==='shop'){ openLoadout('view'); }
     else if(state==='play' || state==='wait' || state==='end'){ netCloseAll(true); toMenu(); }
     return;
   }
@@ -1296,10 +1633,12 @@ addEventListener('keydown', e => {
     const el = document.activeElement; if(el && el.classList && el.classList.contains('mbtn')){ el.click(); return; } }
   if(state==='menu'){
     if(e.code==='Space') openLoadout('solo');
+    else if(e.code==='KeyZ') startCampaign();
     else if(e.code==='KeyO') renderLobby();
     else if(e.code==='KeyL') openLoadout('view');
+    else if(e.code==='KeyB') openShop();
   } else if(state==='end'){
-    if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else startSolo(); }
+    if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else if(gmode==='zombies') startCampaign(); else startSolo(); }
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyM'){ netCloseAll(true); toMenu(); }
   }
