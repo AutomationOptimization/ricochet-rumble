@@ -523,31 +523,29 @@ function toMenu(){
   $('#btnCpu').onclick = () => startMatch('cpu');
   $('#btnNet').onclick = renderLobby;
 }
-/* ---- online lobby: live rooms over public MQTT, gameplay over WebRTC ---- */
+/* ---- online lobby: live rooms over Azure Web PubSub, gameplay over WebRTC ----
+   Rooms are announced to the "rooms" group; each pairing uses an ephemeral
+   "sig-<hostId>" group for the WebRTC handshake. A tiny Azure Function mints
+   short-lived Web PubSub tokens so the browser never holds a key.            */
 const HOSTED_URL = 'https://automationoptimization.github.io/ricochet-rumble/';
-const NET_PFX = 'ricochet-rumble-kb7/v1';
-const BROKERS = ['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+const NEG_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/negotiate?hub=lobby';
+const WPS_SUB = 'json.webpubsub.azure.v1';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lobby = null;
-let mqttLibP = null;
-function loadMqttLib(){
-  if(window.mqtt) return Promise.resolve();
-  if(!mqttLibP) mqttLibP = new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'mqtt.min.js';
-    s.onload = () => res(); s.onerror = () => { mqttLibP = null; rej(new Error('lib')); };
-    document.head.appendChild(s);
-  });
-  return mqttLibP;
-}
 function lobbyStatus(s){ const el = $('#netStat'); if(el) el.textContent = s; }
+function wpsSend(o){ try{ if(lobby && lobby.ws && lobby.ws.readyState === 1) lobby.ws.send(JSON.stringify(o)); }catch(e){} }
+function wpsJoin(group){ wpsSend({type:'joinGroup', group}); }
+function wpsTo(group, data){ wpsSend({type:'sendToGroup', group, dataType:'json', data}); }
+const sigGroup = id => 'sig-' + id;
+function announceRoom(){ if(lobby && lobby.hosting && !lobby.pend) wpsTo('rooms', {t:'room', from:lobby.cid, name:lobby.hosting.name}); }
 function lobbyCleanup(){
   if(!lobby) return;
   const L = lobby; lobby = null;
   clearInterval(L.hb); clearInterval(L.prune); clearTimeout(L.tmo);
   try{
-    if(L.hosting && !L.matched) L.cli.publish(`${NET_PFX}/rooms/${L.cid}`, '', {retain:true});
-    L.cli.end(true);
+    if(L.hosting && !L.matched && L.ws && L.ws.readyState === 1)
+      L.ws.send(JSON.stringify({type:'sendToGroup', group:'rooms', dataType:'json', data:{t:'gone', from:L.cid}}));
+    if(L.ws) L.ws.close();
   }catch(e){}
   if(L.pc && !L.matched){ try{ L.pc.close(); }catch(e){} }
 }
@@ -560,47 +558,55 @@ async function renderLobby(){
         <button class="mbtn b1" id="btnMake"><b>+</b> CREATE ROOM</button>
       </div>
       <div class="netlbl">OPEN ROOMS — CLICK ONE TO JOIN</div>
-      <div id="roomList" class="roomlist"><div class="netstat">connecting to lobby…</div></div>
+      <div id="roomList" class="roomlist"><div class="netstat">connecting to Azure lobby…</div></div>
       <div class="netstat" id="netStat"></div>
       <div class="netrow"><button class="mbtn" id="btnBack"><b>ESC</b> BACK</button></div>
     </div></div>`;
   $('#btnBack').onclick = () => { lobbyCleanup(); toMenu(); };
   $('#btnMake').onclick = createRoom;
-  try{ await loadMqttLib(); }
-  catch(e){
+
+  const cid = 'rr' + Math.random().toString(36).slice(2, 10);
+  let url;
+  try{
+    const r = await fetch(NEG_URL, { cache:'no-store' });
+    if(!r.ok) throw new Error('negotiate ' + r.status);
+    url = (await r.json()).url;
+    if(!url) throw new Error('no url');
+  }catch(e){
     const el = $('#roomList');
-    if(el) el.innerHTML = `<div class="netstat">the online lobby lives in the hosted app —<br>
-      <a href="${HOSTED_URL}">${HOSTED_URL.replace('https://','')}</a> · open it there on any device</div>`;
+    if(el) el.innerHTML = `<div class="netstat">this build can’t reach the lobby from here —<br>
+      open the full app on any device at<br><a href="${HOSTED_URL}">${HOSTED_URL.replace('https://','')}</a></div>`;
     return;
   }
-  const cid = 'rr' + Math.random().toString(36).slice(2, 10);
-  let cli = null;
-  for(const url of BROKERS){
-    try{
-      cli = await new Promise((res, rej) => {
-        const c = window.mqtt.connect(url, { clientId: cid, clean: true,
-          connectTimeout: 6000, reconnectPeriod: 0, keepalive: 30,
-          will: { topic: `${NET_PFX}/rooms/${cid}`, payload: '', retain: true } });
-        const t = setTimeout(() => { try{ c.end(true); }catch(e){} rej(new Error('t')); }, 7000);
-        c.once('connect', () => { clearTimeout(t); res(c); });
-        c.once('error', err => { clearTimeout(t); try{ c.end(true); }catch(e){} rej(err); });
-      });
-      break;
-    }catch(e){}
+  let ws;
+  try{
+    ws = await new Promise((res, rej) => {
+      const s = new WebSocket(url, WPS_SUB);
+      const t = setTimeout(() => { try{ s.close(); }catch(e){} rej(new Error('timeout')); }, 9000);
+      s.onopen = () => {};                       // wait for the "connected" system frame
+      s.onerror = () => { clearTimeout(t); rej(new Error('ws')); };
+      s.onmessage = ev => {
+        let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+        if(m.type === 'system' && m.event === 'connected'){ clearTimeout(t); res(s); }
+      };
+    });
+  }catch(e){
+    if($('#roomList')) lobbyStatus('lobby unreachable — check your connection, then ESC and retry');
+    return;
   }
-  if(!$('#roomList')){ if(cli){ try{ cli.end(true); }catch(e){} } return; } // user left the screen
-  if(!cli){ lobbyStatus('lobby unreachable — check your connection, then ESC and retry'); $('#roomList').innerHTML = ''; return; }
-  lobby = { cli, cid, rooms:new Map(), hosting:null, pend:null, join:null,
+  if(!$('#roomList')){ try{ ws.close(); }catch(e){} return; }   // user already left the screen
+  lobby = { ws, cid, rooms:new Map(), hosting:null, pend:null, join:null,
     hb:null, prune:null, tmo:null, pc:null, matched:false };
-  cli.on('message', (topic, payload) => { try{ lobbyMsg(topic, payload); }catch(e){} });
-  cli.subscribe(`${NET_PFX}/rooms/+`);
-  cli.subscribe(`${NET_PFX}/sig/+/${cid}`);
+  ws.onmessage = ev => { try{ lobbyMsg(ev.data); }catch(e){} };
+  ws.onclose = () => { if(lobby && lobby.ws === ws && !lobby.matched){
+    const el = $('#roomList'); if(el && !lobby.hosting && !lobby.join) lobbyStatus('lobby dropped — ESC and reopen'); } };
+  wpsJoin('rooms');
   lobby.prune = setInterval(() => {
     if(!lobby) return;
     const now = Date.now(); let ch = false;
-    for(const [id, r] of lobby.rooms) if(now - r.seen > 32000){ lobby.rooms.delete(id); ch = true; }
+    for(const [id, r] of lobby.rooms) if(now - r.seen > 14000){ lobby.rooms.delete(id); ch = true; }
     if(ch) renderRoomList();
-  }, 5000);
+  }, 3000);
   renderRoomList();
 }
 function renderRoomList(){
@@ -614,37 +620,36 @@ function renderRoomList(){
     `<button class="roomrow" data-id="${esc(id)}"><span>${esc(r.name)}</span><span class="rjoin">JOIN ▶</span></button>`).join('');
   el.querySelectorAll('.roomrow').forEach(b => { b.onclick = () => joinRoom(b.dataset.id); });
 }
-function lobbyMsg(topic, payload){
+function lobbyMsg(raw){
   if(!lobby) return;
-  const parts = topic.split('/');           // [pfx, v1, kind, id, (jid)]
-  const kind = parts[2];
-  if(kind === 'rooms'){
-    const id = parts[3];
-    if(id === lobby.cid) return;
-    const s = payload.toString();
-    if(!s){ lobby.rooms.delete(id); renderRoomList(); return; }
-    try{
-      const j = JSON.parse(s);
-      lobby.rooms.set(id, { name: String(j.name || 'unnamed').slice(0, 24), seen: Date.now() });
+  let env; try{ env = JSON.parse(raw); }catch(e){ return; }
+  if(env.type !== 'message' || env.from !== 'group') return;
+  const m = env.data;
+  if(!m || typeof m !== 'object' || m.from === lobby.cid) return;   // ignore our own echoes
+  if(env.group === 'rooms'){
+    if(m.t === 'room'){
+      lobby.rooms.set(m.from, { name: String(m.name || 'unnamed').slice(0, 24), seen: Date.now() });
       renderRoomList();
-    }catch(e){}
+    } else if(m.t === 'gone'){
+      if(lobby.rooms.delete(m.from)) renderRoomList();
+    }
     return;
   }
-  if(kind !== 'sig') return;
-  let m; try{ m = JSON.parse(payload.toString()); }catch(e){ return; }
-  if(parts.length === 4 && parts[3] === lobby.cid){          // host inbox
-    if(m.t === 'knock' && lobby.hosting){
-      if(lobby.pend){ lobby.cli.publish(`${NET_PFX}/sig/${lobby.cid}/${m.jid}`, JSON.stringify({t:'busy'})); return; }
-      hostAccept(String(m.jid));
-    } else if(m.t === 'answer' && lobby.pend === m.jid && lobby.pc){
+  // signaling group sig-<hostId>
+  if(lobby.hosting && env.group === sigGroup(lobby.cid)){       // host inbox
+    if(m.t === 'knock'){
+      if(lobby.pend){ wpsTo(sigGroup(lobby.cid), {t:'busy', from:lobby.cid, to:m.from}); return; }
+      hostAccept(String(m.from));
+    } else if(m.t === 'answer' && m.to === lobby.cid && lobby.pend === m.from && lobby.pc){
       lobby.pc.setRemoteDescription(m.sdp).then(() => lobbyStatus('challenger linked — starting…'))
         .catch(() => lobbyStatus('bad link — waiting for another challenger'));
     }
     return;
   }
-  if(parts.length === 5 && parts[4] === lobby.cid){          // joiner inbox
+  if(lobby.join && env.group === sigGroup(lobby.join)){         // joiner inbox
+    if(m.to !== lobby.cid) return;
     if(m.t === 'busy'){ joinReset('room just filled — pick another'); return; }
-    if(m.t === 'offer' && lobby.join === parts[3]) joinOffer(parts[3], m.sdp);
+    if(m.t === 'offer' && m.from === lobby.join) joinOffer(lobby.join, m.sdp);
   }
 }
 function createRoom(){
@@ -652,11 +657,9 @@ function createRoom(){
   const raw = ($('#roomName') && $('#roomName').value.trim()) || '';
   const name = (raw || 'arena ' + irand(100, 999)).slice(0, 24);
   lobby.hosting = { name };
-  lobby.cli.subscribe(`${NET_PFX}/sig/${lobby.cid}`);
-  const beat = () => { if(lobby && lobby.hosting && !lobby.pend)
-    lobby.cli.publish(`${NET_PFX}/rooms/${lobby.cid}`, JSON.stringify({name, ts: Date.now()}), {retain:true}); };
-  beat();
-  lobby.hb = setInterval(beat, 10000);
+  wpsJoin(sigGroup(lobby.cid));
+  announceRoom();
+  lobby.hb = setInterval(announceRoom, 4000);
   $('#arena').innerHTML = `<div class="menu"><div class="tag">ROOM LIVE — VISIBLE IN EVERY PLAYER’S LOBBY</div>
     <div class="netwrap">
       <div class="gtitle" style="font-size:clamp(24px,5vw,44px)">${esc(name)}</div>
@@ -667,7 +670,7 @@ function createRoom(){
 }
 async function hostAccept(jid){
   lobby.pend = jid;
-  lobby.cli.publish(`${NET_PFX}/rooms/${lobby.cid}`, '', {retain:true});   // hide room while pairing
+  wpsTo('rooms', {t:'gone', from:lobby.cid});          // hide room while pairing
   lobbyStatus('challenger knocking — opening the tunnel…');
   try{
     const pc = lobby.pc = newPC();
@@ -676,14 +679,13 @@ async function hostAccept(jid){
     await pc.setLocalDescription(await pc.createOffer());
     await iceDone(pc);
     if(!lobby || lobby.pend !== jid) return;
-    lobby.cli.publish(`${NET_PFX}/sig/${lobby.cid}/${jid}`, JSON.stringify({t:'offer', sdp: pc.localDescription}));
+    wpsTo(sigGroup(lobby.cid), {t:'offer', from:lobby.cid, to:jid, sdp: pc.localDescription});
     lobbyStatus('linking…');
     lobby.tmo = setTimeout(() => {
       if(!lobby || lobby.matched) return;
       try{ lobby.pc.close(); }catch(e){}
       lobby.pc = null; lobby.pend = null;
-      const name = lobby.hosting.name;
-      lobby.cli.publish(`${NET_PFX}/rooms/${lobby.cid}`, JSON.stringify({name, ts: Date.now()}), {retain:true});
+      announceRoom();
       lobbyStatus('challenger vanished — room re-opened, still waiting');
     }, 25000);
   }catch(e){ lobbyStatus('webrtc failed: ' + e.message); }
@@ -693,7 +695,8 @@ function joinRoom(id){
   lobby.join = id;
   const r = lobby.rooms.get(id);
   lobbyStatus('knocking on “' + (r ? r.name : 'room') + '”…');
-  lobby.cli.publish(`${NET_PFX}/sig/${id}`, JSON.stringify({t:'knock', jid: lobby.cid}));
+  wpsJoin(sigGroup(id));
+  setTimeout(() => wpsTo(sigGroup(id), {t:'knock', from:lobby.cid, to:id}), 250);  // let joinGroup land first
   lobby.tmo = setTimeout(() => joinReset('no answer — host may be gone. pick another room'), 20000);
 }
 function joinReset(msg){
@@ -712,15 +715,14 @@ async function joinOffer(roomId, sdp){
     await pc.setLocalDescription(await pc.createAnswer());
     await iceDone(pc);
     if(!lobby || lobby.join !== roomId) return;
-    lobby.cli.publish(`${NET_PFX}/sig/${roomId}`, JSON.stringify({t:'answer', jid: lobby.cid, sdp: pc.localDescription}));
+    wpsTo(sigGroup(roomId), {t:'answer', from:lobby.cid, to:roomId, sdp: pc.localDescription});
     lobbyStatus('linking…');
     lobby.tmo = setTimeout(() => joinReset('link failed — strict network? pick another room'), 20000);
   }catch(e){ joinReset('webrtc failed: ' + e.message); }
 }
 addEventListener('beforeunload', () => {
-  if(lobby && lobby.hosting && !lobby.matched){
-    try{ lobby.cli.publish(`${NET_PFX}/rooms/${lobby.cid}`, '', {retain:true}); }catch(e){}
-  }
+  if(lobby && lobby.hosting && !lobby.matched)
+    try{ lobby.ws.send(JSON.stringify({type:'sendToGroup', group:'rooms', dataType:'json', data:{t:'gone', from:lobby.cid}})); }catch(e){}
 });
 
 /* ============ fx ============ */
