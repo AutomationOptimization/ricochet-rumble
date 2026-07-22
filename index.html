@@ -74,6 +74,32 @@
   .acctchip b{font-style:normal;font-weight:900;font-family:var(--disp);white-space:nowrap}
   .acctchip span{color:var(--dim)}
 
+  /* Outbreak story presentation */
+  .hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;width:100%;max-height:62vh;overflow-y:auto;padding:2px}
+  .hero-card{cursor:pointer;position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(13,18,31,.97),rgba(5,7,13,.97));
+    border:1px solid var(--line);border-left:4px solid var(--hero);color:var(--ink);padding:14px;text-align:left;transition:.15s transform,.15s border-color}
+  .hero-card:hover,.hero-card.selected{transform:translateY(-2px);border-color:var(--hero)}
+  .hero-head{display:flex;align-items:center;gap:12px}.hero-portrait{width:52px;height:52px;display:grid;place-items:center;flex:none;
+    border:1px solid var(--hero);background:radial-gradient(circle at 35% 25%,color-mix(in srgb,var(--hero) 65%,#fff),#080b13 67%);
+    color:#fff;font:900 italic 22px var(--disp);box-shadow:0 0 18px color-mix(in srgb,var(--hero) 35%,transparent)}
+  .hero-card h4{font:900 italic 18px var(--disp);text-transform:uppercase}.hero-class{color:var(--hero);font:700 9px var(--mono);letter-spacing:.16em;margin-top:2px}
+  .hero-bio{color:var(--dim);font:500 10px/1.55 var(--mono);margin-top:10px}.hero-perk{color:#eef2ff;font:700 10px/1.45 var(--mono);margin-top:8px}
+  .storycut{position:absolute;inset:0;z-index:20;pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;
+    padding:clamp(28px,7vh,72px) clamp(14px,6vw,80px);background:linear-gradient(180deg,rgba(0,0,0,.82) 0 12%,rgba(5,7,12,.2) 30% 66%,rgba(0,0,0,.93) 86%)}
+  .storycut:before,.storycut:after{content:"";position:absolute;left:0;right:0;height:8vh;background:#020307;z-index:-1}.storycut:before{top:0}.storycut:after{bottom:0}
+  .storyframe{width:min(100%,980px);display:grid;grid-template-columns:150px 1fr;gap:0;filter:drop-shadow(0 16px 50px #000)}
+  .storyportrait{min-height:176px;display:flex;align-items:center;justify-content:center;border:1px solid var(--speaker);border-right:0;
+    background:radial-gradient(circle at 45% 30%,color-mix(in srgb,var(--speaker) 50%,#dfe6f2),#0a0d15 68%);color:#fff;
+    font:900 italic clamp(36px,7vw,70px) var(--disp);text-shadow:0 0 28px var(--speaker);position:relative;overflow:hidden}
+  .storyportrait:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(0,0,0,.2) 4px 6px)}
+  .storydialogue{min-height:176px;background:rgba(5,8,15,.96);border:1px solid #343e58;padding:22px 24px 18px;display:flex;flex-direction:column}
+  .storyname{color:var(--speaker);font:900 12px var(--mono);letter-spacing:.24em;text-transform:uppercase;margin-bottom:12px}
+  .storytext{font:800 italic clamp(17px,2.4vw,25px)/1.45 var(--disp);letter-spacing:.01em;flex:1}.storymeta{color:#737d94;font:600 9px var(--mono);letter-spacing:.12em;margin-bottom:8px}
+  .storycontrols{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;color:#737d94;font:600 9px var(--mono);letter-spacing:.1em}
+  .storycontrols button{pointer-events:auto;cursor:pointer;background:#111827;border:1px solid #343e58;color:#eef2ff;padding:7px 12px;font:800 10px var(--mono)}
+  .storycontrols button:hover{border-color:var(--speaker)}
+  @media(max-width:620px){.storyframe{grid-template-columns:76px 1fr}.storyportrait{min-height:190px}.storydialogue{min-height:190px;padding:17px}.hero-grid{grid-template-columns:1fr}}
+
   /* loadout */
   .panel{width:min(96vw,880px);pointer-events:auto;display:flex;flex-direction:column;gap:14px}
   .prow{display:flex;gap:14px;flex-wrap:wrap}
@@ -148,7 +174,7 @@
   .roomrow:hover{border-color:var(--p2);transform:translateY(-1px)}
   .roomrow .rjoin{color:var(--p2);font-weight:700;white-space:nowrap}
 
-  @media (prefers-reduced-motion:reduce){#shake.shaking,.abox{animation:none}}
+  @media (prefers-reduced-motion:reduce){#shake.shaking,.abox{animation:none}.hero-card{transition:none}}
 </style>
 
 <div id="stage">
@@ -255,6 +281,7 @@ function migrateSave(){
   if(!save.handle) save.handle = 'Player' + irand(1000,9999);
   if(typeof save.rating !== 'number') save.rating = 1000;
   if(typeof save.floor !== 'number') save.floor = 1;        // Heaven's Arena floor
+  if(!save.outbreakHero || !OUTBREAK_HEROES[save.outbreakHero]) save.outbreakHero = 'mara';
   save.level = levelFromExp(save.exp);                      // level is always derived from exp
   idcSync();                                                // sync the id counter to THIS inventory before minting seeds
   // seed a starter trinket + gadget for saves made before broad equipment existed
@@ -267,7 +294,7 @@ function migrateSave(){
 function loadSave(){
   try{ const s = JSON.parse(localStorage.getItem('rr_save_v2')); if(s && s.inv){ save = s; migrateSave(); idcSync(); return; } }catch(e){}
   save = { inv:[], equip:{weapon:null, armor:null, trinket:null, gadget:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0,
-    pid:'p'+Math.random().toString(36).slice(2,11), handle:'Player'+irand(1000,9999), rating:1000, floor:1 };
+    pid:'p'+Math.random().toString(36).slice(2,11), handle:'Player'+irand(1000,9999), rating:1000, floor:1, outbreakHero:'mara' };
   const w = rollItem('weapon', 0, 'pistol'), a = rollItem('armor', 0, 'vest');
   const t = rollItem('trinket', 0, 'focus'), g = rollItem('gadget', 0, 'dash');
   save.inv.push(w, a, t, g);
@@ -492,6 +519,51 @@ let extraWalls = [];                   // player-placed barricades that persist 
 let pois = [];                         // hold-point beacons
 const CHUNK = 1200, HUB = { x: 12000, y: 12000, r: 240 };
 const HUBC = { x: Math.floor(HUB.x/CHUNK), y: Math.floor(HUB.y/CHUNK) };
+const OUTBREAK_HEROES = {
+  mara:{name:'Mara Voss',short:'MV',role:'RPD DETECTIVE',color:'#6ab6d6',perk:'Blue Line · +25% reserve ammo and AP sidearm rounds',
+    bio:'Internal Affairs called her obsessive. The dead call her difficult to kill. Mara stayed behind to find the officers erased from RPD dispatch.',reserve:1.25,pierce:1,
+    lines:{crash:'Danner knew this convoy was bait. I need to know who signed the order.',truth:'I spent three years chasing a dirty badge. The whole city was the crime scene.',tyrant:'That thing has an Umbra serial number. Put it down.'}},
+  ward:{name:'Dr. Elias Ward',short:'EW',role:'VIROLOGIST',color:'#7cff9b',perk:'Field Immunology · 35% less infection; herbs purge extra infection',
+    bio:'A former Umbra researcher who leaked the first T-virus memo. He came back for the patients—and for proof that his warning was buried.',infectResist:.65,healBonus:8,
+    lines:{crash:'The lesions are too uniform. This was seeded, not spread.',truth:'Project Crown used my work. I can still make sure it ends here.',tyrant:'T-103 responds to trauma with accelerated mutation. Do not let it recover.'}},
+  ben:{name:'Ben Ortiz',short:'BO',role:'UTILITY ENGINEER',color:'#ffcf3f',perk:'City Bones · objectives search 30% faster; starts with 2 barricade parts',
+    bio:'Ben knows every service tunnel, breaker room, and forgotten maintenance hatch beneath Raccoon. His sister was on the last failed evacuation bus.',searchSpeed:1.3,parts:2,
+    lines:{crash:'These routes were changed after midnight. Somebody wanted the convoy here.',truth:'B-12 was drawing power off my grid for years. No more secrets under my city.',tyrant:'Big target. Bad wiring. I can work with that.'}},
+  lena:{name:'Lena Cross',short:'LC',role:'INVESTIGATIVE REPORTER',color:'#b56bff',perk:'Paper Trail · searches containers 40% faster; recovered files grant supplies',
+    bio:'Lena followed shell companies from Arklay to City Hall. Her editor killed the story; the outbreak gave her one last deadline.',cacheSpeed:1.4,fileSupplies:true,
+    lines:{crash:'Convoy 9B disappeared from the official evacuation map yesterday.',truth:'Names, dates, signatures. If we fly out, Umbra burns in daylight.',tyrant:'Smile for the front page, monster.'}},
+  riley:{name:'Riley Knox',short:'RK',role:'S.T.A.R.S. SCOUT',color:'#ff7a3c',perk:'Ghost Step · +12% movement and 40% quieter gunfire',
+    bio:'The youngest S.T.A.R.S. candidate never received a badge. Riley knows the rooftops, the dead zones, and what hunted Bravo Team in Arklay.',speed:1.12,noise:.6,
+    lines:{crash:'Same claw marks as Arklay. They followed us into the city.',truth:'This is what Bravo Team died finding. We finish their mission.',tyrant:'I have seen your kind before. You still bleed.'}},
+  marcus:{name:'Marcus Vale',short:'MVL',role:'UMBRELLA SECURITY DEFECTOR',color:'#ff2d55',perk:'Black Operations · 30% faster reloads; +20 maximum condition',
+    bio:'Umbra paid Marcus to contain evidence. He deserted when “evidence” came to mean civilians. The voice behind Project Crown knows his real name.',reload:.7,maxHp:20,
+    lines:{crash:'This is a cleanup formation. I used to lead them.',truth:'Adrian Vale is my brother. Crown was always his monument.',tyrant:'Crown-actual, this is Vale. Your asset is terminated.'}},
+};
+// Raccoon Outbreak is an authored survival-horror campaign laid over the generated city.
+// Main objectives form a deliberate route; optional landmarks reward players willing to spend ammunition and time.
+const OUTBREAK_SITE_DEFS = [
+  { k:'crash',      name:'WRECKED CONVOY',     short:'CONVOY',     ic:'!', x:HUB.x+760,  y:HUB.y-520,  r:44, main:0 },
+  { k:'clinic',     name:"ST. MARY'S CLINIC", short:'CLINIC',     ic:'+', x:HUB.x-1680, y:HUB.y-1040, r:44, main:1, safe:true },
+  { k:'armory',     name:'RPD ARMORY',         short:'ARMORY',     ic:'A', x:HUB.x+1540, y:HUB.y-1120, r:42, optional:true },
+  { k:'sewer',      name:'SEWER CONTROL',      short:'SEWER',      ic:'≋', x:HUB.x-1200, y:HUB.y+1080, r:44, main:2 },
+  { k:'substation', name:'POWER SUBSTATION',   short:'SUBSTATION', ic:'⚡', x:HUB.x+1720, y:HUB.y+1040, r:44, main:3 },
+  { k:'radio',      name:'EVAC RADIO TOWER',   short:'RADIO',      ic:'⌁', x:HUB.x-1500, y:HUB.y+2320, r:44, main:4 },
+  { k:'depot',      name:'SERVICE DEPOT',      short:'FUEL DEPOT', ic:'F', x:HUB.x+950,  y:HUB.y+2450, r:44, main:5 },
+  { k:'bunker',     name:'UMBRA LAB B-12',     short:'LAB B-12',   ic:'U', x:HUB.x-2300, y:HUB.y+260,  r:46, optional:true, secret:true },
+];
+let missionSites = [];
+let missionWalls = [];
+let searchables = [], searchableIds = new Set();
+const OUTBREAK_FILES = [
+  'Evac Order 9B · Deputy Mayor Irons rerouted Convoy 9B through a red quarantine block at 00:17.',
+  'Bell Patient Log · St. Mary’s staff suppressed early infection with an unapproved antiviral protocol.',
+  'RPD Evidence Memo · Mara Voss sealed AP ammunition beside files linking Chief’s Office payments to Umbra.',
+  'Sato Utility Map · A ceramic grid fuse and an unlisted feeder line both terminate beneath Ward B-12.',
+  'Velez Radio Transcript · Civilian pilot Naomi Velez is holding south of the river with fuel below reserve.',
+  'Crown Manifest · T-103 “regulator” transferred through municipal tunnels under authorization A. Vale.',
+  'Danner’s Last Dispatch · Seven cipher fragments resolve to LAB B-12. “The Tyrant is not containment. It is retrieval.”',
+];
+let storySceneState=null, storyTimer=null;
 let feed = [];            // kill feed [{txt, t}]
 let teamScore = [0,0];
 let me = 0;               // local player index
@@ -560,13 +632,15 @@ function makePlayer(i, opts){
   const team = gmode === 'teams' ? (i < MAXP/2 ? 0 : 1) : -1;
   const color = gmode === 'teams' ? TEAM_COLORS[team] : FFA_COLORS[i];
   const p = {
-    i, team, color, name: opts.name || ('P'+(i+1)),
+    i, team, color, name: opts.name || ('P'+(i+1)), hero:opts.hero||null,
     x:0, y:0, vx:0, vy:0, r:15, aim: rand(0,TAU),
     alive:false, respT: 0.15 + i*0.05, kills:0, deaths:0,
     level: opts.level || 1, matchExp: 0,
     shield:0, cd:0, ammo:3, regen:0, burst:0, burstT:0,
+    hp:100, maxHp:100, infection:0, hurtCd:0, reserve:0, reloadT:0,
+    herbs:0, sprays:0, parts:0, downed:false, bleedout:0, reviveProg:0, revives:0,
     gcd:0, abLatch:false, ocT:0, phaseT:0,   // gadget: cooldown, edge-latch, overclock/cloak timers
-    inX:0, inY:0, wantShoot:false, wantAbility:false, local: !!opts.local,
+    inX:0, inY:0, wantShoot:false, wantAbility:false, wantInteract:false, wantReload:false, wantHeal:false, local: !!opts.local,
     bot: opts.bot ? { retarget:0, tx:0, ty:0, dodge:0, dx:0, dy:0, wob:rand(0,9), skill: opts.skill||1, gwait:rand(1,4) } : null,
     ld: opts.ld || resolveLoadout(randBotAlloc(), null, null)
   };
@@ -602,8 +676,119 @@ function showAnnounce(html, ms){
 function pushFeed(txt){ feed.push({ txt, t: 0 }); if(feed.length > 6) feed.shift();
   if(mode === 'host') netBroadcast({t:'feed', x:txt}); }
 
+/* ================= Outbreak cinematic story ================= */
+const OUTBREAK_CAST = {
+  narrator:{name:'RACCOON CITY · SEPTEMBER 29',short:'RC',color:'#8b93a8'},
+  danner:{name:'OFFICER ELI DANNER',short:'ED',color:'#6ab6d6'},
+  aya:{name:'DR. AYA BELL',short:'AB',color:'#7cff9b'},
+  kenji:{name:'KENJI SATO',short:'KS',color:'#ffcf3f'},
+  naomi:{name:'NAOMI VELEZ · EVAC PILOT',short:'NV',color:'#00e5ff'},
+  june:{name:'JUNE HALE · MOTOR POOL',short:'JH',color:'#ff9f1c'},
+  mercer:{name:'SGT. IMANI MERCER',short:'IM',color:'#6ab6d6'},
+  vale:{name:'DR. ADRIAN VALE · RECORDING',short:'AV',color:'#ff2d55'},
+  tyrant:{name:'PROJECT CROWN · T-103',short:'T',color:'#ff2d55'},
+};
+const OUTBREAK_SCENES = {
+  prologue:{chapter:'PROLOGUE · THE LAST LIGHTS',lines:[
+    {speaker:'narrator',text:'At 02:13, Raccoon City stopped answering the outside world. The army sealed the highways. The evacuation convoys turned back—or vanished.'},
+    {speaker:'narrator',text:'One civilian helicopter still circles south of the river. One fortified hub still broadcasts on an emergency band. Everything between them is hungry.'},
+    {speaker:'$hero',text:'We find the missing convoy, get St. Mary’s open, and bring out everyone who can walk. Nobody becomes a number tonight.'},
+  ]},
+  crash:{chapter:'ACT I · CONVOY 9B',lines:[
+    {speaker:'danner',text:'You came back... Listen. They changed our route after we rolled. Sent us through quarantine with the doors chained from outside.'},
+    {speaker:'$hero',heroLine:'crash'},
+    {speaker:'danner',text:'Take the cutters. Bell is alive at St. Mary’s. She found a way to slow the bites. And detective—do not trust the evacuation orders.'},
+  ]},
+  clinic:{chapter:'ACT II · MERCY WARD',lines:[
+    {speaker:'aya',text:'The infected are not dead—not at first. There is a window where the antiviral can suppress conversion. Umbra knew. They told us to burn the charts.'},
+    {speaker:'$hero',text:'Then the charts leave with us. What does the city need?'},
+    {speaker:'aya',text:'Power. Kenji Sato hid the substation fuse in sewer control when armed men came for it. Take my municipal keycard—and keep the clinic lit. This is our safe room now.'},
+  ]},
+  sewer:{chapter:'ACT III · BENEATH THE CITY',lines:[
+    {speaker:'kenji',text:'I found an extra feeder on the grid. No address, no permit, enough draw for a hospital. It runs to something called Ward B-12.'},
+    {speaker:'$hero',text:'Umbra built a laboratory under municipal tunnels and City Hall signed the power bill.'},
+    {speaker:'kenji',text:'Take the ceramic fuse. The substation will wake the radio tower—and B-12’s security. Decide which truth you can afford.'},
+  ]},
+  power:{chapter:'ACT IV · THE GRID BREATHES',lines:[
+    {speaker:'naomi',text:'Ground team, this is Velez in civilian bird Seven-Echo. Your lights just painted half the city. I thought I was the last voice left.'},
+    {speaker:'$hero',text:'Not the last. Hold south of the river. We are opening the radio tower and building you a manifest.'},
+    {speaker:'naomi',text:'Copy. Fuel is critical. Service depot keeps aviation drums behind the motor pool. Give me a signal and a place to land.'},
+  ]},
+  radio:{chapter:'ACT V · A VOICE IN THE DARK',lines:[
+    {speaker:'mercer',text:'Tower is hot. I have survivors answering from six blocks—and something very large following our signal from the north.'},
+    {speaker:'naomi',text:'I can land at your hub once. Fuel the bird, clear the pad, and have eight souls ready. When I commit, there is no second pass.'},
+    {speaker:'$hero',text:'Then we make the first pass count. Every light still moving gets a chance.'},
+  ]},
+  depot:{chapter:'ACT VI · LAST RIDE',lines:[
+    {speaker:'june',text:'These drums get your pilot home. Umbra trucks used the other pump—unmarked, every Thursday, straight into a tunnel west of the hub.'},
+    {speaker:'$hero',text:'Lab B-12. The files are turning into a map.'},
+    {speaker:'june',text:'A map to hell, maybe. Get your people out first. Truth is not worth much if nobody survives to tell it.'},
+  ]},
+  bunker:{chapter:'SECRET CASE · PROJECT CROWN',lines:[
+    {speaker:'vale',text:'Project Crown field trial: municipal infection curve within tolerance. Retrieval asset T-103 will erase witnesses carrying the seven-part archive.'},
+    {speaker:'$hero',heroLine:'truth'},
+    {speaker:'vale',text:'If you are hearing this, you mistake exposure for victory. Raccoon City is not our failure. It is our proof of concept.'},
+    {speaker:'narrator',text:'The squad copies the Crown ledger: payments, patient lists, command signatures, and the order that sacrificed Convoy 9B. The truth now has names.'},
+  ]},
+  finalprep:{chapter:'FINAL CASE · NO SECOND PASS',lines:[
+    {speaker:'naomi',text:'Seven-Echo is inbound. Forty-two seconds to touchdown. Thermal shows a mass crossing the north barricade—too large to be human.'},
+    {speaker:'$hero',text:'Barricade the hub. Specialists inside, shooters on the gate. This city takes no one else.'},
+  ]},
+  tyrant:{chapter:'FINAL CASE · THE RETRIEVAL ASSET',lines:[
+    {speaker:'tyrant',text:'C R O W N   P R O T O C O L  //  R E C O V E R   A R C H I V E  //  E L I M I N A T E   W I T N E S S E S'},
+    {speaker:'$hero',heroLine:'tyrant'},
+    {speaker:'naomi',text:'Landing zone in sight. Hold it together down there. I am coming through the smoke.'},
+  ]},
+  ending:{chapter:'EPILOGUE · THE ONES WHO MADE IT',lines:[
+    {speaker:'naomi',text:'Skids up. Raccoon is behind us. I count survivors, medical staff, and one squad too stubborn to die.'},
+    {speaker:'narrator',text:'At dawn, officials call the outbreak an industrial accident. Without the complete Crown archive, every denial sounds almost plausible.'},
+    {speaker:'$hero',text:'We saved who we could. Tomorrow we go back for the names they tried to bury.'},
+  ]},
+  endingTruth:{chapter:'TRUE EPILOGUE · DAYLIGHT',lines:[
+    {speaker:'naomi',text:'Skids up. Archive secured. I am transmitting copies on every band that still answers.'},
+    {speaker:'narrator',text:'By sunrise, Project Crown is on a hundred desks. The dead of Raccoon City are no longer an accident; they are witnesses.'},
+    {speaker:'$hero',text:'They wanted a city without survivors. Give the world our names.'},
+  ]},
+  loss:{chapter:'BAD END · DEAD AIR',lines:[
+    {speaker:'naomi',text:'Ground team, answer. The pad is gone. I cannot see your lights. I cannot—'},
+    {speaker:'narrator',text:'Seven-Echo circles until the fuel gauge turns red. At 04:41, the last transmission from Raccoon City becomes static.'},
+  ]},
+};
+function sceneHero(){ const p=players[0]||players[me]; return OUTBREAK_HEROES[(p&&p.hero)||save.outbreakHero]||OUTBREAK_HEROES.mara; }
+function sceneSpeaker(k){ return k==='$hero'?sceneHero():(OUTBREAK_CAST[k]||OUTBREAK_CAST.narrator); }
+function sceneText(line){ if(line.heroLine){ const h=sceneHero(); return (h.lines&&h.lines[line.heroLine])||line.text||''; } return line.text||''; }
+function renderStoryLine(key,index,guestOnly=false){
+  const sc=OUTBREAK_SCENES[key]; if(!sc)return; const line=sc.lines[clamp(index,0,sc.lines.length-1)],who=sceneSpeaker(line.speaker),last=index>=sc.lines.length-1;
+  $('#arena').innerHTML=`<div class="storycut" style="--speaker:${who.color}"><div class="storyframe">
+    <div class="storyportrait">${esc(who.short)}</div><div class="storydialogue"><div class="storymeta">${esc(sc.chapter)} · ${index+1}/${sc.lines.length}</div>
+    <div class="storyname">${esc(who.name)}</div><div class="storytext">${esc(sceneText(line))}</div>
+    <div class="storycontrols"><span>${guestOnly?'HOST CONTROLS CINEMATIC':'ENTER / CLICK TO CONTINUE · ESC TO SKIP'}</span>${guestOnly?'':`<span><button id="storySkip">SKIP</button> <button id="storyNext">${last?'CONTINUE':'NEXT'} ▶</button></span>`}</div></div></div></div>`;
+  if(!guestOnly){ $('#storyNext').onclick=advanceStoryScene; $('#storySkip').onclick=()=>finishStoryScene(true); }
+}
+function playStoryScene(key,onDone){
+  const sc=OUTBREAK_SCENES[key]; if(!sc){if(onDone)onDone();return;}
+  clearTimeout(storyTimer); storySceneState={key,index:0,onDone,resume:roundLive}; roundLive=false;
+  if(campaign)campaign.cinematic=true; renderStoryLine(key,0,false); if(mode==='host')netBroadcast({t:'zscene',key,i:0});
+  storyTimer=setTimeout(advanceStoryScene,5200);
+}
+function advanceStoryScene(){
+  if(!storySceneState||mode==='guest')return; clearTimeout(storyTimer); const sc=OUTBREAK_SCENES[storySceneState.key]; storySceneState.index++;
+  if(storySceneState.index>=sc.lines.length){finishStoryScene(false);return;}
+  renderStoryLine(storySceneState.key,storySceneState.index,false); if(mode==='host')netBroadcast({t:'zscene',key:storySceneState.key,i:storySceneState.index});
+  storyTimer=setTimeout(advanceStoryScene,5200);
+}
+function finishStoryScene(skipped){
+  if(!storySceneState)return; clearTimeout(storyTimer); const s=storySceneState; storySceneState=null; $('#arena').innerHTML='';
+  if(campaign)campaign.cinematic=false; if(mode==='host')netBroadcast({t:'zscene',end:1}); roundLive=s.resume&&state==='play';
+  if(s.onDone)s.onDone(skipped);
+}
+function syncGuestStory(m){
+  clearTimeout(storyTimer); if(m.end){storySceneState=null;if(campaign)campaign.cinematic=false;$('#arena').innerHTML='';return;}
+  storySceneState={key:m.key,index:m.i||0,resume:false};if(campaign)campaign.cinematic=true;renderStoryLine(m.key,m.i||0,true);
+}
+
 /* ================= zombie survival ================= */
-// six enemy archetypes: index order matters — it's what the co-op snapshot transmits
+// Enemy archetype index order matters — it is what the co-op snapshot transmits.
 // `hunter` = leans toward chasing players over citizens
 const ZTYPES = [
   { k:'walker',   r:13, hp:1,  spd:[58,84],   c:'#5a8f3c', eye:'#89c559' },
@@ -612,6 +797,8 @@ const ZTYPES = [
   { k:'spitter',  r:13, hp:2,  spd:[50,68],   c:'#8f5ac0', eye:'#c79bff', ranged:true },
   { k:'bloater',  r:19, hp:3,  spd:[38,52],   c:'#7a8f3c', eye:'#d0e05a', explodes:true },
   { k:'behemoth', r:36, hp:24, spd:[72,72],   c:'#b56bff', eye:'#ff9f1c', boss:true, summons:true, hunter:true },
+  { k:'crawler',  r:8,  hp:1,  spd:[105,135], c:'#8f483c', eye:'#ffcf3f', hunter:true, leaps:true },
+  { k:'screamer', r:17, hp:4,  spd:[45,58],   c:'#76506f', eye:'#ff5c8a', screams:true, hunter:true },
 ];
 const ZI = {}; ZTYPES.forEach((t,i)=> ZI[t.k]=i);
 
@@ -653,20 +840,39 @@ function genChunkWalls(cx, cy){
     if(side===3){ const dg=bx+dpos*bw-45; out.push({x:bx,y:by+bh-t,w:dg-bx,h:t}, {x:dg+90,y:by+bh-t,w:bx+bw-(dg+90),h:t}); }
     else out.push({x:bx,y:by+bh-t,w:bw,h:t});
   }
-  return out.filter(w=>w.w>1 && w.h>1);
+  // Keep a readable plaza around authored mission landmarks so a random wall can never bury an objective.
+  return out.filter(w=>w.w>1 && w.h>1 && OUTBREAK_SITE_DEFS.every(s=>{
+    const nx=clamp(s.x,w.x,w.x+w.w), ny=clamp(s.y,w.y,w.y+w.h);
+    return Math.hypot(s.x-nx,s.y-ny) > s.r+145;
+  }));
 }
-// host-only: spawn survivors + the occasional beacon into a chunk exactly once
+function resetMissionSites(){
+  missionSites = OUTBREAK_SITE_DEFS.map(s=>({...s, captured:false, prog:0, contested:false}));
+  missionWalls=[];
+  for(const s of missionSites){ const w=226,h=170,t=18;
+    missionWalls.push({x:s.x-w/2,y:s.y-h/2,w,h:t,landmark:s.k},
+      {x:s.x-w/2,y:s.y-h/2,w:t,h,landmark:s.k}, {x:s.x+w/2-t,y:s.y-h/2,w:t,h,landmark:s.k}); }
+}
+// Deterministic searchable containers exist on every client; only the host awards their contents.
 function populateChunk(cx, cy){
   const key=chunkKey(cx,cy);
   if(populated.has(key)) return; populated.add(key);
+  const crng=chunkRng(0x3333,cx,cy), ox=cx*CHUNK, oy=cy*CHUNK, ncache=1+Math.floor(crng()*2);
+  for(let i=0;i<ncache;i++){ const id=key+':'+i; if(searchableIds.has(id)) continue;
+    let x=ox+100+crng()*(CHUNK-200), y=oy+100+crng()*(CHUNK-200);
+    const nearSite=OUTBREAK_SITE_DEFS.find(s=>Math.hypot(x-s.x,y-s.y)<180); if(nearSite){ x+=190; y+=120; }
+    const roll=crng(), type=roll<0.40?'ammo':roll<0.67?'medical':roll<0.84?'tools':'file';
+    const cache={id,x,y,r:13,type,searched:false,prog:0,wob:crng()*TAU};
+    for(const wl of (chunkWalls.get(key)||[])){const q=circleRectPush(cache.x,cache.y,cache.r+8,wl);if(q){cache.x+=q.x;cache.y+=q.y;}}
+    searchableIds.add(id); searchables.push(cache); }
   if(mode==='guest') return;
   if(Math.abs(cx-HUBC.x)<=0 && Math.abs(cy-HUBC.y)<=0) return;         // keep the hub tile clear
   if(Math.abs(cx-HUBC.x)<=1 && Math.abs(cy-HUBC.y)<=1){ return; }       // breathing room around the hub
-  const rng=chunkRng(0x2222, cx, cy), ox=cx*CHUNK, oy=cy*CHUNK;
-  const nc=1+Math.floor(rng()*3);                                      // 1–3 survivors per chunk
+  const rng=chunkRng(0x2222, cx, cy);
+  const nc=1+Math.floor(rng()*2);                                      // 1–2 survivors per chunk; every life matters
   for(let i=0;i<nc;i++){ const c=spawnCitizen(); c.x=ox+120+rng()*(CHUNK-240); c.y=oy+120+rng()*(CHUNK-240);
     for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } } citizens.push(c); }
-  if(rng()<0.14) pois.push({ x:ox+CHUNK/2, y:oy+CHUNK/2, r:30, captured:false, prog:0 });
+  if(rng()<0.10) pois.push({ x:ox+CHUNK/2, y:oy+CHUNK/2, r:30, captured:false, prog:0 });
 }
 // load/unload chunk cover in a window around the given world points; rebuild the active walls list
 function ensureChunks(points){
@@ -677,18 +883,34 @@ function ensureChunks(points){
   for(const key of want){ if(!chunkWalls.has(key)){ const [cx,cy]=key.split(',').map(Number);
     chunkWalls.set(key, genChunkWalls(cx,cy)); populateChunk(cx,cy); changed=true; } }
   for(const key of [...chunkWalls.keys()]){ if(!want.has(key)){ chunkWalls.delete(key); changed=true; } }  // unload far cover
-  if(changed){ walls = extraWalls.slice(); for(const ws of chunkWalls.values()) walls.push(...ws); }
+  if(changed){ walls = extraWalls.concat(missionWalls); for(const ws of chunkWalls.values()) walls.push(...ws); }
 }
+const CITIZEN_ROLES = {
+  civilian:{name:'Civilian',ic:'●',c:'#7cff9b',bark:'I know a family still waiting near the old shops.'},
+  medic:{name:'Medic',ic:'+',c:'#aef7c4',bark:'Stay close. I can keep the fever down until we reach the hub.'},
+  cop:{name:'Officer',ic:'★',c:'#6ab6d6',bark:'I have one magazine and a duty to every person still breathing.'},
+  engineer:{name:'Engineer',ic:'◆',c:'#ffcf3f',bark:'Get me to the hub and I can make scrap hold a gate.'}
+};
+const SURVIVOR_NAMES={
+  civilian:['Nora Price','Caleb Moss','Tessa Wu','Owen Pike','Mina Flores','Harold Finch','Samira Cole','Evan Brooks','Luz Moreno','Theo Grant'],
+  medic:['Nurse Mina Park','Dr. Dev Shah','EMT Rosa King','Nurse Paul Nwosu'],
+  cop:['Officer Eli Ford','Sgt. Imani Mercer','Officer Dana Cho','Deputy Luis Webb'],
+  engineer:['Kenji Sato','June Hale','Avery Quinn','Mika Torres'],
+};
+let survivorSerial=0;
 function spawnCitizen(){
+  const roll=Math.random(), role=roll<0.10?'medic':roll<0.19?'cop':roll<0.27?'engineer':'civilian';
+  const names=SURVIVOR_NAMES[role];
   const c = { x: rand(WORLD.w*0.2, WORLD.w*0.8), y: rand(WORLD.h*0.2, WORLD.h*0.8),
-    vx:0, vy:0, r:11, alive:true, converting:0, wob:rand(0,TAU) };
+    vx:0, vy:0, r:11, alive:true, converting:0, wob:rand(0,TAU), role, roleCd:rand(1,4),name:names[survivorSerial++%names.length] };
   for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
   return c;
 }
 function makeZombie(x, y, level, ti, waveHpBonus){
   const T = ZTYPES[ti]||ZTYPES[0], hp = T.hp + (waveHpBonus||0);
   return { x, y, vx:0, vy:0, r:T.r, alive:true, ti, boss:!!T.boss, tough:!!T.tough,
-    hp, maxhp:hp, level, speed:rand(T.spd[0], T.spd[1]), wob:rand(0,TAU), spitCd:rand(0.6,1.6), sumCd:2.4 };
+    hp, maxhp:hp, level, speed:rand(T.spd[0], T.spd[1]), wob:rand(0,TAU), spitCd:rand(0.6,1.6),
+    sumCd:2.4, attackCd:rand(0,0.5), leapCd:rand(1.2,2.8), screamCd:rand(4,7) };
 }
 function spawnZombie(level, ti, waveHpBonus){
   const e = irand(0,3); let x,y;
@@ -704,6 +926,8 @@ function waveTypes(w){
   if(w>=3) add('spitter', w*0.7);
   if(w>=4) add('brute', (w-2)*0.7);
   if(w>=5) add('bloater', (w-3)*0.7);
+  if(w>=2) add('crawler', w*0.65);
+  if(w>=4) add('screamer', (w-3)*0.35);
   return t;
 }
 // roguelite between-wave picks. each(p) hits every defender's live loadout; once() fires a single global effect
@@ -736,27 +960,52 @@ function startCampaign(){                 // solo entry — classic arena defens
   players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }) ];
   beginCampaign();
 }
-function startOutbreak(){                 // solo entry — open-world escort
+function renderOutbreakBriefing(){
+  state='briefing'; netCloseAll(true); lobbyCleanup(); const selected=OUTBREAK_HEROES[save.outbreakHero]?save.outbreakHero:'mara';
+  $('#arena').innerHTML=`<div class="menu" style="width:min(96vw,1040px)"><div class="tag">RACCOON OUTBREAK · SELECT YOUR PROTAGONIST</div>
+    <div class="gtitle" style="font-size:clamp(30px,6vw,62px);color:var(--gold)">Who goes back in?</div>
+    <div class="note" style="color:var(--dim)">SIX PLAYABLE SURVIVORS · UNIQUE FIELD PERKS · PERSONAL DIALOGUE · BRANCHING TRUE ENDING</div>
+    <div class="hero-grid">${Object.entries(OUTBREAK_HEROES).map(([k,h])=>`<button class="hero-card ${k===selected?'selected':''}" data-hero="${k}" style="--hero:${h.color}">
+      <div class="hero-head"><div class="hero-portrait">${esc(h.short)}</div><div><h4>${esc(h.name)}</h4><div class="hero-class">${esc(h.role)}</div></div></div>
+      <div class="hero-bio">${esc(h.bio)}</div><div class="hero-perk">◆ ${esc(h.perk)}</div></button>`).join('')}</div>
+    <div class="modes"><button class="mbtn bg" id="briefDeploy"><b>ENTER</b> BEGIN THE STORY<span>selection persists for solo and online Outbreak</span></button><button class="mbtn sm" id="briefBack"><b>ESC</b> BACK</button></div></div>`;
+  let pickKey=selected; const choose=k=>{pickKey=k;save.outbreakHero=k;persist();document.querySelectorAll('.hero-card').forEach(b=>b.classList.toggle('selected',b.dataset.hero===k));};
+  document.querySelectorAll('.hero-card').forEach(b=>b.onclick=()=>choose(b.dataset.hero));
+  $('#briefDeploy').onclick=()=>startOutbreak(pickKey); $('#briefBack').onclick=toMenu;
+}
+function startOutbreak(heroKey){                 // solo entry — open-world escort
+  const hk=OUTBREAK_HEROES[heroKey]?heroKey:(save.outbreakHero||'mara'), h=OUTBREAK_HEROES[hk]; save.outbreakHero=hk;persist();
   mode='solo'; me=0; gmode='zombies'; rankedMode=false; duelMode=false; openWorld=true;
-  players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }) ];
+  players = [ makePlayer(0, { local:true, name:h.name, hero:hk, level:save.level, ld: myLoadout() }) ];
   beginCampaign();
+}
+function applyOutbreakHero(p){
+  const h=OUTBREAK_HEROES[p.hero]||OUTBREAK_HEROES.mara; p.hero=p.hero||'mara'; p.infectResist=h.infectResist||1;p.searchSpeed=h.searchSpeed||1;p.cacheSpeed=h.cacheSpeed||1;
+  p.noiseMod=h.noise||1;p.reloadMod=h.reload||1;p.healBonus=h.healBonus||0;p.fileSupplies=!!h.fileSupplies;
+  if(!p.heroBuildApplied){p.ld.accel*=h.speed||1;p.ld.maxV*=h.speed||1;p.heroBuildApplied=true;}
+  p.maxHp+=h.maxHp||0;p.hp=p.maxHp;p.reserve=Math.ceil(p.ld.maxAmmo*4*(h.reserve||1));p.parts=h.parts||0;p.pierce=h.pierce||0;
 }
 function beginCampaign(){                 // shared solo + co-op; assumes `players` already built
   gmode='zombies'; clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
   bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; zshots=[]; pickups=[]; teamScore=[0,0];
   const list = players.filter(Boolean), np = list.length, open = openWorld;
-  chunkWalls = new Map(); populated = new Set(); pois = []; extraWalls = []; walls = [];
+  chunkWalls = new Map(); populated = new Set(); pois = []; missionSites = []; missionWalls=[]; searchables=[]; searchableIds=new Set(); extraWalls = []; walls = [];
   if(open){
     worldSeed = (mode==='host'||mode==='solo') ? (irand(1,2e9)) : worldSeed;   // host picks; guest keeps the one from zsetup
-    campaign = { open:true, wave:0, lives:2+np, goal:12, rescued:0, escorting:0, np, waveTimer:26, waveClearedT:0,
-      combo:0, comboT:0, best:0, upgrading:false };
+    campaign = { open:true, wave:1, lives:1+np, goal:8, rescued:0, escorting:0, np, waveTimer:55, waveClearedT:0,
+      phase:0, cutters:false, keycard:false, serum:false, fuse:false, power:false, radio:false, fuel:false, armory:false,
+      truth:false, alert:0, alertName:'', noise:0, eventTimer:38, blackout:0, files:0, caches:0, searched:[],rescuedNames:[],
+      siegeStarted:false, siegeTimer:42, finaleStage:0, combo:0, comboT:0, best:0, upgrading:false,cinematic:false,endingPlayed:false };
     WORLD.w = 24000; WORLD.h = 24000;
+    resetMissionSites();
     spawns = []; for(let i=0;i<6;i++){ const a=i/6*TAU; spawns.push({x:HUB.x+Math.cos(a)*90, y:HUB.y+Math.sin(a)*90}); }  // respawn ring INSIDE the hub (not stale arena points)
     ensureChunks([HUB]);                                     // hub + immediate ring
     list.forEach((p,i)=>{ const a=i/Math.max(1,np)*TAU;
       p.x=HUB.x+Math.cos(a)*(np>1?70:0); p.y=HUB.y+70+Math.sin(a)*(np>1?40:0);
       p.vx=p.vy=0; p.alive=true; p.shield=2.6; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.gcd=0; p.ocT=0; p.phaseT=0;
-      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; });
+      p.maxHp=clamp(100+Math.round(((p.ld.spawnShield||0.9)-0.9)*22),100,140); p.hp=p.maxHp; p.infection=0; p.hurtCd=0;
+      p.reserve=p.ld.maxAmmo*4; p.reloadT=0; p.herbs=1; p.sprays=0; p.parts=0; p.downed=false; p.bleedout=0; p.reviveProg=0; p.revives=0;
+      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; p.interactLatch=false; p.healLatch=false; applyOutbreakHero(p); });
     ensureChunks(list.map(p=>({x:p.x,y:p.y})));
   } else {
     campaign = { wave:0, maxWave:8, lives:2+np, citizensStart:14, goal:6, waveClearedT:0, np,
@@ -771,18 +1020,15 @@ function beginCampaign(){                 // shared solo + co-op; assumes `playe
   $('#arena').innerHTML='';
   if(mode==='host') netBroadcast({ t:'zsetup', world:{w:WORLD.w,h:WORLD.h}, open:open?1:0, seed:worldSeed, hub:HUB,
     walls: open?[]:walls.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]),
-    players: players.map(p=>p?{color:p.color,name:p.name}:null),
+    players: players.map(p=>p?{color:p.color,name:p.name,hero:p.hero}:null),
     goal:campaign.goal, citizensStart:campaign.citizensStart||0, maxWave:campaign.maxWave||0, lives:campaign.lives });
   const coop = np>1;
   if(open){
-    showAnnounce(`<div class="eyebrow">OUTBREAK${coop?' · CO-OP':''}</div><div class="gtitle" style="color:#3ddc84">Escort the survivors</div>
-      <div class="gtip">The city is procedurally generated as you push outward. Walk up to <b>survivors</b> — they'll follow you.<br>
-      Lead them back to the <b>hub</b> to extract. Rescue <b>${campaign.goal}</b>. The horde hunts you and them.</div>`, 2800);
-    after(2800, ()=>{ roundLive=true; sfxGo(); });
+    playStoryScene('prologue',()=>{roundLive=true;sfxGo();pushFeed(`${sceneHero().name} · ${sceneHero().perk}`);});
   } else {
     showAnnounce(`<div class="eyebrow">ZOMBIE SURVIVAL${coop?' · CO-OP':''}</div><div class="gtitle">Hold the town</div>
       <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>
-      Six breeds of undead. Pick an <b>upgrade</b> after every wave. Bank ricochets through the horde.</div>`, 2600);
+      Eight breeds of undead. Pick an <b>upgrade</b> after every wave. Bank ricochets through the horde.</div>`, 2600);
     after(2600, ()=>{ roundLive=true; sfxGo(); nextWave(); });
   }
 }
@@ -794,6 +1040,139 @@ function spawnFrontier(level, ti, hpBonus){
   else { const p=pick(live), a=rand(0,TAU), d=rand(620,900); x=p.x+Math.cos(a)*d; y=p.y+Math.sin(a)*d; }
   x=clamp(x,40,WORLD.w-40); y=clamp(y,40,WORLD.h-40);
   zombies.push(makeZombie(x, y, level, ti, hpBonus));
+}
+function missionSite(k){ return missionSites.find(s=>s.k===k); }
+function siteAvailable(s){
+  if(!campaign || !campaign.open || s.captured) return false;
+  if(s.secret) return campaign.files>=OUTBREAK_FILES.length&&!campaign.siegeStarted;
+  if(campaign.phase>=6) return false;
+  if(s.optional) return campaign.keycard;
+  return s.main === campaign.phase;
+}
+function siteLocked(s){ return !s.captured && !siteAvailable(s); }
+function currentMissionTarget(){
+  if(!campaign || !campaign.open) return null;
+  if(campaign.phase<=4) return missionSites.find(s=>s.main===campaign.phase) || null;
+  if(campaign.files>=OUTBREAK_FILES.length&&!campaign.truth&&!campaign.siegeStarted)return missionSite('bunker');
+  if(campaign.phase===5 && !campaign.fuel) return missionSite('depot');
+  if(campaign.phase===5){
+    const you=players[me]||players.find(p=>p&&p.alive), waiting=citizens.filter(c=>c.alive&&c.converting<=0&&c.following==null);
+    if(you && waiting.length) return waiting.slice().sort((a,b)=>Math.hypot(a.x-you.x,a.y-you.y)-Math.hypot(b.x-you.x,b.y-you.y))[0];
+  }
+  return HUB;
+}
+function missionObjective(){
+  if(!campaign) return {case:'', text:'', sub:''};
+  if(campaign.phase===0) return {case:'ACT I', text:'SEARCH THE WRECKED CONVOY', sub:'recover a tool to breach the clinic'};
+  if(campaign.phase===1) return {case:'ACT II', text:"BREACH ST. MARY'S CLINIC", sub:'find treatment and a municipal keycard'};
+  if(campaign.phase===2) return {case:'ACT III', text:'ENTER SEWER CONTROL', sub:'the grid fuse was moved below the city'};
+  if(campaign.phase===3) return {case:'ACT IV', text:'RESTORE THE SUBSTATION', sub:campaign.armory?'RPD armory secured':'optional: raid the RPD armory'};
+  if(campaign.phase===4) return {case:'ACT V', text:'CALL EVACUATION', sub:'reach the powered radio tower'};
+  if(campaign.phase===5) return {case:'ACT VI', text:`PREPARE EVAC · ${campaign.rescued}/${campaign.goal}`, sub:campaign.files>=OUTBREAK_FILES.length&&!campaign.truth?'secret coordinates decrypted · investigate Lab B-12':campaign.fuel?'aviation fuel secured · extract survivors':'secure aviation fuel and extract survivors'};
+  if(!campaign.siegeStarted) return campaign.finalReady==null
+    ? {case:'FINAL CASE',text:'RETURN TO THE HUB',sub:'evacuation is inbound'}
+    : {case:'FINAL CASE',text:`FORTIFY THE HUB · ${Math.max(0,Math.ceil(campaign.finalReady))}s`,sub:campaign.barricaded?'barricades deployed · prepare for contact':'hold F with 2 parts to deploy barricades'};
+  return {case:'FINAL CASE', text:`HOLD THE HUB · ${Math.max(0,Math.ceil(campaign.siegeTimer))}s`, sub:zombies.some(z=>z.boss)?'eliminate the Tyrant':'keep the landing zone clear'};
+}
+function spawnNearPoint(pt, level, ti, hpBonus, minD=380, maxD=620){
+  const a=rand(0,TAU), d=rand(minD,maxD), x=clamp(pt.x+Math.cos(a)*d,40,WORLD.w-40), y=clamp(pt.y+Math.sin(a)*d,40,WORLD.h-40);
+  zombies.push(makeZombie(x,y,level,ti,hpBonus||0));
+}
+function objectiveHorde(pt, count, name){
+  campaign.alert=Math.max(campaign.alert||0,13); campaign.alertName=name||'ALARM';
+  const roster=waveTypes(Math.max(2,campaign.wave));
+  for(let i=0;i<count;i++) after(i*110,()=>{ if(!campaign||!campaign.open||state!=='play') return;
+    const ti=roster[irand(0,roster.length-1)]; spawnNearPoint(pt,save.level+campaign.wave,ti,ti===ZI.brute?2:0); });
+}
+function spawnSiteSurvivors(s,n,forcedRole,forcedName){
+  for(let i=0;i<n;i++){ const c=spawnCitizen(), a=i/Math.max(1,n)*TAU;
+    c.x=s.x+Math.cos(a)*rand(56,90); c.y=s.y+Math.sin(a)*rand(56,90); if(forcedRole&&i===0)c.role=forcedRole;if(forcedName&&i===0)c.name=forcedName; citizens.push(c); }
+}
+function sitePickup(s,type,dx,life=40){ pickups.push({x:s.x+dx,y:s.y+58,r:9,type,alive:true,life,wob:0}); }
+function completeMissionSite(s){
+  s.captured=true; s.prog=1; s.contested=false; sfxUpgrade(); flashScreen('#ffcf3f');let storyKey=null;
+  if(s.k==='crash'){
+    campaign.cutters=true; campaign.phase=1; spawnSiteSurvivors(s,1,'cop','Officer Eli Danner'); sitePickup(s,'ammo',-18,60); sitePickup(s,'tools',18,60);
+    objectiveHorde(s,5,'CONVOY TRANSPONDER'); pushFeed('KEY ITEM — BOLT CUTTERS');
+    storyKey='crash';
+  } else if(s.k==='clinic'){
+    campaign.keycard=true; campaign.serum=true; campaign.phase=2; spawnSiteSurvivors(s,2,'medic','Dr. Aya Bell');
+    sitePickup(s,'herb',-24,70); sitePickup(s,'spray',0,70); sitePickup(s,'ammo',24,70);
+    objectiveHorde(s,8,'CLINIC ALARM'); pushFeed('KEY ITEMS — CITY KEYCARD · ANTIVIRAL PROTOCOL');
+    storyKey='clinic';
+  } else if(s.k==='armory'){
+    campaign.armory=true; for(const p of players){ if(!p) continue; p.pierce=(p.pierce||0)+1; p.ld.maxAmmo=clamp(p.ld.maxAmmo+2,1,14); p.ammo=p.ld.maxAmmo; }
+    sitePickup(s,'ammo',-28,75); sitePickup(s,'ammo',0,75); sitePickup(s,'spray',28,75); objectiveHorde(s,11,'RPD SECURITY ALARM');
+    pushFeed('RPD ARMORY — AP rounds and magazines secured');
+    showAnnounce('<div class="eyebrow">OPTIONAL CASE COMPLETE</div><div class="gtitle" style="color:#00e5ff">RPD Armory</div><div class="gtip">Squad magazines +2 · shots pierce +1 target · AP rounds damage the Tyrant twice</div>',2200);
+  } else if(s.k==='sewer'){
+    campaign.fuse=true; campaign.phase=3; spawnSiteSurvivors(s,1,'engineer','Kenji Sato'); sitePickup(s,'antidote',-18,65); sitePickup(s,'tools',18,65);
+    objectiveHorde(s,11,'SEWER FLOODGATE'); for(let i=0;i<3;i++)spawnNearPoint(s,save.level+3,ZI.spitter,1,300,480);
+    pushFeed('KEY ITEM — CERAMIC GRID FUSE');
+    storyKey='sewer';
+  } else if(s.k==='substation'){
+    campaign.power=true; campaign.phase=4; spawnSiteSurvivors(s,2,'engineer','Avery Quinn'); sitePickup(s,'spray',-18,65); sitePickup(s,'ammo',18,65);
+    objectiveHorde(s,14,'GRID STARTUP'); pushFeed('CITY POWER RESTORED — radio tower online');
+    storyKey='power';
+  } else if(s.k==='radio'){
+    campaign.radio=true; campaign.phase=5; spawnSiteSurvivors(s,3,'cop','Sgt. Imani Mercer'); sitePickup(s,'ammo',-18,70); sitePickup(s,'herb',18,70);
+    objectiveHorde(s,16,'EVAC SIGNAL'); pushFeed('EVAC CALLED — fuel the helicopter and rescue survivors');
+    storyKey='radio';
+  } else if(s.k==='depot'){
+    campaign.fuel=true;spawnSiteSurvivors(s,1,'engineer','June Hale'); sitePickup(s,'ammo',-25,75); sitePickup(s,'spray',0,75); sitePickup(s,'tools',25,75);
+    objectiveHorde(s,15,'DEPOT FIRE ALARM'); for(let i=0;i<3;i++)spawnNearPoint(s,save.level+5,ZI.bloater,1,300,520);
+    pushFeed('KEY ITEM — AVIATION FUEL');
+    storyKey='depot';
+  } else if(s.k==='bunker'){
+    campaign.truth=true;campaign.armory=true;for(const p of players){if(!p)continue;p.pierce=(p.pierce||0)+1;p.maxHp+=10;p.hp=Math.min(p.maxHp,p.hp+35);p.reserve+=p.ld.maxAmmo*2;}
+    sitePickup(s,'antidote',-28,90);sitePickup(s,'ammo',0,90);sitePickup(s,'spray',28,90);objectiveHorde(s,18,'CROWN PURGE PROTOCOL');
+    for(let i=0;i<3;i++)spawnNearPoint(s,save.level+7,ZI.screamer,2,260,480);pushFeed('PROJECT CROWN LEDGER SECURED — TRUE ENDING UNLOCKED');storyKey='bunker';
+  }
+  if(storyKey)playStoryScene(storyKey);
+}
+function updateMissionSites(dt){
+  for(const s of missionSites){
+    if(!siteAvailable(s)){ s.contested=false; continue; }
+    const operator=players.find(p=>p&&p.alive&&p.wantInteract&&Math.hypot(p.x-s.x,p.y-s.y)<s.r+42),near=!!operator;
+    s.contested=near&&zombies.some(z=>z.alive&&Math.hypot(z.x-s.x,z.y-s.y)<s.r+78);
+    const seconds=s.k==='crash'?2.2:s.k==='clinic'?4.4:s.k==='armory'?5.0:s.k==='sewer'?5.4:s.k==='substation'?6.0:s.k==='radio'?6.4:s.k==='bunker'?8.0:5.6;
+    if(near&&!s.contested){ s.prog=Math.min(1,s.prog+dt*(operator.searchSpeed||1)/seconds); if(s.prog>=1) completeMissionSite(s); }
+    else s.prog=Math.max(0,s.prog-dt*0.14);
+  }
+}
+function cacheLoot(c,searcher){
+  c.searched=true; c.prog=1; campaign.caches=(campaign.caches||0)+1; campaign.searched.push(c.id); searcher.matchExp+=12;
+  const add=(type,dx=0)=>pickups.push({x:c.x+dx,y:c.y,r:9,type,alive:true,life:70,wob:0});
+  if(c.type==='ammo'){ add('ammo'); if(Math.random()<0.28)add('ammo',18); pushFeed('CACHE — ammunition'); }
+  else if(c.type==='medical'){ add(Math.random()<0.24?'spray':'herb'); if(Math.random()<0.18)add('antidote',18); pushFeed('CACHE — medical supplies'); }
+  else if(c.type==='tools'){ add('tools'); if(Math.random()<0.35)add('ammo',18); pushFeed('CACHE — barricade parts'); }
+  else if(campaign.files<OUTBREAK_FILES.length){ const n=campaign.files; campaign.files++; players.filter(Boolean).forEach(p=>p.matchExp+=18);
+    pushFeed(`FILE ${campaign.files}/${OUTBREAK_FILES.length} — ${OUTBREAK_FILES[n]}`); if(searcher.fileSupplies){add('ammo',-18);add('herb',18);} if(campaign.files===OUTBREAK_FILES.length){players.filter(Boolean).forEach(p=>p.matchExp+=80);showAnnounce('<div class="eyebrow">SEVEN-FILE CIPHER DECRYPTED</div><div class="gtitle" style="color:#b56bff">LAB B-12 LOCATED</div><div class="gtip">A secret Umbra laboratory has appeared in the case file.</div>',2300);} if(Math.random()<0.55)add('herb'); }
+  else {add(Math.random()<0.5?'ammo':'herb');pushFeed('ARCHIVE CACHE — emergency supplies');}
+  sfxPickup(); spark(c.x,c.y,c.type==='file'?'#b56bff':'#ffcf3f',18);
+}
+function updateSearchables(dt){
+  for(const c of searchables){ if(c.searched)continue; c.wob+=dt*1.8;
+    const searcher=players.find(p=>p&&p.alive&&p.wantInteract&&Math.hypot(p.x-c.x,p.y-c.y)<58);
+    const contested=searcher&&zombies.some(z=>z.alive&&Math.hypot(z.x-c.x,z.y-c.y)<82);
+    if(searcher&&!contested){ c.prog=Math.min(1,c.prog+dt*(searcher.cacheSpeed||1)/1.35); if(c.prog>=1)cacheLoot(c,searcher); }
+    else c.prog=Math.max(0,c.prog-dt*0.25);
+  }
+}
+function updateSafeRoom(dt){
+  campaign.safeActive=false; const clinic=missionSite('clinic'); if(!clinic||!clinic.captured)return;
+  const threatened=zombies.some(z=>z.alive&&Math.hypot(z.x-clinic.x,z.y-clinic.y)<190);
+  for(const p of players){ if(!p||!p.alive||Math.hypot(p.x-clinic.x,p.y-clinic.y)>125)continue;
+    if(p.i===me)campaign.safeActive=true; if(!threatened){ p.hp=Math.min(p.maxHp,p.hp+dt*5); p.infection=Math.max(0,p.infection-dt*(campaign.serum?2.4:0.7)); } }
+}
+function interactionPrompt(p){
+  if(!p||!p.alive||!campaign||!campaign.open)return '';
+  const down=players.find(q=>q&&q.downed&&Math.hypot(q.x-p.x,q.y-p.y)<70); if(down)return `HOLD F · REVIVE ${down.name.toUpperCase()} · ${Math.ceil(down.bleedout)}s`;
+  const site=missionSites.find(s=>siteAvailable(s)&&Math.hypot(s.x-p.x,s.y-p.y)<110); if(site)return `HOLD F · ${site.contested?'CLEAR THE AREA':'SEARCH '+site.name}`;
+  const cache=searchables.find(c=>!c.searched&&Math.hypot(c.x-p.x,c.y-p.y)<72); if(cache)return 'HOLD F · SEARCH CONTAINER';
+  const survivor=citizens.find(c=>c.alive&&c.following==null&&Math.hypot(c.x-p.x,c.y-p.y)<80); if(survivor)return `HOLD F · RECRUIT ${(survivor.name||'SURVIVOR').toUpperCase()} · ${(CITIZEN_ROLES[survivor.role]||CITIZEN_ROLES.civilian).name.toUpperCase()}`;
+  if(campaign.phase===6&&!campaign.siegeStarted&&p.parts>=2&&Math.hypot(p.x-HUB.x,p.y-HUB.y)<HUB.r)return 'HOLD F · SPEND 2 PARTS TO FORTIFY HUB';
+  return '';
 }
 // hold points: stand on a signal beacon to secure it → survivors + supplies drop in
 function updateBeacons(dt){
@@ -807,24 +1186,72 @@ function captureBeacon(b){
   sfxUpgrade(); pushFeed('SIGNAL SECURED — survivors surfacing, supplies inbound');
   for(let i=0;i<3;i++){ const c=spawnCitizen(); c.x=b.x+rand(-70,70); c.y=b.y+rand(-70,70); citizens.push(c); }
   pickups.push({ x:b.x-16, y:b.y, r:9, type:'ammo',   alive:true, life:26, wob:0 });
-  pickups.push({ x:b.x+16, y:b.y, r:9, type:'shield', alive:true, life:26, wob:0 });
+  pickups.push({ x:b.x+16, y:b.y, r:9, type:campaign.open?'herb':'shield', alive:true, life:26, wob:0 });
   for(let i=0;i<4;i++){ const roster=waveTypes(Math.max(2,campaign.wave)); spawnFrontier(save.level+campaign.wave, roster[irand(0,roster.length-1)], Math.floor(campaign.wave/3)); }  // it draws heat
 }
-// open-world horde director: steady spawns that ramp, timed waves that trigger the upgrade breather
+function startFinalSiege(){
+  if(campaign.siegeStarted) return;
+  campaign.siegeStarted=true; campaign.siegeTimer=42; campaign.finaleStage=1; campaign.alert=99; campaign.alertName='EVAC SIREN'; campaign.wave=Math.max(campaign.wave,6);
+  const boss=makeZombie(HUB.x,HUB.y-HUB.r-420,save.level+campaign.wave+6,ZI.behemoth,10); boss.tyrant=true; zombies.push(boss);
+  objectiveHorde(HUB,15,'EVAC SIREN'); shake(); flashScreen('#ff2d55');
+  playStoryScene('finalprep',()=>playStoryScene('tyrant'));
+}
+function updateOutbreakFinale(dt){
+  if(campaign.phase===5 && campaign.fuel && campaign.rescued>=campaign.goal){ campaign.phase=6;
+    campaign.finalReady=null; campaign.barricaded=false;
+    showAnnounce('<div class="eyebrow">SURVIVOR QUOTA MET</div><div class="gtitle" style="color:#3ddc84">Return to the hub</div><div class="gtip">Evacuation is inbound. Regroup inside the landing zone.</div>',2200); }
+  if(campaign.phase!==6) return;
+  const holding=players.some(p=>p&&p.alive&&Math.hypot(p.x-HUB.x,p.y-HUB.y)<HUB.r-6);
+  if(!campaign.siegeStarted){
+    if(!holding){ campaign.finalReady=null; return; }
+    if(campaign.finalReady==null){ campaign.finalReady=8;
+      pushFeed('FORTIFY WINDOW — spend 2 parts with F inside the hub'); }
+    const builder=players.find(p=>p&&p.alive&&p.wantInteract&&p.parts>=2&&Math.hypot(p.x-HUB.x,p.y-HUB.y)<HUB.r);
+    if(builder&&!campaign.barricaded){ builder.parts-=2; campaign.barricaded=true; addBarricades(); pushFeed(`${builder.name} fortified the landing zone`); }
+    campaign.finalReady-=dt; if(campaign.finalReady<=0) startFinalSiege(); return;
+  }
+  campaign.alert=Math.max(campaign.alert,2);
+  if(holding) campaign.siegeTimer=Math.max(0,campaign.siegeTimer-dt);
+  if(campaign.siegeTimer<=28&&campaign.finaleStage<2){ campaign.finaleStage=2; objectiveHorde(HUB,12,'NORTH GATE BREACH');
+    for(let i=0;i<5;i++)spawnNearPoint(HUB,save.level+7,ZI.crawler,0,360,560); pushFeed('NORTH GATE BREACH'); }
+  if(campaign.siegeTimer<=14&&campaign.finaleStage<3){ campaign.finaleStage=3; objectiveHorde(HUB,15,'FINAL ASSAULT');
+    for(let i=0;i<2;i++)spawnNearPoint(HUB,save.level+8,ZI.screamer,1,400,600);
+    showAnnounce('<div class="eyebrow">EVAC · 14 SECONDS</div><div class="gtitle" style="color:#ff7a3c">Final assault</div>',1400); }
+  if(campaign.siegeTimer<=0 && !zombies.some(z=>z.alive&&z.boss)) campaignEnd(true);
+}
+function runDirectorEvent(){
+  const live=players.filter(p=>p&&p.alive); if(!live.length)return; const p=pick(live), roll=Math.random();
+  if(roll<0.27&&campaign.power){ campaign.blackout=16; campaign.alert=Math.max(campaign.alert,5);
+    showAnnounce('<div class="eyebrow">DIRECTOR EVENT</div><div class="gtitle" style="color:#b56bff">Grid blackout</div><div class="gtip">Visibility reduced · movement detected nearby</div>',1700);
+    objectiveHorde(p,7,'BLACKOUT'); }
+  else if(roll<0.56){ const pt=campaign.lastNoise||p; objectiveHorde(pt,9,'ROAMING HORDE');
+    showAnnounce('<div class="eyebrow">DIRECTOR EVENT</div><div class="gtitle" style="color:#ff7a3c">Roaming horde</div><div class="gtip">It is converging on the squad\'s last known position.</div>',1700); }
+  else if(roll<0.78){ const c=spawnCitizen(); c.role=Math.random()<0.5?'medic':'engineer'; const a=rand(0,TAU);
+    c.x=p.x+Math.cos(a)*500; c.y=p.y+Math.sin(a)*500; citizens.push(c);
+    for(let i=0;i<5;i++)spawnNearPoint(c,save.level+campaign.wave,ZI.crawler,0,180,320);
+    showAnnounce('<div class="eyebrow">DISTRESS SIGNAL</div><div class="gtitle" style="color:#7cff9b">Survivor located</div><div class="gtip">A specialist is trapped nearby.</div>',1600); }
+  else { pickups.push({x:p.x+80,y:p.y-40,r:9,type:'ammo',alive:true,life:55,wob:0},{x:p.x+100,y:p.y-40,r:9,type:'herb',alive:true,life:55,wob:0});
+    showAnnounce('<div class="eyebrow">DIRECTOR EVENT</div><div class="gtitle" style="color:#00e5ff">Emergency cache</div><div class="gtip">A police supply transponder is active nearby.</div>',1600); }
+}
+// Open-world director: long quiet pockets for exploration, punctuated by loud objective alarms and the finale.
 function updateOutbreakWaves(dt){
   const c = campaign;
+  c.alert=Math.max(0,(c.alert||0)-dt);
+  if(!c.siegeStarted){ c.eventTimer=(c.eventTimer||40)-dt; if(c.eventTimer<=0&&c.alert<=1){ c.eventTimer=rand(38,58); runDirectorEvent(); } }
   c.spawnAcc = (c.spawnAcc||0) + dt;
-  const cap = 46 + c.np*14;
-  const interval = Math.max(0.45, 2.3 - c.wave*0.14) / (0.4 + c.np*0.6);
+  const cap = (c.siegeStarted?42:30) + c.np*12;
+  const base=Math.max(3.4,6.1-c.wave*0.32), hot=c.siegeStarted?0.78:1.05;
+  const interval = (c.alert>0||c.noise>42?hot:base) / (0.6+c.np*0.4);
   if(c.spawnAcc >= interval && zombies.length < cap){ c.spawnAcc = 0;
     const roster = waveTypes(Math.max(1, c.wave)), ti = roster.length ? roster[irand(0,roster.length-1)] : ZI.walker;
     const hpBonus = Math.floor(c.wave/3);
     spawnFrontier(save.level + c.wave, ti, ti===ZI.brute ? hpBonus*2 : hpBonus);
   }
   c.waveTimer -= dt;
-  if(c.waveTimer <= 0){ c.wave++; c.waveTimer = 30;
-    if(c.wave % 4 === 0) spawnFrontier(save.level + c.wave + 4, ZI.behemoth, Math.floor(c.wave/2));   // periodic behemoth
-    if(mode !== 'guest') offerUpgrade();   // brief tactical breather + a field upgrade
+  if(c.waveTimer <= 0){ c.wave++; c.waveTimer = 55;
+    const live=players.filter(p=>p&&p.alive), at=live.length?pick(live):HUB;
+    objectiveHorde(at,Math.min(10,4+c.wave),'HORDE MIGRATION');
+    showAnnounce(`<div class="eyebrow">THREAT ${c.wave}</div><div class="gtitle" style="color:#ff7a3c;font-size:clamp(21px,4vw,34px)">A horde is moving</div>`,1300);
   }
 }
 function nextWave(){
@@ -891,26 +1318,69 @@ function chooseUpgrade(i){
 }
 function playerInputZ(p){
   if(p.local) return localInput();
-  if(mode==='host'){ const pr = netPeerFor(p.i); return pr ? pr.rin : {x:0,y:0,s:false,a:false}; }
-  return {x:0,y:0,s:false,a:false};
+  if(mode==='host'){ const pr = netPeerFor(p.i); return pr ? pr.rin : {x:0,y:0,s:false,a:false,e:false,r:false,h:false}; }
+  return {x:0,y:0,s:false,a:false,e:false,r:false,h:false};
 }
 function respawnZ(p){
   let best={x:WORLD.w/2,y:WORLD.h/2}, bd=-1;
   for(const s of [{x:WORLD.w/2,y:WORLD.h/2}, ...spawns]){ let d=1e9;
     for(const z of zombies){ if(!z.alive) continue; d=Math.min(d, Math.hypot(z.x-s.x,z.y-s.y)); } if(d>bd){ bd=d; best=s; } }
-  p.x=best.x; p.y=best.y; p.vx=p.vy=0; p.alive=true; p.shield=(p.ld.spawnShield||1)+1.5; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.burst=0;
+  p.x=best.x; p.y=best.y; p.vx=p.vy=0; p.alive=true; p.downed=false; p.bleedout=0; p.reviveProg=0;
+  p.shield=(p.ld.spawnShield||1)+1.5; p.ammo=p.ld.maxAmmo; p.reserve=Math.max(p.reserve||0,p.ld.maxAmmo*2);
+  p.hp=campaign.open?Math.ceil(p.maxHp*0.62):p.maxHp; p.infection=campaign.open?Math.max(18,p.infection||0):0;
+  p.cd=0; p.regen=0; p.reloadT=0; p.burst=0;
   sfxSpawn(); spark(p.x,p.y,p.color,14);
 }
+function queueReinforcement(p){
+  p.downed=false; p.reviveProg=0; p.bleedout=0;
+  if(campaign.lives>0){ campaign.lives--; p.respT=2.2; pushFeed(`${p.name} lost — ${campaign.lives} reinforcement${campaign.lives===1?'':'s'} left`); }
+  else { p.respT=-1; pushFeed(`${p.name} was lost to the outbreak`); }
+}
 function playerDieZ(p){
-  if(!p.alive) return; p.alive=false; p.deaths=(p.deaths||0)+1;
+  if(!p.alive) return; p.alive=false; p.deaths=(p.deaths||0)+1; p.hp=0;
   burst(p.x,p.y,p.color,42); sfxDie(); if(p.local){ shake(); flashScreen(p.color); }
-  if(campaign.lives > 0){ campaign.lives--; p.respT=1.8; pushFeed(`${p.name} went down — ${campaign.lives} reinforcement${campaign.lives===1?'':'s'} left`); }
-  else { p.respT=-1; pushFeed(`${p.name} is down!`); }
-  if(!players.some(q=>q&&q.alive)) campaignEnd(false);        // team wipe
+  if(campaign.open&&players.some(q=>q&&q!==p&&q.alive)){ p.downed=true; p.bleedout=18; p.reviveProg=0; p.respT=0;
+    pushFeed(`${p.name} is DOWN — hold F to revive`); }
+  else queueReinforcement(p);
+  // A wipe only ends the run when nobody is alive or queued to consume a reinforcement.
+  if(!players.some(q=>q&&q.alive) && !players.some(q=>q&&(q.respT>0||q.downed)) ) campaignEnd(false);
+}
+function damagePlayerZ(p,damage,infection,source){
+  if(!p||!p.alive||p.hurtCd>0||p.phaseT>0) return;
+  if(p.shield>0){ p.shield=0; p.hurtCd=0.35; spark(p.x,p.y,'#fff',8); return; }
+  p.hp=Math.max(0,p.hp-damage); p.infection=clamp(p.infection+(infection||0)*(p.infectResist||1),0,100); p.hurtCd=0.72;
+  burst(p.x,p.y,'#ff2d55',10); if(p.local){ shake(); flashScreen('#ff2d55'); }
+  if(p.hp<=0||p.infection>=100) playerDieZ(p);
+  else if(p.local&&(p.hp<=30||p.infection>=75)) pushFeed(p.infection>=75?'INFECTION CRITICAL — find treatment':'CONDITION CRITICAL — use H to heal');
+}
+function useOutbreakHeal(p){
+  if(!campaign.open||!p.alive) return;
+  if(p.herbs>0&&(p.hp<p.maxHp||p.infection>0)){ p.herbs--; p.hp=Math.min(p.maxHp,p.hp+42+(p.healBonus||0)); p.infection=Math.max(0,p.infection-14-(p.healBonus||0));
+    spark(p.x,p.y,'#7cff9b',18); sfxPickup(); pushFeed(`${p.name} used a green herb`); }
+  else if(p.sprays>0&&(p.hp<p.maxHp||p.infection>0)){ p.sprays--; p.hp=p.maxHp; p.infection=Math.max(0,p.infection-35);
+    spark(p.x,p.y,'#00e5ff',22); sfxPickup(); pushFeed(`${p.name} used first-aid spray`); }
+}
+function beginReload(p){
+  if(!campaign.open||p.reloadT>0||p.ammo>=p.ld.maxAmmo||p.reserve<=0) return;
+  p.reloadT=Math.max(0.4,p.ld.regenTime*2.1*(p.reloadMod||1)); p.wantShoot=false;
+}
+function finishReload(p){ const n=Math.min(p.ld.maxAmmo-p.ammo,p.reserve); p.ammo+=n; p.reserve-=n; p.reloadT=0; sfxPick(); }
+function updateDownedPlayer(p,dt){
+  p.bleedout-=dt;
+  const reviver=players.find(q=>q&&q.alive&&q.wantInteract&&Math.hypot(q.x-p.x,q.y-p.y)<62);
+  if(reviver){ p.reviveProg=Math.min(1,p.reviveProg+dt/2.6); if(p.reviveProg>=1){ p.alive=true; p.downed=false; p.hp=Math.ceil(p.maxHp*0.4);
+      p.infection=Math.min(85,p.infection); p.hurtCd=1.2; p.bleedout=0; p.reviveProg=0; reviver.revives=(reviver.revives||0)+1;
+      spark(p.x,p.y,'#7cff9b',24); pushFeed(`${reviver.name} revived ${p.name}`); } }
+  else p.reviveProg=Math.max(0,p.reviveProg-dt*0.25);
+  if(p.downed&&p.bleedout<=0) queueReinforcement(p);
+  if(!players.some(q=>q&&q.alive)&&!players.some(q=>q&&q.respT>0)&&campaign.lives>0&&p.downed) queueReinforcement(p);
+  if(!players.some(q=>q&&q.alive)&&!players.some(q=>q&&(q.respT>0||q.downed))) campaignEnd(false);
 }
 function stepPlayerZ(p, dt){
-  if(!p.alive){ if(p.respT>0){ p.respT-=dt; if(p.respT<=0) respawnZ(p); } return; }
-  const inp = playerInputZ(p); p.inX=inp.x; p.inY=inp.y; p.wantShoot=!!inp.s;
+  if(!p.alive){ if(p.downed)updateDownedPlayer(p,dt); else if(p.respT>0){ p.respT-=dt; if(p.respT<=0) respawnZ(p); } return; }
+  const inp = playerInputZ(p); p.inX=inp.x; p.inY=inp.y; p.wantShoot=!!inp.s; p.wantInteract=!!inp.e; p.wantReload=!!inp.r; p.wantHeal=!!inp.h;
+  p.hurtCd=Math.max(0,(p.hurtCd||0)-dt);
+  if(p.wantHeal&&!p.healLatch)useOutbreakHeal(p); p.healLatch=p.wantHeal;
   if(p.inX||p.inY){ const want=Math.atan2(p.inY,p.inX); p.aim += clamp(angDiff(p.aim,want), -16*dt, 16*dt); }
   gadgetInput(p, !!inp.a); tickGadget(p, dt);
   const spK = p.phaseT>0?1.55:1, ocK = p.ocT>0?0.5:1;
@@ -924,22 +1394,32 @@ function stepPlayerZ(p, dt){
   // walk over pickups
   for(const pk of pickups){ if(!pk.alive) continue; if(Math.hypot(pk.x-p.x,pk.y-p.y) < p.r+pk.r+4){ collectPickup(p, pk); } }
   // open world: rally nearby survivors to follow you
-  if(campaign.open){ for(const c of citizens){ if(c.alive && c.converting<=0 && c.following==null && Math.hypot(c.x-p.x,c.y-p.y) < p.r+c.r+42){
-    c.following = p.i; sfxPick(); if(p.local) pushFeed('a survivor falls in behind you'); } } }
-  p.cd-=dt; p.shield-=dt; if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime*ocK){ p.ammo++; p.regen=0; } }
+  if(campaign.open&&p.wantInteract){ for(const c of citizens){ if(c.alive && c.converting<=0 && c.following==null && Math.hypot(c.x-p.x,c.y-p.y) < p.r+c.r+52){
+    c.following = p.i; sfxPick(); if(p.local){const role=CITIZEN_ROLES[c.role]||CITIZEN_ROLES.civilian;pushFeed(`${c.name||role.name}: “${role.bark}”`);} } } }
+  p.cd-=dt; p.shield-=dt;
+  if(campaign.open){
+    if(p.wantReload||(p.wantShoot&&p.ammo<1))beginReload(p);
+    if(p.reloadT>0){ p.reloadT-=dt; if(p.reloadT<=0)finishReload(p); }
+  } else if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime*ocK){ p.ammo++; p.regen=0; } }
   if(p.wantShoot) fire(p);
 }
 function collectPickup(p, pk){
   pk.alive=false; sfxPickup();
-  if(pk.type==='ammo'){ p.ammo=p.ld.maxAmmo; p.regen=0; spark(pk.x,pk.y,'#ffcf3f',12); if(p.local) pushFeed('ammo restocked'); }
+  if(pk.type==='ammo'){ if(campaign.open)p.reserve=Math.min(p.ld.maxAmmo*10,p.reserve+p.ld.maxAmmo*2); else {p.ammo=p.ld.maxAmmo;p.regen=0;}
+    spark(pk.x,pk.y,'#ffcf3f',12); if(p.local)pushFeed(campaign.open?'ammunition added to reserve':'ammo restocked'); }
+  else if(pk.type==='herb'){ p.herbs=(p.herbs||0)+1; spark(pk.x,pk.y,'#7cff9b',14); if(p.local)pushFeed('green herb acquired · H to use'); }
+  else if(pk.type==='spray'){ p.sprays=(p.sprays||0)+1; spark(pk.x,pk.y,'#00e5ff',16); if(p.local)pushFeed('first-aid spray acquired'); }
+  else if(pk.type==='antidote'){ p.infection=Math.max(0,p.infection-40); spark(pk.x,pk.y,'#b56bff',18); if(p.local)pushFeed('antiviral dose · infection reduced'); }
+  else if(pk.type==='tools'){ p.parts=(p.parts||0)+1; spark(pk.x,pk.y,'#c9d2e6',12); if(p.local)pushFeed('barricade parts acquired'); }
   else { p.shield=Math.max(p.shield,2.4); spark(pk.x,pk.y,'#00e5ff',12); if(p.local) pushFeed('shield charged'); }
 }
 function dropPickup(x,y,boss){
   const r = Math.random();
-  if(!boss && r>0.14) return;                       // ~14% drop from a normal kill
-  const type = Math.random()<0.5 ? 'ammo' : 'shield';
+  const chance=campaign&&campaign.open?0.055:0.14;
+  if(!boss && r>chance) return;                     // Outbreak rewards searching caches, not farming the horde
+  const type = campaign&&campaign.open?(Math.random()<0.76?'ammo':'herb'):(Math.random()<0.5?'ammo':'shield');
   pickups.push({ x, y, r:9, type, alive:true, life:14, wob:rand(0,TAU) });
-  if(boss){ pickups.push({ x:x+rand(-30,30), y:y+rand(-30,30), r:9, type: type==='ammo'?'shield':'ammo', alive:true, life:20, wob:rand(0,TAU) }); }
+  if(boss){ pickups.push({ x:x+rand(-30,30), y:y+rand(-30,30), r:9, type: campaign&&campaign.open?'spray':(type==='ammo'?'shield':'ammo'), alive:true, life:20, wob:rand(0,TAU) }); }
 }
 function bumpCombo(p){
   if(!campaign) return;
@@ -953,19 +1433,25 @@ function zombieDown(z, ow){
   if(ow){ ow.kills++; ow.matchExp += expForKill(z.level) * (z.boss?6:1); bumpCombo(ow); }
   if(T.explodes) bloaterBurst(z);
   dropPickup(z.x, z.y, z.boss);
-  if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed('THE BEHEMOTH FALLS'); }
+  if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed(z.tyrant?'THE TYRANT FALLS':'THE BEHEMOTH FALLS'); }
   else if(Math.random()<0.25) pushFeed(`${T.k} down`);
 }
 function bloaterBurst(z){
   const R=110; burst(z.x,z.y,'#c5d659',44); ringFx(z.x,z.y,'#c5d659',R); shake();
   for(const c of citizens){ if(c.alive && c.converting<=0 && Math.hypot(c.x-z.x,c.y-z.y)<R) c.converting=0.85; }
-  for(const p of players){ if(p && p.alive && p.shield<=0 && Math.hypot(p.x-z.x,p.y-z.y)<R) playerDieZ(p); }
+  for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-z.x,p.y-z.y)<R){ if(campaign.open)damagePlayerZ(p,48,32,'bloater'); else if(p.shield<=0)playerDieZ(p); } }
+}
+function enrageTyrant(z){
+  if(!z.tyrant||z.enraged||z.hp>z.maxhp*0.5)return; z.enraged=true; z.speed*=1.42; z.sumCd=0.2;
+  for(let i=0;i<6;i++)spawnNearPoint(z,z.level,ZI.crawler,0,100,220); shake(); flashScreen('#ff2d55');
+  showAnnounce('<div class="eyebrow">TYRANT · PHASE II</div><div class="gtitle" style="color:#ff2d55">Mutation surge</div><div class="gtip">It is faster. Keep moving.</div>',1700);
 }
 function nearestPlayerTo(x, y){ let pn=null, pd=1e9; for(const p of players){ if(!p||!p.alive) continue;
   const d=Math.hypot(p.x-x,p.y-y); if(d<pd){ pd=d; pn=p; } } return { p:pn, d:pd }; }
 function updateZombies(dt){
   if(roundLive && !campaign.upgrading){
     for(const p of players){ if(p) stepPlayerZ(p, dt); }
+    if(campaign.open){ updateSearchables(dt); updateSafeRoom(dt); campaign.noise=Math.max(0,(campaign.noise||0)-dt*3.2); if(campaign.blackout>0)campaign.blackout-=dt; }
     // ---- combo timer ----
     if(campaign.comboT>0){ campaign.comboT-=dt; if(campaign.comboT<=0) campaign.combo=0; }
     // ---- pickups (bob + expire) ----
@@ -983,6 +1469,10 @@ function updateZombies(dt){
         const dx=leader.x-c.x, dy=leader.y-c.y, d=Math.hypot(dx,dy)||1;
         if(d>44){ c.vx+=dx/d*1000*dt; c.vy+=dy/d*1000*dt; }
         if(zn && zd<64){ const a=Math.atan2(c.y-zn.y,c.x-zn.x); c.vx+=Math.cos(a)*900*dt; c.vy+=Math.sin(a)*900*dt; }
+        c.roleCd=(c.roleCd||0)-dt;
+        if(c.role==='medic'&&c.roleCd<=0&&leader.hp<leader.maxHp){ c.roleCd=9; leader.hp=Math.min(leader.maxHp,leader.hp+14); spark(c.x,c.y,'#7cff9b',8); }
+        else if(c.role==='cop'&&c.roleCd<=0&&zn&&zd<390){ c.roleCd=2.2; const a=Math.atan2(zn.y-c.y,zn.x-c.x),sp=470;
+          bullets.push({x:c.x,y:c.y,px:c.x,py:c.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:3.5,owner:leader.i,team:-1,b:0,maxB:0,life:1.1,c:'#6ab6d6',pierce:0}); }
       } else {
         if(leader) c.following=null;              // lost the leader — go back to fleeing
         if(zn && zd<250){ const a=Math.atan2(c.y-zn.y,c.x-zn.x)+Math.sin(c.wob)*0.35; c.vx+=Math.cos(a)*1100*dt; c.vy+=Math.sin(a)*1100*dt; }
@@ -996,6 +1486,7 @@ function updateZombies(dt){
     // ---- zombies (behavior varies by type) ----
     for(const z of zombies){ if(!z.alive) continue;
       const T = ZTYPES[z.ti]||ZTYPES[0];
+      z.attackCd=Math.max(0,(z.attackCd||0)-dt);
       let cn=null, cd=1e9; for(const c of citizens){ if(!c.alive||c.converting>0) continue; const d=Math.hypot(c.x-z.x,c.y-z.y); if(d<cd){ cd=d; cn=c; } }
       const np = nearestPlayerTo(z.x, z.y);
       let tx, ty, advance = true;
@@ -1017,13 +1508,23 @@ function updateZombies(dt){
       }
       if(T.summons){ z.sumCd -= dt; if(z.sumCd<=0){ z.sumCd = rand(4,6);
         const a=rand(0,TAU); zombies.push(makeZombie(z.x+Math.cos(a)*50, z.y+Math.sin(a)*50, z.level, ZI.runner, 0)); spark(z.x,z.y,'#ff9f1c',14); } }
+      if(T.leaps&&np.p){ z.leapCd-=dt; if(z.leapCd<=0&&np.d>90&&np.d<310){ z.leapCd=rand(2.2,3.6); const a=Math.atan2(np.p.y-z.y,np.p.x-z.x);
+        z.x+=Math.cos(a)*82; z.y+=Math.sin(a)*82; ringFx(z.x,z.y,T.eye,36); } }
+      if(T.screams&&np.p){ z.screamCd-=dt; if(z.screamCd<=0&&np.d<520&&zombies.length<52){ z.screamCd=rand(7,10);
+        for(let i=0;i<2;i++){ const a=rand(0,TAU); zombies.push(makeZombie(z.x+Math.cos(a)*rand(70,120),z.y+Math.sin(a)*rand(70,120),z.level,ZI.walker,0)); }
+        campaign.alert=Math.max(campaign.alert||0,6); ringFx(z.x,z.y,'#ff5c8a',95); pushFeed('A SCREAMER CALLED THE HORDE'); } }
       if(advance){ const a=Math.atan2(ty-z.y, tx-z.x); z.vx += Math.cos(a)*z.speed*5*dt; z.vy += Math.sin(a)*z.speed*5*dt; }
       const zsp=Math.hypot(z.vx,z.vy); if(zsp>z.speed){ const k=z.speed/zsp; z.vx*=k; z.vy*=k; }
       z.vx*=Math.max(0,1-1.5*dt); z.vy*=Math.max(0,1-1.5*dt);   // light drag so knockback settles
       z.x+=z.vx*dt; z.y+=z.vy*dt; z.x=clamp(z.x,z.r,WORLD.w-z.r); z.y=clamp(z.y,z.r,WORLD.h-z.r);
       for(const wl of walls){ const p=circleRectPush(z.x,z.y,z.r,wl); if(p){ z.x+=p.x; z.y+=p.y; } }
+      if(campaign.open){ const safe=missionSite('clinic'); if(safe&&safe.captured){ const dx=z.x-safe.x,dy=z.y-safe.y,d=Math.hypot(dx,dy)||1;
+        if(d<112){ z.x=safe.x+dx/d*112; z.y=safe.y+dy/d*112; z.vx*=0.2; z.vy*=0.2; } } }
       if(cn && cd < z.r+cn.r+2 && cn.converting<=0){ cn.converting = 0.85; }
-      for(const p of players){ if(p && p.alive && p.shield<=0 && Math.hypot(p.x-z.x,p.y-z.y) < z.r+p.r){ playerDieZ(p); break; } }
+      for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-z.x,p.y-z.y)<z.r+p.r&&z.attackCd<=0){ z.attackCd=T.boss?0.75:T.leaps?0.55:0.95;
+        if(campaign.open){ const dmg=T.boss?62:T.tough?52:T.leaps?30:T.screams?38:T.hunter?32:36;
+          const inf=T.boss?24:T.leaps?15:T.tough?17:11; damagePlayerZ(p,dmg,inf,T.k); }
+        else if(p.shield<=0)playerDieZ(p); break; } }
     }
     // ---- acid globs ----
     for(const sh of zshots){ if(sh.life<=0) continue; sh.x+=sh.vx*dt; sh.y+=sh.vy*dt; sh.life-=dt;
@@ -1032,7 +1533,8 @@ function updateZombies(dt){
       if(sh.life<=0) continue;
       for(const c of citizens){ if(c.alive&&c.converting<=0&&Math.hypot(c.x-sh.x,c.y-sh.y)<c.r+sh.r){ c.converting=0.85; sh.life=0; break; } }
       if(sh.life<=0) continue;
-      for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-sh.x,p.y-sh.y)<p.r+sh.r){ sh.life=0; if(p.shield<=0) playerDieZ(p); else spark(sh.x,sh.y,'#fff',6); break; } }
+      for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-sh.x,p.y-sh.y)<p.r+sh.r){ sh.life=0;
+        if(campaign.open)damagePlayerZ(p,27,22,'acid'); else if(p.shield<=0)playerDieZ(p); else spark(sh.x,sh.y,'#fff',6); break; } }
     }
     zshots = zshots.filter(s=>s.life>0);
     // ---- bullets (all players) vs walls + zombies ----
@@ -1046,7 +1548,8 @@ function updateZombies(dt){
           if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){
             if(bl.hit && bl.hit.has(z)) continue;            // a piercing bullet only strikes each enemy once
             const ow = players[bl.owner];
-            if(z.hp>1){ z.hp--; spark(bl.x,bl.y,'#ff6b6b',7); }
+            const dmg=campaign.open&&campaign.armory&&z.boss?2:1;
+            if(z.hp>dmg){ z.hp-=dmg; enrageTyrant(z); spark(bl.x,bl.y,'#ff6b6b',7); }
             else { zombieDown(z, ow); }
             if(bl.pierce>0){ bl.pierce--; (bl.hit || (bl.hit=new Set())).add(z); }   // pass through, remember this one
             else { bl.life=0; } } }
@@ -1062,13 +1565,18 @@ function updateZombies(dt){
       // extraction: survivors that reach the hub are rescued
       for(const c of citizens){ if(c.converting>0) continue;
         if(Math.hypot(c.x-HUB.x, c.y-HUB.y) < HUB.r-16){ c.alive=false; campaign.rescued++;
+          campaign.rescuedNames.push(c.name||'Unknown survivor');
           const ow = c.following!=null ? players[c.following] : null; if(ow){ ow.matchExp += 40; }
-          spark(c.x,c.y,'#3ddc84',18); sfxPickup(); pushFeed(`survivor extracted — ${campaign.rescued}/${campaign.goal}`); } }
+          if(ow&&c.role==='medic')ow.herbs=(ow.herbs||0)+1;
+          if(ow&&c.role==='cop')ow.reserve=Math.min(ow.ld.maxAmmo*10,(ow.reserve||0)+ow.ld.maxAmmo*2);
+          if(ow&&c.role==='engineer')ow.parts=(ow.parts||0)+1;
+          spark(c.x,c.y,'#3ddc84',18); sfxPickup(); pushFeed(`${c.name||'survivor'} extracted — ${campaign.rescued}/${campaign.goal}`); } }
       citizens = citizens.filter(c=>c.alive);
       campaign.escorting = citizens.filter(c=>c.following!=null).length;
+      updateMissionSites(dt);
       updateBeacons(dt);
       updateOutbreakWaves(dt);
-      if(campaign.rescued >= campaign.goal) campaignEnd(true);
+      updateOutbreakFinale(dt);
     } else {
       // ---- arena win / lose / wave advance ----
       const alive = citizens.length;
@@ -1084,33 +1592,40 @@ function updateZombies(dt){
 }
 function campaignEnd(won){
   if(state!=='play') return;
+  if(campaign&&campaign.open&&!campaign.endingPlayed){campaign.endingPlayed=true;roundLive=false;clearTimers();
+    playStoryScene(won?(campaign.truth?'endingTruth':'ending'):'loss',()=>finalizeCampaignEnd(won));return;}
+  finalizeCampaignEnd(won);
+}
+function finalizeCampaignEnd(won){
+  if(state!=='play')return;
   state='end'; roundLive=false; clearTimers(); $('#announce').classList.remove('show'); sfxWin();
   const open = !!campaign.open;
   const saved = open ? campaign.rescued : citizens.filter(c=>c.alive).length;
   if(mode==='host') netBroadcast({ t:'zend', won, saved, open:open?1:0, citizensStart:campaign.citizensStart||0,
-    goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,
-    standings: players.map(p=>p?{name:p.name,color:p.color,kills:p.kills,matchExp:p.matchExp}:null) });
+    goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,files:campaign.files||0,caches:campaign.caches||0,truth:!!campaign.truth,rescuedNames:campaign.rescuedNames||[],
+    standings: players.map(p=>p?{name:p.name,color:p.color,kills:p.kills,matchExp:p.matchExp,revives:p.revives||0}:null) });
   const you = players[me] || players[0];
   renderCampaignEnd({ won, saved, open, gained:(you&&you.matchExp)||0, kills:(you&&you.kills)||0, bestCombo:campaign.best||0,
-    citizensStart:campaign.citizensStart||0, goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,
-    standings: players.filter(Boolean).map(p=>({name:p.name,color:p.color,kills:p.kills,local:!!p.local})) });
+    citizensStart:campaign.citizensStart||0, goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,files:campaign.files||0,caches:campaign.caches||0,revives:(you&&you.revives)||0,truth:!!campaign.truth,rescuedNames:campaign.rescuedNames||[],
+    standings: players.filter(Boolean).map(p=>({name:p.name,color:p.color,kills:p.kills,revives:p.revives||0,local:!!p.local})) });
 }
 function renderCampaignEnd(ctx){
   const gained = ctx.gained || 0;
   save.kills += ctx.kills||0; save.saved += ctx.saved||0;
   const metGoal = ctx.won && ctx.saved >= ctx.goal;
-  const credits = 20 + Math.round(gained/4) + (ctx.won?60:0) + (ctx.saved||0)*4;
+  const credits = 20 + Math.round(gained/4) + (ctx.won?90:0) + (ctx.saved||0)*4 + (ctx.files||0)*5 + Math.floor((ctx.caches||0)*1.5);
   const prog = applyProgression(gained, ctx.won, ctx.won?1:5, { legendary: metGoal, credits });
   prog.drops.forEach((d,i)=> after(300+i*220, ()=> sfxLoot(d.rr)));
-  const title = ctx.open ? (ctx.won?'Extraction complete':'Squad overrun') : (ctx.won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell');
+  const title = ctx.open ? (ctx.won?(ctx.truth?'Truth survives':'Extraction complete'):'Squad overrun') : (ctx.won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell');
   const tc = ctx.won ? 'var(--gold)' : 'var(--p1)';
   const wavesSurvived = ctx.won ? ctx.maxWave : Math.max(0, ctx.wave-1);
   const coop = ctx.standings.length > 1;
   const squad = coop ? `<div class="card"><h3>Squad</h3>${ctx.standings.slice().sort((a,b)=>b.kills-a.kills).map(s=>
       `<div class="stat" style="margin-bottom:5px"><span class="nm" style="width:auto;flex:1;color:${s.color}${s.local?';font-weight:900':''}">${esc(s.name)}${s.local?' (you)':''}</span>
-       <span style="font-family:var(--mono);color:#eef2ff">${s.kills} kills</span></div>`).join('')}</div>` : '';
+       <span style="font-family:var(--mono);color:#eef2ff">${s.kills} kills${ctx.open?` · ${s.revives||0} revives`:''}</span></div>`).join('')}
+       ${ctx.open?`<div class="note" style="margin-top:12px;text-align:left">SURVIVORS ${ctx.saved}/${ctx.goal} · FILES ${ctx.files||0}/${OUTBREAK_FILES.length} · CACHES ${ctx.caches||0}${ctx.truth?' · PROJECT CROWN EXPOSED':''}<br>${(ctx.rescuedNames||[]).slice(0,8).map(esc).join(' · ')}</div>`:''}</div>` : '';
   const rsub = ctx.open
-    ? `${ctx.saved} survivors extracted · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':''} · reached threat ${ctx.wave}`
+    ? `${ctx.saved} survivors extracted · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':''}${ctx.truth?' · TRUE ENDING':''} · reached threat ${ctx.wave}`
     : (ctx.won ? `${ctx.saved} / ${ctx.citizensStart} citizens survived · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${ctx.wave} · ${ctx.saved} citizens left`);
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div>
@@ -1121,6 +1636,8 @@ function renderCampaignEnd(ctx){
         <div class="stat"><span class="nm" style="width:auto;flex:1">${ctx.open?'Threat reached':'Waves survived'}</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.open?ctx.wave:wavesSurvived+' / '+ctx.maxWave}</span></div>
         <div class="stat"><span class="nm" style="width:auto;flex:1">${ctx.open?'Survivors extracted':'Citizens saved'}</span><span style="font-family:var(--mono);color:#7cff9b">${ctx.saved}</span></div>
         <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.kills}</span></div>
+        ${ctx.open?`<div class="stat"><span class="nm" style="width:auto;flex:1">Files / caches</span><span style="font-family:var(--mono);color:#b56bff">${ctx.files||0} / ${ctx.caches||0}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Allies revived</span><span style="font-family:var(--mono);color:#7cff9b">${ctx.revives||0}</span></div>`:''}
         ${ctx.bestCombo?`<div class="stat"><span class="nm" style="width:auto;flex:1">Best combo</span><span style="font-family:var(--mono);color:#ffcf3f">${ctx.bestCombo}×</span></div>`:''}</div>`}
       <div class="card"><h3>Loot — ${prog.drops.length} drop${prog.drops.length!==1?'s':''}</h3>
         <div class="invlist">${lootRow(prog.drops)}</div>
@@ -1252,7 +1769,7 @@ function botThink(p, dt){
 
 /* ================= combat ================= */
 function fire(p){
-  if(p.cd > 0 || p.ammo < 1 || !p.alive) return;
+  if(p.cd > 0 || p.ammo < 1 || !p.alive || (campaign&&campaign.open&&p.reloadT>0)) return;
   const wb = p.ld.wbase;
   p.ammo--; p.cd = p.ld.cdBase * (p.ocT > 0 ? 0.5 : 1);
   const spd = p.ld.bulletSpeed, big = !!wb.big, bmax = wb.bounce, pierce = p.pierce||0;
@@ -1266,6 +1783,7 @@ function fire(p){
   else mk(p.aim);
   p.vx -= Math.cos(p.aim)*(big?110:70); p.vy -= Math.sin(p.aim)*(big?110:70);
   spark(p.x + Math.cos(p.aim)*(p.r+11), p.y + Math.sin(p.aim)*(p.r+11), '#fff', 4);
+  if(campaign&&campaign.open){ campaign.noise=clamp((campaign.noise||0)+(big?12:6)*(p.noiseMod||1),0,100); campaign.lastNoise={x:p.x,y:p.y}; }
   sfxShoot();
 }
 
@@ -1333,21 +1851,29 @@ function botGadget(p, dt){   // bots use gadgets to survive: dash off threats, p
 /* ================= input ================= */
 const KEYS0 = { up:'KeyW', left:'KeyA', down:'KeyS', right:'KeyD' };
 const KEYS1 = { up:'ArrowUp', left:'ArrowLeft', down:'ArrowDown', right:'ArrowRight' };
-const SHOOT = ['Space','Enter','NumpadEnter','KeyF','ShiftRight'];
+const SHOOT = ['Space','Enter','NumpadEnter','ShiftRight'];
 const ABILITY = ['ShiftLeft','KeyE','KeyQ'];
-const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set(), abilityId:null };
+const INTERACT = ['KeyF'];
+const RELOAD_KEY = ['KeyR'];
+const HEAL_KEY = ['KeyH'];
+const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set(), abilityId:null, interactId:null, healId:null };
 function localInput(){
   let x = (held[KEYS0.right]?1:0)-(held[KEYS0.left]?1:0) + (held[KEYS1.right]?1:0)-(held[KEYS1.left]?1:0);
   let y = (held[KEYS0.down]?1:0)-(held[KEYS0.up]?1:0) + (held[KEYS1.down]?1:0)-(held[KEYS1.up]?1:0);
   x = clamp(x,-1,1); y = clamp(y,-1,1);
   let s = SHOOT.some(c => held[c]);
   let a = ABILITY.some(c => held[c]);
+  let e = INTERACT.some(c => held[c]), r = RELOAD_KEY.some(c=>held[c]), h = HEAL_KEY.some(c=>held[c]);
   if(touch.stick !== null){ x = touch.vx; y = touch.vy; }
   if(touch.fires.size) s = true;
   if(touch.abilityId !== null) a = true;
-  return { x, y, s, a };
+  if(touch.interactId !== null) e = true;
+  if(touch.healId !== null) h = true;
+  return { x, y, s, a, e, r, h };
 }
 function abilityBtn(){ const r = clamp(Math.min(W,H)*0.07, 34, 52); return { x: W/2, y: H - r - 18, r }; }
+function interactBtn(){ const r=clamp(Math.min(W,H)*0.052,28,40); return {x:W*0.67,y:H-r-20,r}; }
+function healBtn(){ const r=clamp(Math.min(W,H)*0.044,25,34); return {x:W*0.80,y:H-r-22,r}; }
 
 /* ================= update ================= */
 function tnow(){ return performance.now(); }
@@ -1475,7 +2001,7 @@ function guestUpdate(dt){
 function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
-  if(state === 'menu' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop' || state === 'ranked' || state === 'account'){ drawParticlesScreen(); return; }
+  if(state === 'menu' || state === 'briefing' || state === 'loadout' || state === 'lobby' || state === 'room' || state === 'wait' || state === 'shop' || state === 'ranked' || state === 'account'){ drawParticlesScreen(); return; }
   computeView();
   ctx.save();
   ctx.scale(VIEW, VIEW);
@@ -1483,6 +2009,7 @@ function draw(){
   // world border
   ctx.strokeStyle = 'rgba(120,140,200,.4)'; ctx.lineWidth = 3/VIEW;
   ctx.strokeRect(0,0,WORLD.w,WORLD.h);
+  if(gmode==='zombies'&&campaign&&campaign.open)drawOutbreakGround();
   // walls
   for(const wl of walls){ ctx.fillStyle = '#12182a'; ctx.strokeStyle = '#2b3452'; ctx.lineWidth = 2/VIEW;
     ctx.fillRect(wl.x,wl.y,wl.w,wl.h); ctx.strokeRect(wl.x,wl.y,wl.w,wl.h); }
@@ -1493,7 +2020,11 @@ function draw(){
     ctx.save(); ctx.shadowColor = bl.c; ctx.shadowBlur = 12; ctx.fillStyle='#fff';
     ctx.beginPath(); ctx.arc(bl.x,bl.y,bl.r,0,TAU); ctx.fill(); ctx.restore(); }
   // players — overhead view of an operator's head (square, facing = aim)
-  for(const p of players){ if(!p || !p.alive) continue;
+  for(const p of players){ if(!p)continue;
+    if(!p.alive){ if(p.downed){ ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=0.82; ctx.fillStyle='#30101a'; ctx.strokeStyle='#ff2d55'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(0,0,p.r+5,0,TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle='#eef2ff'; ctx.font='900 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('+',0,0);
+        ctx.textBaseline='alphabetic'; ctx.font='700 10px ui-monospace,monospace'; ctx.fillText(`${Math.ceil(p.bleedout)}s`,0,p.r+20);
+        if(p.reviveProg>0){ ctx.strokeStyle='#7cff9b'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(0,0,p.r+10,-Math.PI/2,-Math.PI/2+p.reviveProg*TAU); ctx.stroke(); } ctx.restore(); } continue; }
     const cloaked = p.phaseT > 0;
     ctx.save(); ctx.translate(p.x, p.y);
     ctx.globalAlpha = cloaked ? 0.4 : 1;
@@ -1527,6 +2058,9 @@ function draw(){
     // ammo pips
     for(let a=0;a<p.ld.maxAmmo && a<9;a++){ ctx.fillStyle = a < p.ammo ? p.color : 'rgba(90,100,130,.4)';
       ctx.fillRect(p.x - (p.ld.maxAmmo*4) + a*8, p.y + p.r + 7, 5, 3); }
+    if(campaign&&campaign.open){ const bw=34,hp=clamp(p.hp/p.maxHp,0,1),inf=clamp(p.infection/100,0,1);
+      ctx.fillStyle='rgba(4,8,14,.8)';ctx.fillRect(p.x-bw/2,p.y+p.r+13,bw,3);ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillRect(p.x-bw/2,p.y+p.r+13,bw*hp,3);
+      if(inf>0){ctx.fillStyle='#b56bff';ctx.fillRect(p.x-bw/2,p.y+p.r+17,bw*inf,2);} }
   }
   drawParticlesWorld();
   ctx.restore();
@@ -1536,6 +2070,14 @@ function draw(){
   drawMinimap();
   drawTouch();
   drawGadgetHUD();
+  if(gmode==='zombies'&&campaign&&campaign.open)drawCaseFile();
+}
+function drawOutbreakGround(){
+  const vw=W/VIEW,vh=H/VIEW,x0=Math.max(0,cam.x-120),y0=Math.max(0,cam.y-120),x1=Math.min(WORLD.w,cam.x+vw+120),y1=Math.min(WORLD.h,cam.y+vh+120);
+  ctx.fillStyle='#080b12';ctx.fillRect(x0,y0,x1-x0,y1-y0);ctx.save();ctx.strokeStyle='rgba(150,160,185,.11)';ctx.lineWidth=2/VIEW;ctx.setLineDash([22,28]);
+  for(let x=Math.floor(x0/CHUNK)*CHUNK;x<x1;x+=CHUNK){ctx.fillStyle='rgba(24,29,40,.62)';ctx.fillRect(x-58,y0,116,y1-y0);ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y1);ctx.stroke();}
+  for(let y=Math.floor(y0/CHUNK)*CHUNK;y<y1;y+=CHUNK){ctx.fillStyle='rgba(24,29,40,.62)';ctx.fillRect(x0,y-58,x1-x0,116);ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke();}
+  ctx.setLineDash([]);for(const s of missionSites){ctx.fillStyle=s.captured?'rgba(61,220,132,.035)':'rgba(255,207,63,.025)';ctx.fillRect(s.x-128,s.y-102,256,204);}ctx.restore();
 }
 let vignetteGrad = null, vignetteKey = '';
 function drawNightVignette(){
@@ -1548,6 +2090,8 @@ function drawNightVignette(){
   // subtle blood-moon threat pulse near a boss
   if(campaign && zombies.some(z=>z.boss)){ ctx.globalAlpha = 0.06 + 0.04*Math.sin(tnow()/300);
     ctx.fillStyle = '#ff2d55'; ctx.fillRect(0,0,W,H); }
+  if(campaign&&campaign.open&&campaign.blackout>0){ctx.globalAlpha=0.30+0.09*Math.sin(tnow()/110);ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+  const you=players[me];if(campaign&&campaign.open&&you&&you.infection>55){ctx.globalAlpha=(you.infection-55)/45*0.16*(0.75+0.25*Math.sin(tnow()/260));ctx.fillStyle='#7a2fa3';ctx.fillRect(0,0,W,H);}
   ctx.restore();
 }
 function drawGadgetHUD(){
@@ -1581,6 +2125,22 @@ function drawZombieEntities(){
     ctx.fillStyle='rgba(124,255,155,.9)'; ctx.textAlign='center'; ctx.font='900 italic 26px system-ui'; ctx.fillText('◊ HUB', HUB.x, HUB.y-6);
     ctx.font='700 12px ui-monospace,monospace'; ctx.fillStyle='rgba(124,255,155,.7)'; ctx.fillText('EXTRACTION', HUB.x, HUB.y+16);
     ctx.restore();
+    // Authored case-file landmarks: readable plazas, lock state, search progress, and labels.
+    for(const s of missionSites){ if(s.secret&&!s.captured&&!siteAvailable(s))continue;ctx.save();
+      const active=siteAvailable(s), locked=siteLocked(s), col=s.captured?'#3ddc84':active?(s.optional?'#00e5ff':'#ffcf3f'):'#596078';
+      ctx.fillStyle='rgba(6,8,15,.82)'; ctx.strokeStyle='rgba(110,125,165,.42)'; ctx.lineWidth=2;
+      rrect(ctx,s.x-72,s.y-54,144,108,9); ctx.fill(); ctx.stroke();
+      ctx.shadowColor=col; ctx.shadowBlur=active?18:7; ctx.strokeStyle=s.contested?'#ff2d55':col; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,TAU); ctx.stroke();
+      if(active&&s.prog>0){ ctx.lineWidth=6; ctx.beginPath(); ctx.arc(s.x,s.y,s.r+7,-Math.PI/2,-Math.PI/2+s.prog*TAU); ctx.stroke(); }
+      ctx.shadowBlur=0; ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='900 20px ui-monospace,monospace';
+      ctx.fillText(s.captured?'✓':locked?'×':s.ic,s.x,s.y+1); ctx.textBaseline='alphabetic';
+      ctx.font='800 11px ui-monospace,monospace'; ctx.fillText(s.short,s.x,s.y-s.r-14);
+      if(active){ ctx.font='700 9px ui-monospace,monospace'; ctx.fillStyle=s.contested?'#ff5c5c':'rgba(238,242,255,.72)';
+        ctx.fillText(s.contested?'CLEAR THE AREA':'HOLD F TO SEARCH',s.x,s.y+s.r+22); }
+      else if(s.safe&&s.captured){ctx.font='700 9px ui-monospace,monospace';ctx.fillStyle='#7cff9b';ctx.fillText('SAFE ROOM · HEAL + TREAT',s.x,s.y+s.r+22);}
+      ctx.restore();
+    }
     // hold-point beacons
     for(const b of pois){ ctx.save(); const col = b.captured?'#3ddc84':'#ffcf3f';
       ctx.shadowColor=col; ctx.shadowBlur=14; ctx.strokeStyle=col; ctx.lineWidth=3;
@@ -1592,13 +2152,15 @@ function drawZombieEntities(){
   // citizens
   for(const c of citizens){ if(!c.alive) continue;
     const conv = c.converting>0, following = c.following!=null;
+    const role=CITIZEN_ROLES[c.role]||CITIZEN_ROLES.civilian;
     if(following){ const ldr = players[c.following]; if(ldr && ldr.alive){   // escort tether
       ctx.strokeStyle='rgba(124,255,155,.35)'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
       ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(ldr.x,ldr.y); ctx.stroke(); ctx.setLineDash([]); } }
-    ctx.fillStyle = conv ? `rgba(255,${120+Math.sin(c.wob*6)*80|0},80,1)` : (following?'#aef7c4':'#7cff9b');
+    ctx.fillStyle = conv ? `rgba(255,${120+Math.sin(c.wob*6)*80|0},80,1)` : (following?role.c:'#7cff9b');
     ctx.shadowColor = conv ? '#ff7a3c' : '#3ddc84'; ctx.shadowBlur = following?12:8;
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(4,8,14,.6)'; ctx.beginPath(); ctx.arc(c.x, c.y-1, c.r*0.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(4,8,14,.72)'; ctx.beginPath(); ctx.arc(c.x, c.y-1, c.r*0.5, 0, TAU); ctx.fill();
+    if(c.role!=='civilian'&&!conv){ctx.fillStyle='#fff';ctx.font='900 9px ui-monospace,monospace';ctx.textAlign='center';ctx.fillText(role.ic,c.x,c.y+3);}
   }
   // acid globs
   for(const sh of zshots){ if(sh.life<=0) continue;
@@ -1606,13 +2168,20 @@ function drawZombieEntities(){
     ctx.beginPath(); ctx.arc(sh.x, sh.y, sh.r, 0, TAU); ctx.fill();
     ctx.fillStyle='rgba(220,190,255,.9)'; ctx.beginPath(); ctx.arc(sh.x-sh.r*0.3, sh.y-sh.r*0.3, sh.r*0.4, 0, TAU); ctx.fill();
     ctx.restore(); }
+  // searchable containers
+  for(const c of searchables){ if(c.searched)continue; const col=c.type==='medical'?'#7cff9b':c.type==='file'?'#b56bff':c.type==='tools'?'#c9d2e6':'#ffcf3f';
+    ctx.save();ctx.translate(c.x,c.y);ctx.rotate(Math.sin(c.wob)*0.025);ctx.fillStyle='rgba(6,8,15,.9)';ctx.strokeStyle=col;ctx.lineWidth=2;
+    rrect(ctx,-15,-11,30,22,3);ctx.fill();ctx.stroke();ctx.fillStyle=col;ctx.fillRect(-8,-2,16,3);
+    if(c.prog>0){ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,20,-Math.PI/2,-Math.PI/2+c.prog*TAU);ctx.stroke();}ctx.restore(); }
   // pickups
-  for(const pk of pickups){ if(!pk.alive) continue; const yb = Math.sin(pk.wob)*3, isA = pk.type==='ammo', col = isA?'#ffcf3f':'#00e5ff';
+  for(const pk of pickups){ if(!pk.alive) continue; const yb = Math.sin(pk.wob)*3;
+    const meta=pk.type==='ammo'?['#ffcf3f','⦿']:pk.type==='herb'?['#7cff9b','✚']:pk.type==='spray'?['#00e5ff','▣']:pk.type==='antidote'?['#b56bff','◈']:pk.type==='tools'?['#c9d2e6','◆']:['#00e5ff','✦'];
+    const col=meta[0],ic=meta[1];
     ctx.save(); ctx.globalAlpha = pk.life<3 ? (0.4+0.6*Math.abs(Math.sin(pk.wob*3))) : 1;
     ctx.shadowColor=col; ctx.shadowBlur=12; ctx.strokeStyle=col; ctx.lineWidth=2; ctx.fillStyle='rgba(6,8,15,.8)';
     rrect(ctx, pk.x-pk.r, pk.y-pk.r+yb, pk.r*2, pk.r*2, 3); ctx.fill(); ctx.stroke();
     ctx.shadowBlur=0; ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='11px system-ui';
-    ctx.fillText(isA?'⦿':'✦', pk.x, pk.y+yb+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
+    ctx.fillText(ic, pk.x, pk.y+yb+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
   // zombies — type-colored
   for(const z of zombies){ if(!z.alive) continue; const T = ZTYPES[z.ti]||ZTYPES[0];
     ctx.save(); ctx.translate(z.x, z.y);
@@ -1634,43 +2203,59 @@ function drawParticlesWorld(){ for(const p of parts){ ctx.globalAlpha = clamp(1-
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
 function drawParticlesScreen(){ for(const p of parts){ ctx.globalAlpha = clamp(1-p.t/p.life,0,1);
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
+function drawCaseFile(){
+  if(!held.Tab)return; const c=campaign,you=players[me],pw=Math.min(620,W-32),ph=Math.min(510,H-32),x=(W-pw)/2,y=(H-ph)/2;
+  ctx.save();ctx.fillStyle='rgba(3,5,10,.95)';ctx.fillRect(x,y,pw,ph);ctx.strokeStyle='#8b93a8';ctx.lineWidth=1;ctx.strokeRect(x,y,pw,ph);
+  ctx.textAlign='left';ctx.fillStyle='#ffcf3f';ctx.font='900 italic 24px system-ui';ctx.fillText('RACCOON OUTBREAK · CASE FILE',x+22,y+36);
+  ctx.font='700 10px ui-monospace,monospace';ctx.fillStyle='#8b93a8';ctx.fillText('LIVE OPERATION RECORD · RELEASE TAB TO CLOSE',x+22,y+54);
+  const acts=[['Wrecked convoy','crash'],["St. Mary\'s Clinic",'clinic'],['Sewer control','sewer'],['Power substation','substation'],['Evac radio','radio'],['Service depot','depot']];
+  ctx.font='800 11px ui-monospace,monospace';let yy=y+86;
+  for(let i=0;i<acts.length;i++){const s=missionSite(acts[i][1]),done=s&&s.captured,active=s&&siteAvailable(s);ctx.fillStyle=done?'#7cff9b':active?'#ffcf3f':'#596078';
+    ctx.fillText(`${done?'✓':active?'▶':'○'} ACT ${i+1} · ${acts[i][0].toUpperCase()}`,x+24,yy);yy+=25;}
+  const arm=missionSite('armory');ctx.fillStyle=arm&&arm.captured?'#7cff9b':campaign.keycard?'#00e5ff':'#596078';ctx.fillText(`${arm&&arm.captured?'✓':'◇'} OPTIONAL · RPD ARMORY`,x+24,yy+3);
+  const bunker=missionSite('bunker');if(c.files>=OUTBREAK_FILES.length||(bunker&&bunker.captured)){ctx.fillStyle=bunker&&bunker.captured?'#7cff9b':'#b56bff';ctx.fillText(`${bunker&&bunker.captured?'✓':'◆'} SECRET · UMBRA LAB B-12`,x+24,yy+23);}
+  if(c.files>0){ctx.fillStyle='#b56bff';ctx.font='900 italic 13px system-ui';ctx.fillText('RECOVERED FILES',x+24,yy+36);ctx.font='600 9px ui-monospace,monospace';
+    for(let j=Math.max(0,c.files-3),fy=yy+55;j<c.files&&j<OUTBREAK_FILES.length;j++,fy+=17)ctx.fillText('• '+OUTBREAK_FILES[j].slice(0,56),x+24,fy);}
+  const ix=x+pw*0.55,h=OUTBREAK_HEROES[(you&&you.hero)||save.outbreakHero]||OUTBREAK_HEROES.mara;ctx.fillStyle=h.color;ctx.font='900 italic 15px system-ui';ctx.fillText(h.name.toUpperCase(),ix,y+86);ctx.font='600 9px ui-monospace,monospace';ctx.fillStyle='#8b93a8';ctx.fillText(h.role+' · '+h.perk.slice(0,34),ix,y+102);
+  ctx.fillStyle='#eef2ff';ctx.font='900 italic 15px system-ui';ctx.fillText('KEY ITEMS',ix,y+128);
+  ctx.font='700 11px ui-monospace,monospace';const items=[['BOLT CUTTERS',c.cutters],['CITY KEYCARD',c.keycard],['ANTIVIRAL PROTOCOL',c.serum],['GRID FUSE',c.fuse],['CITY POWER',c.power],['EVAC RADIO',c.radio],['AVIATION FUEL',c.fuel],['CROWN LEDGER',c.truth]];
+  let iy=y+154;for(const it of items){ctx.fillStyle=it[1]?'#ffcf3f':'#4a5164';ctx.fillText(`${it[1]?'■':'□'} ${it[0]}`,ix,iy);iy+=20;}
+  ctx.fillStyle='#eef2ff';ctx.font='900 italic 15px system-ui';ctx.fillText('OPERATION',ix,iy+12);ctx.font='700 11px ui-monospace,monospace';ctx.fillStyle='#c9d2e6';
+  ctx.fillText(`SURVIVORS  ${c.rescued}/${c.goal}`,ix,iy+36);ctx.fillText(`FILES      ${c.files}/${OUTBREAK_FILES.length}`,ix,iy+56);ctx.fillText(`CACHES     ${c.caches}`,ix,iy+76);
+  ctx.fillText(`KILLS      ${(you&&you.kills)||0}`,ix,iy+96);ctx.fillText(`REVIVES    ${(you&&you.revives)||0}`,ix,iy+116);
+  if((c.rescuedNames||[]).length){ctx.fillStyle='#7cff9b';ctx.font='600 9px ui-monospace,monospace';ctx.fillText('EVACUATED · '+c.rescuedNames.slice(-5).join(' · ').slice(0,72),x+22,y+ph-42);}
+  ctx.fillStyle='#8b93a8';ctx.font='600 10px ui-monospace,monospace';ctx.fillText('F INTERACT · R RELOAD · H HEAL · SHIFT/E ABILITY',x+22,y+ph-22);ctx.restore();
+}
 function drawOutbreakHUD(){
-  const c = campaign;
-  // top-center: rescue progress bar
-  ctx.textAlign='center'; ctx.font='700 12px ui-monospace,monospace'; ctx.fillStyle='#8b93a8';
-  ctx.fillText(`OUTBREAK · THREAT ${c.wave}${zombies.some(z=>z.boss)?' · BEHEMOTH':''}`, W/2, 22);
-  const bw=200, bx=W/2-bw/2, frac=clamp(c.rescued/c.goal,0,1);
-  ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fillRect(bx,30,bw,7);
-  ctx.fillStyle='#3ddc84'; ctx.fillRect(bx,30,bw*frac,7);
-  ctx.fillStyle='#7cff9b'; ctx.font='900 italic 13px system-ui'; ctx.textAlign='left'; ctx.fillText(`◊ ${c.rescued}`, bx-34, 38);
-  ctx.fillStyle='#8b93a8'; ctx.textAlign='right'; ctx.font='700 11px ui-monospace,monospace'; ctx.fillText(`/ ${c.goal}`, bx+bw+30, 38);
-  // top-left: escort count
-  ctx.textAlign='left'; ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle='#aef7c4';
-  ctx.fillText(`🚶 ${c.escorting||0}`, 16, 30);
-  ctx.font='600 11px ui-monospace,monospace'; ctx.fillStyle='#8b93a8'; ctx.fillText('escorting', 56, 30);
-  // top-right: lives
-  ctx.textAlign='right'; ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle='#ff2d55';
-  ctx.fillText('❤'.repeat(Math.max(0,c.lives+1)) || '—', W-16, 30);
-  // hub compass (points home when the hub is off-screen)
-  const you=players[me];
-  if(you){ const dx=HUB.x-you.x, dy=HUB.y-you.y, dist=Math.hypot(dx,dy);
-    if(dist>HUB.r+40){ const a=Math.atan2(dy,dx), cx=W/2, cy=H/2, rad=Math.min(W,H)*0.32;
-      const ax=cx+Math.cos(a)*rad, ay=cy+Math.sin(a)*rad;
-      ctx.save(); ctx.translate(ax,ay); ctx.rotate(a);
-      ctx.fillStyle='rgba(61,220,132,.9)'; ctx.beginPath(); ctx.moveTo(14,0); ctx.lineTo(-8,-7); ctx.lineTo(-8,7); ctx.closePath(); ctx.fill();
-      ctx.restore();
-      ctx.fillStyle='rgba(124,255,155,.85)'; ctx.textAlign='center'; ctx.font='700 10px ui-monospace,monospace';
-      ctx.fillText('HUB '+(dist/100|0)+'m', ax, ay+22); }
+  const c=campaign,obj=missionObjective(),boss=zombies.some(z=>z.boss),you=players[me];
+  ctx.textAlign='center';ctx.font='700 10px ui-monospace,monospace';ctx.fillStyle=c.alert>0?'#ff7a3c':'#8b93a8';
+  ctx.fillText(`RACCOON OUTBREAK · THREAT ${c.wave}${boss?' · TYRANT':''}${c.blackout>0?' · BLACKOUT':c.alert>0?' · HORDE ALERT':''}`,W/2,18);
+  ctx.font='900 italic 15px system-ui,sans-serif';ctx.fillStyle='#eef2ff';ctx.fillText(`${obj.case} · ${obj.text}`,W/2,39);
+  ctx.font='600 10px ui-monospace,monospace';ctx.fillStyle='#8b93a8';ctx.fillText(obj.sub,W/2,55);
+  if(c.phase===5){const bw=190,bx=W/2-bw/2,frac=clamp(c.rescued/c.goal,0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(bx,63,bw,6);ctx.fillStyle='#3ddc84';ctx.fillRect(bx,63,bw*frac,6);}
+  // condition monitor
+  if(you){const hp=clamp(you.hp/you.maxHp,0,1),inf=clamp(you.infection/100,0,1),bw=128;
+    ctx.textAlign='left';ctx.font='800 10px ui-monospace,monospace';ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillText(`CONDITION ${Math.ceil(you.hp)}/${you.maxHp}`,16,18);
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(16,24,bw,6);ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillRect(16,24,bw*hp,6);
+    ctx.fillStyle='#b56bff';ctx.fillText(`INFECTION ${Math.ceil(you.infection)}%`,16,46);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(16,51,bw,5);ctx.fillStyle='#b56bff';ctx.fillRect(16,51,bw*inf,5);
+    ctx.fillStyle='#aef7c4';ctx.font='800 11px ui-monospace,monospace';ctx.fillText(`ESCORT ${c.escorting||0} · SAVED ${c.rescued}/${c.goal}`,16,75);
+    ctx.fillStyle='#c9d2e6';ctx.fillText(`✚ ${you.herbs||0}  ▣ ${you.sprays||0}  ◆ ${you.parts||0}`,16,93);
+    const safe=missionSite('clinic');if(c.safeActive||(safe&&safe.captured&&Math.hypot(you.x-safe.x,you.y-safe.y)<125)){ctx.fillStyle='#7cff9b';ctx.fillText('SAFE ROOM · RECOVERING',16,111);}
+    // weapon monitor
+    ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';ctx.fillText(`${you.ammo} / ${you.reserve||0}`,W-16,54);
+    ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(you.reloadT>0?'RELOADING…':'MAGAZINE / RESERVE · R',W-16,68);
+    if(you.reloadT>0){const f=1-clamp(you.reloadT/Math.max(.4,you.ld.regenTime*2.1*(you.reloadMod||1)),0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-144,73,128,5);ctx.fillStyle='#ffcf3f';ctx.fillRect(W-144,73,128*f,5);}
   }
-  // kill feed
-  ctx.textAlign='left'; ctx.font='600 12px ui-monospace,monospace';
-  let fy = H - 16 - (isTouch?70:0);
-  for(let i=feed.length-1;i>=0;i--){ const f=feed[i]; const a=clamp(3.5-f.t,0,1); if(a<=0) continue;
-    ctx.globalAlpha=a; ctx.fillStyle='#c9d2e6'; ctx.fillText(f.txt, 16, fy); fy-=18; }
-  ctx.globalAlpha=1;
-  if(you && !you.alive && state==='play'){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.85)';
-    ctx.font='900 italic 22px system-ui,sans-serif';
-    ctx.fillText(c.lives>0 ? 'RESPAWNING AT HUB…' : 'DOWN — allies fighting on', W/2, H/2+60); }
+  ctx.textAlign='right';ctx.font='900 italic 14px system-ui';ctx.fillStyle='#ff2d55';ctx.fillText('❤'.repeat(Math.max(0,c.lives+1))||'—',W-16,20);
+  ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(`FILES ${c.files}/${OUTBREAK_FILES.length} · TAB CASE FILE`,W-16,92);
+  ctx.fillText(`NOISE ${Math.ceil(c.noise||0)}%`,W-16,108);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-116,113,100,4);ctx.fillStyle=(c.noise||0)>55?'#ff7a3c':'#596078';ctx.fillRect(W-116,113,(c.noise||0),4);
+  // Objective compass
+  const target=currentMissionTarget();if(you&&target){const dx=target.x-you.x,dy=target.y-you.y,dist=Math.hypot(dx,dy);if(dist>90){const a=Math.atan2(dy,dx),cx=W/2,cy=H/2,rad=Math.min(W,H)*.32,ax=cx+Math.cos(a)*rad,ay=cy+Math.sin(a)*rad;
+    ctx.save();ctx.translate(ax,ay);ctx.rotate(a);ctx.fillStyle=c.phase>=5?'#3ddc84':'#ffcf3f';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-8,-7);ctx.lineTo(-8,7);ctx.closePath();ctx.fill();ctx.restore();
+    const label=target===HUB?'HUB':target.short||(target.following!=null?'ESCORT':'SURVIVOR');ctx.fillStyle=c.phase>=5?'#7cff9b':'#ffcf3f';ctx.textAlign='center';ctx.font='700 10px ui-monospace,monospace';ctx.fillText(`${label} ${Math.max(1,dist/100|0)}m`,ax,ay+22);}}
+  const prompt=interactionPrompt(you);if(prompt){ctx.textAlign='center';ctx.font='900 12px ui-monospace,monospace';ctx.fillStyle='#ffcf3f';ctx.fillText(prompt,W/2,H-(isTouch?132:64));}
+  ctx.textAlign='left';ctx.font='600 12px ui-monospace,monospace';let fy=H-16-(isTouch?82:0);for(let i=feed.length-1;i>=0;i--){const f=feed[i],a=clamp(3.5-f.t,0,1);if(a<=0)continue;ctx.globalAlpha=a;ctx.fillStyle='#c9d2e6';ctx.fillText(f.txt,16,fy);fy-=18;}ctx.globalAlpha=1;
+  if(you&&!you.alive&&state==='play'){ctx.textAlign='center';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';ctx.fillText(you.downed?`DOWN · ${Math.ceil(you.bleedout)}s · ALLY HOLD F TO REVIVE`:c.lives>0?'REINFORCEMENT INBOUND…':'LOST — ALLIES STILL FIGHTING',W/2,H/2+60);}
 }
 function drawHUD(){
   ctx.textAlign = 'left';
@@ -1759,6 +2344,9 @@ function drawMinimap(){
   if(open){ // hub + beacons
     const [hx,hy]=M(HUB.x,HUB.y); if(inBox(hx,hy)){ ctx.strokeStyle='#3ddc84'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(hx,hy,Math.max(3,HUB.r*sx),0,TAU); ctx.stroke(); }
     for(const b of pois){ const [bx,by]=M(b.x,b.y); if(!inBox(bx,by)) continue; ctx.fillStyle=b.captured?'#3ddc84':'#ffcf3f'; ctx.fillRect(bx-1.5,by-1.5,3,3); }
+    for(const s of missionSites){if(s.secret&&!s.captured&&!siteAvailable(s))continue; const [sx0,sy0]=M(s.x,s.y); if(!inBox(sx0,sy0)) continue;
+      ctx.fillStyle=s.captured?'#3ddc84':siteAvailable(s)?(s.optional?'#00e5ff':'#ffcf3f'):'#596078'; ctx.fillRect(sx0-2,sy0-2,4,4); }
+    const you=players[me];for(const c of searchables){if(c.searched||!you||Math.hypot(c.x-you.x,c.y-you.y)>850)continue;const [cx0,cy0]=M(c.x,c.y);if(inBox(cx0,cy0)){ctx.fillStyle='#c9d2e6';ctx.fillRect(cx0-1,cy0-1,2,2);}}
   }
   if(gmode === 'zombies'){
     for(const c of citizens){ if(!c.alive) continue; const [px,py]=M(c.x,c.y); if(open&&!inBox(px,py)) continue;
@@ -1766,9 +2354,9 @@ function drawMinimap(){
     for(const z of zombies){ if(!z.alive) continue; const [px,py]=M(z.x,z.y); if(open&&!inBox(px,py)) continue;
       ctx.fillStyle = z.boss?'#ff9f1c':'#ff5c5c'; ctx.beginPath(); ctx.arc(px, py, z.boss?3:1.6, 0, TAU); ctx.fill(); }
   }
-  for(const p of players){ if(!p || !p.alive) continue; const [px,py]=M(p.x,p.y); if(open&&!inBox(px,py)) continue;
+  for(const p of players){ if(!p || (!p.alive&&!p.downed)) continue; const [px,py]=M(p.x,p.y); if(open&&!inBox(px,py)) continue;
     ctx.fillStyle = p.color; const d = p.local ? 4 : 2.6;
-    ctx.beginPath(); ctx.arc(px, py, d, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, d, 0, TAU); ctx.fill();if(p.downed){ctx.strokeStyle='#ff2d55';ctx.lineWidth=2;ctx.stroke();}
     if(p.local){ ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke(); } }
   ctx.globalAlpha = 1;
 }
@@ -1777,18 +2365,20 @@ function drawTouch(){
     ctx.beginPath(); ctx.arc(touch.ox,touch.oy,46,0,TAU); ctx.stroke();
     ctx.fillStyle='rgba(238,242,255,.5)'; ctx.beginPath(); ctx.arc(touch.ox+touch.vx*36, touch.oy+touch.vy*36,16,0,TAU); ctx.fill(); }
   if(isTouch && state==='play'){ ctx.fillStyle='rgba(139,147,168,.4)'; ctx.font='700 11px ui-monospace,monospace';
-    ctx.textAlign='center'; ctx.fillText('◈ MOVE', W*0.25, H-24); ctx.fillText('✛ FIRE', W*0.75, H-24); }
+    ctx.textAlign='center'; ctx.fillText('◈ MOVE', W*0.25, H-24); ctx.fillText('✛ FIRE', W*0.90, H-24);
+    if(gmode==='zombies'&&campaign&&campaign.open){for(const b of [{...interactBtn(),t:'F',c:'#ffcf3f'},{...healBtn(),t:'H',c:'#7cff9b'}]){ctx.fillStyle='rgba(6,8,15,.72)';ctx.strokeStyle=b.c;ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=b.c;ctx.font='900 14px ui-monospace,monospace';ctx.fillText(b.t,b.x,b.y+5);}}
+  }
 }
 
 /* ================= menus ================= */
 function toMenu(){
-  state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = []; rankedMode = false; duelMode = false;
+  state = 'menu'; mode = null; roundLive = false; clearTimers();clearTimeout(storyTimer);storySceneState=null; parts = []; bullets = []; rankedMode = false; duelMode = false;
   netCloseAll(true); lobbyCleanup();
   $('#announce').classList.remove('show');
   const p = save; const xi = expInfo(p.exp);
   $('#arena').innerHTML = `<div class="menu">
     <div class="logo"><span class="l1">Ricochet</span><span class="l2">Rumble</span></div>
-    <div class="tag">8-PLAYER BRAWL · ZOMBIE SURVIVAL · 1v1 DUEL TOWER · ONE HIT KILLS</div>
+    <div class="tag">8-PLAYER BRAWL · RACCOON OUTBREAK · 1v1 DUEL TOWER · SURVIVAL HORROR</div>
     <div class="lvlbar" style="max-width:520px">
       <div class="lvlbadge">LV ${p.level}</div>
       <div class="xptrack"><i style="transform:scaleX(${xi.frac})"></i></div>
@@ -1800,22 +2390,22 @@ function toMenu(){
       : `<b style="color:var(--p2)">◔ GUEST</b> <span>tap to sign in — sync progress across devices</span>`}</button>
     <div class="modes">
       <button class="mbtn b1" id="btnSolo"><b>SPACE</b> BRAWL vs CPU<span>you + 7 bots · FFA or teams</span></button>
-      <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE SURVIVAL<span>arena defense · 8 waves · 6 breeds</span></button>
+      <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE SURVIVAL<span>arena defense · 8 waves · 8 infected classes</span></button>
       <button class="mbtn b2" id="btnNet"><b>O</b> ONLINE BRAWL<span>make a room · friends fill the seats</span></button>
     </div>
     <div class="modes">
-      <button class="mbtn bg" id="btnOut"><b>X</b> OUTBREAK · OPEN WORLD<span>escort survivors to the hub · co-op · procedural city</span></button>
+      <button class="mbtn bg" id="btnOut"><b>X</b> RACCOON OUTBREAK<span>six-act survival-horror campaign · solo / co-op</span></button>
     </div>
     <div class="modes">
       <button class="mbtn" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · ${p.inv.length}-item stash</span></button>
       <button class="mbtn bg" id="btnShop"><b>B</b> SHOP<span>spend credits · buy legendaries</span></button>
       <button class="mbtn b2" id="btnRanked"><b>R</b> RANKED DUELS<span>Heaven's Arena · 1v1 · floor ${myFloor()}</span></button>
     </div>
-    <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · ${isTouch?'TOUCH: LEFT MOVE, RIGHT FIRE · ':''}KILLS ${p.kills} · WINS ${p.wins} · CITIZENS SAVED ${p.saved}</div>
+    <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · OUTBREAK: F INTERACT · R RELOAD · H HEAL · TAB CASE FILE · ${isTouch?'TOUCH CONTROLS ENABLED · ':''}KILLS ${p.kills} · WINS ${p.wins} · CITIZENS SAVED ${p.saved}</div>
   </div>`;
   $('#btnSolo').onclick = () => openLoadout('solo');
   $('#btnCamp').onclick = () => startCampaign();
-  $('#btnOut').onclick = () => startOutbreak();
+  $('#btnOut').onclick = () => renderOutbreakBriefing();
   $('#btnLoad').onclick = () => openLoadout('view');
   $('#btnShop').onclick = () => openShop();
   $('#btnNet').onclick = () => { rankedMode = false; duelMode = false; renderLobby(); };
@@ -2313,7 +2903,7 @@ function wpsJoin(g){ wpsSend({type:'joinGroup', group:g}); }
 function wpsTo(g,d){ wpsSend({type:'sendToGroup', group:g, dataType:'json', data:d}); }
 const sigGroup = id => 'sig-' + id;
 function announceRoom(){ if(lobby && lobby.hosting && !lobby.starting)
-  wpsTo('rooms', {t:'room', from:lobby.cid, name:lobby.hosting.name, gm:gmode, n: lobby.seats.length+1, rk: rankedMode?1:0}); }
+  wpsTo('rooms', {t:'room', from:lobby.cid, name:lobby.hosting.name, gm:gmode, op:openWorld?1:0, n: lobby.seats.length+1, rk: rankedMode?1:0}); }
 
 function netBroadcast(o){ if(!net || net.role!=='host') return; const s = JSON.stringify(o);
   for(const pr of net.peers){ if(pr.ch && pr.ch.readyState==='open'){ try{ pr.ch.send(s); }catch(e){} } } }
@@ -2383,7 +2973,7 @@ function renderRoomList(){
   const rooms = [...lobby.rooms.entries()].filter(([id,r]) => (!!r.rk) === rankedMode);   // ranked & casual lobbies are separate
   if(!rooms.length){ el.innerHTML = `<div class="netstat">no open ${rankedMode?'ranked ':''}rooms — create one; it shows up on every lobby</div>`; return; }
   el.innerHTML = rooms.map(([id,r]) =>
-    `<button class="roomrow" data-id="${esc(id)}"><span>${esc(r.name)} <span style="color:var(--dim)">· ${r.rk?'<span style="color:var(--p2)">RANKED</span> · ':''}${r.gm==='teams'?'TEAMS':r.gm==='zombies'?'CO-OP 🧟':'FFA'} · ${r.n}/8</span></span><span class="rjoin">JOIN ▶</span></button>`).join('');
+    `<button class="roomrow" data-id="${esc(id)}"><span>${esc(r.name)} <span style="color:var(--dim)">· ${r.rk?'<span style="color:var(--p2)">RANKED</span> · ':''}${r.gm==='teams'?'TEAMS':r.gm==='zombies'?(r.op?'OUTBREAK 🧟':'CO-OP 🧟'):'FFA'} · ${r.n}/8</span></span><span class="rjoin">JOIN ▶</span></button>`).join('');
   el.querySelectorAll('.roomrow').forEach(b => b.onclick = () => joinRoom(b.dataset.id));
 }
 function lobbyCleanup(){
@@ -2402,7 +2992,7 @@ function lobbyMsg(raw){
   if(env.type!=='message'||env.from!=='group') return;
   const m = env.data; if(!m||typeof m!=='object'||m.from===lobby.cid) return;
   if(env.group === 'rooms'){
-    if(m.t==='room'){ lobby.rooms.set(m.from, {name:String(m.name||'room').slice(0,22), gm:m.gm||'ffa', n:m.n||1, rk:!!m.rk, seen:Date.now()}); renderRoomList(); }
+    if(m.t==='room'){ lobby.rooms.set(m.from, {name:String(m.name||'room').slice(0,22), gm:m.gm||'ffa', op:!!m.op, n:m.n||1, rk:!!m.rk, seen:Date.now()}); renderRoomList(); }
     else if(m.t==='gone'){ if(lobby.rooms.delete(m.from)) renderRoomList(); }
     return;
   }
@@ -2501,7 +3091,7 @@ function hostSeat(jid, pc, ch){
 }
 function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout + level
   if(m && m.t==='ld' && lobby && lobby._chans && lobby._chans.has(jid))
-    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, t:m.tr, g:m.gd, level:m.level, pid:m.pid, handle:m.handle, token:m.token, aid:m.aid };
+    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, t:m.tr, g:m.gd, level:m.level, pid:m.pid, handle:m.handle, token:m.token, aid:m.aid,hero:m.hero };
 }
 function hostStart(){
   if(!lobby || !lobby.hosting || lobby.starting) return;
@@ -2513,17 +3103,19 @@ function hostStart(){
   const coop = gmode === 'zombies';
   const seated = lobby._chans ? [...lobby._chans.values()] : [];   // seat order
   players = new Array(MAXP);
-  players[0] = makePlayer(0, { local:true, name:coop?'You':'Host', level:save.level, ld: myLoadout() });
+  const hostHero=OUTBREAK_HEROES[save.outbreakHero]||OUTBREAK_HEROES.mara;
+  players[0] = makePlayer(0, { local:true, name:coop&&openWorld?hostHero.name:coop?'You':'Host',hero:coop?save.outbreakHero:null, level:save.level, ld: myLoadout() });
   for(const cn of seated){ const idx = cn.idx; if(idx<1 || idx>=MAXP || players[idx]) continue;
-    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle, token:cn.ld&&cn.ld.token, aid:cn.ld&&cn.ld.aid };
+    const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false,a:false,e:false,r:false,h:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle, token:cn.ld&&cn.ld.token, aid:cn.ld&&cn.ld.aid };
     const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a, cn.ld.t, cn.ld.g) : botLoadout();  // honor the guest's build
-    players[idx] = makePlayer(idx, { name:(coop?'Ally ':'Rival ')+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
+    const gh=OUTBREAK_HEROES[cn.ld&&cn.ld.hero]||OUTBREAK_HEROES.mara;
+    players[idx] = makePlayer(idx, { name:coop&&openWorld?gh.name:(coop?'Ally ':'Rival ')+idx,hero:coop?(cn.ld&&cn.ld.hero)||'mara':null, level: (cn.ld && cn.ld.level) || save.level, ld });
     const dropHandler = coop
       ? () => { pr.ready = false; }   // co-op: a dropped ally just stops shooting (no bot takeover of a defender)
       : () => { pr.ready = false; const pl = players[idx];
           if(pl && !pl.bot){ pl.bot = {retarget:0,tx:0,ty:0,dodge:0,dx:0,dy:0,wob:rand(0,9),skill:1}; pl.wantShoot = false; pushFeed(`${pl.name} disconnected — bot took over`); } };
     cn.ch.onmessage = e => { try{ const m=JSON.parse(e.data);
-      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s,a:!!m.a}; } else if(m.t==='bye'){ dropHandler(); } }catch(err){} };
+      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s,a:!!m.a,e:!!m.e,r:!!m.r,h:!!m.h}; } else if(m.t==='bye'){ dropHandler(); } }catch(err){} };
     cn.pc.onconnectionstatechange = () => { if(['failed','disconnected','closed'].includes(cn.pc.connectionState)) dropHandler(); };
     net.peers.push(pr);
     try{ cn.ch.send(JSON.stringify({t:'welcome', idx, world:WORLD})); }catch(e){}   // resend for safety
@@ -2547,7 +3139,7 @@ function hostRematch(){ if(mode==='host'){ beginMatch(); } }
 function joinRoom(id){
   if(!lobby || lobby.join || lobby.hosting) return;
   lobby.join = id; const r = lobby.rooms.get(id);
-  if(r){ gmode = r.gm; rankedMode = !!r.rk; }
+  if(r){ gmode = r.gm; openWorld = !!r.op; rankedMode = !!r.rk; }
   lobbyStatus('knocking on “'+(r?r.name:'room')+'”…');
   wpsJoin(sigGroup(id));
   setTimeout(()=> wpsTo(sigGroup(id), {t:'knock', from:lobby.cid, to:id}), 250);
@@ -2570,9 +3162,9 @@ async function joinOffer(roomId, sdp){
   }catch(e){ joinReset('webrtc failed'); }
 }
 function wireGuest(pc, ch){
-  net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false}, inAcc:0, ready:false, matched:false };
+  net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false,a:false,e:false,r:false,h:false}, inAcc:0, ready:false, matched:false };
   ch.onopen = () => { net.ready = true; net.matched = true; if(lobby) lobby.starting = true;
-    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), tr:equippedTrinket(), gd:equippedGadget(), level:save.level, pid:save.pid,
+    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), tr:equippedTrinket(), gd:equippedGadget(), level:save.level, pid:save.pid,hero:save.outbreakHero,
       handle:acctHandle(), token: account?account.token:null, aid: account?account.aid:null})); }catch(e){}  // build + ladder identity for the host
     lobbyCleanup();
     mode = 'guest'; state = 'wait'; parts=[]; bullets=[]; players=[]; $('#arena').innerHTML='';
@@ -2585,8 +3177,9 @@ function guestDropped(){ if(mode!=='guest') return; mode='dropping';   // guard 
   netCloseAll(false); clearTimers(); roundLive=false;
   showAnnounce('<div class="rtitle" style="color:var(--gold)">Connection lost</div><div class="rsub">host vanished into the static</div>');
   setTimeout(toMenu, 2000); }
-function guestGhost(i, meta){ return { i, team:meta.team, color:meta.color, name:meta.name,
-  x:0,y:0, tx:undefined, ty:0, aim:0, taim:0, alive:true, shield:0, ammo:3, r:15, local:false, ld:{maxAmmo:3}, init:false }; }
+function guestGhost(i, meta){ return { i, team:meta.team, color:meta.color, name:meta.name,hero:meta.hero||null,
+  x:0,y:0, tx:undefined, ty:0, aim:0, taim:0, alive:true, shield:0, ammo:3, reserve:0, hp:100,maxHp:100,infection:0,
+  herbs:0,sprays:0,parts:0,downed:false,bleedout:0,reviveProg:0,reloadT:0,reloadMod:(OUTBREAK_HEROES[meta.hero]&&OUTBREAK_HEROES[meta.hero].reload)||1,r:15,local:false,ld:{maxAmmo:3,regenTime:.72},init:false }; }
 function guestRecv(m){
   if(!net) return;
   switch(m.t){
@@ -2610,13 +3203,15 @@ function guestRecv(m){
       gmode='zombies'; WORLD.w=m.world.w; WORLD.h=m.world.h; net.hab=m.world;
       if(net.me==null) net.me=1;
       openWorld = !!m.open; if(typeof m.seed==='number') worldSeed = m.seed;
-      chunkWalls = new Map(); populated = new Set(); extraWalls = []; pois = [];
+      chunkWalls = new Map(); populated = new Set(); extraWalls = []; pois = []; missionSites = []; missionWalls=[]; searchables=[]; searchableIds=new Set();
       walls = openWorld ? [] : m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]}));
-      players = m.players.map((meta,i)=> meta ? guestGhost(i, {team:-1,color:meta.color,name:meta.name}) : null);
+      players = m.players.map((meta,i)=> meta ? guestGhost(i, {team:-1,color:meta.color,name:meta.name,hero:meta.hero}) : null);
       players.forEach(p=>{ if(p) p.local = (p.i===net.me); });
-      campaign = { open:openWorld, wave:0, maxWave:m.maxWave, lives:m.lives, citizensStart:m.citizensStart, goal:m.goal, rescued:0, escorting:0, np:m.players.filter(Boolean).length, combo:0, comboT:0 };
+      campaign = { open:openWorld, wave:openWorld?1:0, maxWave:m.maxWave, lives:m.lives, citizensStart:m.citizensStart, goal:m.goal,
+        rescued:0, escorting:0, np:m.players.filter(Boolean).length, phase:0, cutters:false,keycard:false,serum:false,fuse:false,power:false,radio:false,fuel:false,armory:false,truth:false,
+        alert:0,noise:0,blackout:0,files:0,caches:0,searched:[],rescuedNames:[],siegeStarted:false,siegeTimer:42,finaleStage:0,combo:0,comboT:0,cinematic:false };
       me=net.me; citizens=[]; zombies=[]; zshots=[]; pickups=[]; bullets=[]; parts=[]; feed=[]; state='play';
-      if(openWorld) ensureChunks([HUB]);
+      if(openWorld){ resetMissionSites(); ensureChunks([HUB]); }
       $('#arena').innerHTML=''; $('#announce').classList.remove('show');
       break;
     case 'zwalls': walls = m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})); break;
@@ -2624,24 +3219,33 @@ function guestRecv(m){
     case 'zpause': if(campaign){ campaign.wave=m.wave; } break;   // host is drafting an upgrade; hold position
     case 'zs':
       if(campaign){ campaign.wave=m.w; campaign.lives=m.lv; campaign.citizensAlive=m.ca; campaign.combo=m.cb||0; campaign.comboT=campaign.combo>1?2.4:0;
-        if(campaign.open){ campaign.rescued=m.rs||0; campaign.escorting=m.es||0; pois=(m.po||[]).map(a=>({x:a[0],y:a[1],r:30,captured:!!a[2],prog:a[3]||0})); } }
+        if(campaign.open){ campaign.rescued=m.rs||0; campaign.escorting=m.es||0; campaign.phase=m.ph||0; campaign.cutters=!!m.ct; campaign.keycard=!!m.kc;
+          campaign.serum=!!m.sr;campaign.fuse=!!m.fu;campaign.power=!!m.pw;campaign.radio=!!m.rd;campaign.fuel=!!m.fl;campaign.armory=!!m.ar;campaign.truth=!!m.tr;campaign.rescuedNames=m.rn||[];
+          campaign.alert=m.al||0;campaign.noise=m.no||0;campaign.blackout=m.bo||0;campaign.files=m.fi||0;campaign.caches=m.ch||0;
+          campaign.siegeStarted=!!m.ss;campaign.siegeTimer=m.st==null?42:m.st;campaign.finaleStage=m.fs||0;campaign.finalReady=m.fr==null?null:m.fr;campaign.barricaded=!!m.ba;
+          pois=(m.po||[]).map(a=>({x:a[0],y:a[1],r:30,captured:!!a[2],prog:a[3]||0}));
+          for(const a of (m.mi||[])){ const s=missionSite(a[0]); if(s){ s.captured=!!a[1]; s.prog=a[2]||0; s.contested=!!a[3]; } }
+          const searched=new Set(m.sd||[]);for(const c of searchables){if(searched.has(c.id))c.searched=true;c.prog=0;}for(const a of (m.sp||[])){const c=searchables.find(x=>x.id===a[0]);if(c)c.prog=a[1]||0;} } }
       if(players.length){ m.p.forEach((a,i)=>{ const g=players[i]; if(!g||!a) return;
-        g.tx=a[0]; g.ty=a[1]; g.taim=a[2]; g.alive=!!a[3]; g.shield=a[4]?1:0; g.ammo=a[5]; g.ld.maxAmmo=a[6]||3; g.kills=a[7]; }); }
-      citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],following:(a[3]!=null&&a[3]>=0)?a[3]:null,r:11,wob:0}));
+        g.tx=a[0];g.ty=a[1];g.taim=a[2];g.alive=!!a[3];g.shield=a[4]?1:0;g.ammo=a[5];g.ld.maxAmmo=a[6]||3;g.kills=a[7];
+        g.hp=a[8]??100;g.maxHp=a[9]??100;g.infection=a[10]||0;g.reserve=a[11]||0;g.herbs=a[12]||0;g.sprays=a[13]||0;g.parts=a[14]||0;
+        g.downed=!!a[15];g.bleedout=a[16]||0;g.reviveProg=a[17]||0;g.reloadT=a[18]||0;g.revives=a[19]||0;g.ld.regenTime=a[20]||.72; }); }
+      citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],following:(a[3]!=null&&a[3]>=0)?a[3]:null,role:a[4]||'civilian',name:a[5]||'Survivor',r:11,wob:0}));
       zombies = m.z.map(a=>{ const T=ZTYPES[a[2]]||ZTYPES[0]; return {x:a[0],y:a[1],ti:a[2],boss:!!T.boss,tough:!!T.tough,hp:a[3],maxhp:a[4],alive:true,r:T.r}; });
       zshots = (m.k||[]).map(a=>({x:a[0],y:a[1],r:7,life:1}));
-      pickups = (m.pk||[]).map(a=>({x:a[0],y:a[1],r:9,type:a[2]?'shield':'ammo',alive:true,life:10,wob:0}));
+      pickups = (m.pk||[]).map(a=>({x:a[0],y:a[1],r:9,type:a[2]||'ammo',alive:true,life:10,wob:0}));
       bullets = m.b.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],r:a[4],owner:a[5],px:a[0]-a[2]*0.02,py:a[1]-a[3]*0.02,c:(players[a[5]]&&players[a[5]].color)||'#eef2ff',life:1}));
       break;
     case 'zend': {
       state='end';
       const mine = m.standings[net.me] || {};
       renderCampaignEnd({ won:m.won, saved:m.saved, open:!!m.open, gained:mine.matchExp||0, kills:mine.kills||0,
-        citizensStart:m.citizensStart, goal:m.goal, maxWave:m.maxWave, wave:m.wave,
-        standings: m.standings.map((s,i)=> s?{name:s.name,color:s.color,kills:s.kills,local:(i===net.me)}:null).filter(Boolean) });
+        citizensStart:m.citizensStart, goal:m.goal, maxWave:m.maxWave, wave:m.wave,files:m.files||0,caches:m.caches||0,revives:mine.revives||0,truth:!!m.truth,rescuedNames:m.rescuedNames||[],
+        standings: m.standings.map((s,i)=> s?{name:s.name,color:s.color,kills:s.kills,revives:s.revives||0,local:(i===net.me)}:null).filter(Boolean) });
       break;
     }
     case 'feed': feed.push({txt:m.x, t:0}); if(feed.length>6) feed.shift(); break;
+    case 'zscene': syncGuestStory(m); break;
     case 'ann': showAnnounce(m.h, m.ms); break;
     case 'fx': if(FXMAP[m.n]) FXMAP[m.n](...(m.a||[])); break;
     case 'end':
@@ -2660,23 +3264,26 @@ addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
   if(tag==='TEXTAREA'||tag==='INPUT'){ if(e.code==='Escape') e.target.blur(); return; }
   if(e.metaKey||e.ctrlKey) return;
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Enter','NumpadEnter','Slash'].includes(e.code)) e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Enter','NumpadEnter','Slash','Tab'].includes(e.code)) e.preventDefault();
   audioInit();
   held[e.code] = true;
   if(e.repeat) return;
+  if(storySceneState&&mode!=='guest'&&e.code==='Escape'){finishStoryScene(true);return;}
   if(e.code==='Escape'){
     if(state==='room'){ lobbyCleanup(); renderLobby(); }
-    else if(state==='loadout'||state==='lobby'||state==='ranked'||state==='account'){ toMenu(); }
+    else if(state==='briefing'||state==='loadout'||state==='lobby'||state==='ranked'||state==='account'){ toMenu(); }
     else if(state==='shop'){ openLoadout('view'); }
     else if(state==='play' || state==='wait' || state==='end'){ netCloseAll(true); toMenu(); }
     return;
   }
+  if(storySceneState&&mode!=='guest'&&(e.code==='Enter'||e.code==='Space'||e.code==='NumpadEnter')){advanceStoryScene();return;}
+  if(state==='briefing'&&(e.code==='Enter'||e.code==='NumpadEnter')){const b=$('#briefDeploy');if(b)b.click();return;}
   if(state!=='play' && (e.code==='Enter'||e.code==='NumpadEnter')){
     const el = document.activeElement; if(el && el.classList && el.classList.contains('mbtn')){ el.click(); return; } }
   if(state==='menu'){
     if(e.code==='Space') openLoadout('solo');
     else if(e.code==='KeyZ') startCampaign();
-    else if(e.code==='KeyX') startOutbreak();
+    else if(e.code==='KeyX') renderOutbreakBriefing();
     else if(e.code==='KeyO'){ rankedMode=false; duelMode=false; renderLobby(); }
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyB') openShop();
@@ -2696,7 +3303,10 @@ addEventListener('pointerdown', e => {
   if(state!=='play') return;
   if(e.target.closest && e.target.closest('button,textarea,input,.mbtn')) return;
   const ab = abilityBtn();
-  if(Math.hypot(e.clientX-ab.x, e.clientY-ab.y) < ab.r+8){ touch.abilityId = e.pointerId; }   // ability button (bottom-center)
+  const ib=interactBtn(), hb=healBtn(), outbreak=gmode==='zombies'&&campaign&&campaign.open;
+  if(outbreak&&Math.hypot(e.clientX-ib.x,e.clientY-ib.y)<ib.r+8){ touch.interactId=e.pointerId; }
+  else if(outbreak&&Math.hypot(e.clientX-hb.x,e.clientY-hb.y)<hb.r+8){ touch.healId=e.pointerId; }
+  else if(Math.hypot(e.clientX-ab.x, e.clientY-ab.y) < ab.r+8){ touch.abilityId = e.pointerId; }   // ability button (bottom-center)
   else if(e.clientX < W*0.5 && touch.stick===null){ touch.stick=e.pointerId; touch.ox=e.clientX; touch.oy=e.clientY; touch.vx=0; touch.vy=0; }
   else touch.fires.add(e.pointerId);
 }, {passive:true});
@@ -2704,7 +3314,10 @@ addEventListener('pointermove', e => { if(e.pointerId!==touch.stick) return;
   let dx=(e.clientX-touch.ox)/44, dy=(e.clientY-touch.oy)/44; const m=Math.hypot(dx,dy);
   if(m>1){ dx/=m; dy/=m; } touch.vx = m<0.22?0:dx; touch.vy = m<0.22?0:dy; }, {passive:true});
 const pEnd = e => { if(e.pointerId===touch.stick){ touch.stick=null; touch.vx=0; touch.vy=0; }
-  if(e.pointerId===touch.abilityId){ touch.abilityId=null; } touch.fires.delete(e.pointerId); };
+  if(e.pointerId===touch.abilityId)touch.abilityId=null;
+  if(e.pointerId===touch.interactId)touch.interactId=null;
+  if(e.pointerId===touch.healId)touch.healId=null;
+  touch.fires.delete(e.pointerId); };
 addEventListener('pointerup', pEnd, {passive:true});
 addEventListener('pointercancel', pEnd, {passive:true});
 addEventListener('touchmove', e => { if(state==='play') e.preventDefault(); }, {passive:false});
@@ -2724,12 +3337,21 @@ function loop(t){
         netBroadcast({ t:'zs', w:campaign?campaign.wave:0, lv:campaign?campaign.lives:0, ca: citizens.filter(c=>c.alive).length,
           cb: campaign?campaign.combo:0,
           rs: campaign?campaign.rescued||0:0, es: campaign?campaign.escorting||0:0,
+          ph:campaign?campaign.phase||0:0,ct:campaign&&campaign.cutters?1:0,kc:campaign&&campaign.keycard?1:0,sr:campaign&&campaign.serum?1:0,
+          fu:campaign&&campaign.fuse?1:0,pw:campaign&&campaign.power?1:0,rd:campaign&&campaign.radio?1:0,fl:campaign&&campaign.fuel?1:0,ar:campaign&&campaign.armory?1:0,tr:campaign&&campaign.truth?1:0,
+          rn:campaign&&campaign.open?(campaign.rescuedNames||[]):undefined,
+          al:campaign?+(campaign.alert||0).toFixed(1):0,no:campaign?+(campaign.noise||0).toFixed(1):0,bo:campaign?+(campaign.blackout||0).toFixed(1):0,
+          fi:campaign?campaign.files||0:0,ch:campaign?campaign.caches||0:0,ss:campaign&&campaign.siegeStarted?1:0,st:campaign?+(campaign.siegeTimer||0).toFixed(1):0,
+          fs:campaign?campaign.finaleStage||0:0,fr:campaign&&campaign.finalReady!=null?+campaign.finalReady.toFixed(1):null,ba:campaign&&campaign.barricaded?1:0,
+          mi:(campaign&&campaign.open)?missionSites.map(s=>[s.k,s.captured?1:0,+s.prog.toFixed(2),s.contested?1:0]):undefined,
+          sd:(campaign&&campaign.open)?campaign.searched:undefined,sp:(campaign&&campaign.open)?searchables.filter(c=>!c.searched&&c.prog>0).map(c=>[c.id,+c.prog.toFixed(2)]):undefined,
           po: (campaign&&campaign.open)? pois.map(b=>[b.x|0,b.y|0,b.captured?1:0,+b.prog.toFixed(2)]) : undefined,
-          p: players.map(p=>p?[p.x|0,p.y|0,+p.aim.toFixed(2), p.alive?1:0, p.shield>0?1:0, p.ammo, p.ld.maxAmmo, p.kills]:null),
-          c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0, c.following!=null?c.following:-1]),
+          p: players.map(p=>p?[p.x|0,p.y|0,+p.aim.toFixed(2),p.alive?1:0,p.shield>0?1:0,p.ammo,p.ld.maxAmmo,p.kills,
+            Math.ceil(p.hp||0),p.maxHp||100,Math.ceil(p.infection||0),p.reserve||0,p.herbs||0,p.sprays||0,p.parts||0,p.downed?1:0,+((p.bleedout||0).toFixed(1)),+((p.reviveProg||0).toFixed(2)),+((p.reloadT||0).toFixed(2)),p.revives||0,+p.ld.regenTime.toFixed(2)]:null),
+          c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0,c.following!=null?c.following:-1,c.role||'civilian',c.name||'Survivor']),
           z: zombies.map(z=>[z.x|0,z.y|0,z.ti,z.hp,z.maxhp]),
           k: zshots.map(s=>[s.x|0,s.y|0]),
-          pk: pickups.filter(p=>p.alive).map(p=>[p.x|0,p.y|0,p.type==='ammo'?0:1]),
+          pk: pickups.filter(p=>p.alive).map(p=>[p.x|0,p.y|0,p.type]),
           b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) });
       } else {
         netBroadcast({ t:'s', ts:teamScore,
@@ -2740,9 +3362,9 @@ function loop(t){
   }
   if(mode==='guest' && net && net.ready){
     net.inAcc += dt; const cur = localInput();
-    const ch = cur.x!==net.lastIn.x || cur.y!==net.lastIn.y || cur.s!==net.lastIn.s || cur.a!==net.lastIn.a;
+    const ch = cur.x!==net.lastIn.x || cur.y!==net.lastIn.y || cur.s!==net.lastIn.s || cur.a!==net.lastIn.a || cur.e!==net.lastIn.e || cur.r!==net.lastIn.r || cur.h!==net.lastIn.h;
     if(ch || net.inAcc>0.1){ net.inAcc=0; net.lastIn=cur;
-      try{ if(net.ch.readyState==='open') net.ch.send(JSON.stringify({t:'in', x:+cur.x.toFixed(2), y:+cur.y.toFixed(2), s:cur.s?1:0, a:cur.a?1:0})); }catch(e){} }
+      try{ if(net.ch.readyState==='open') net.ch.send(JSON.stringify({t:'in', x:+cur.x.toFixed(2), y:+cur.y.toFixed(2), s:cur.s?1:0, a:cur.a?1:0, e:cur.e?1:0, r:cur.r?1:0, h:cur.h?1:0})); }catch(e){} }
   }
   if(state==='end' && Math.random()<0.25){ const cols=['#ffcf3f','#eef2ff','#00e5ff','#ff2d55'];
     const vw=W/VIEW; // world-space so it rains correctly through the camera transform

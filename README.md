@@ -1,22 +1,37 @@
 # RICOCHET RUMBLE 🎯
 
 Neon 8-player arena brawler + co-op zombie survival + Heaven's Arena duel ladder.
-One hit kills. Bullets ricochet. Level up, loot gear, climb the tower.
+Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror condition and infection systems.
 
 **Play:** https://automationoptimization.github.io/ricochet-rumble/
 
 ## Modes
 - **Brawl vs CPU** — you + 7 bots on a big scrolling arena; FFA or Teams 4v4; first to N kills, respawns
-- **Zombie Survival** — defend a town across **8 waves** against **six undead breeds** (walker, runner, brute,
-  ranged spitter, exploding bloater, and the behemoth boss). Zombies hunt both citizens **and** you (runners and
+- **Zombie Survival** — defend a town across **8 waves** against **eight infected classes** (walker, runner, brute,
+  ranged spitter, exploding bloater, leaping crawler, horde-calling screamer, and the behemoth boss). Zombies hunt both citizens **and** you (runners and
   the boss actively chase players); drops restock ammo/shields; chain kills for a combo bonus. **Pick a roguelite
   field upgrade after every wave.** **Solo or online co-op** — friends defend together (shared reinforcements,
   scaled hordes). The final boss guarantees a legendary
-- **Outbreak (open world)** — a WC3-"Resident Evil"-style escort. A **procedurally generated city streams in as
-  you push outward** (deterministic from a shared seed, so co-op stays in sync with no per-chunk network cost).
-  Walk up to **survivors** — they follow you — and **escort them to the central hub to extract**. Secure **signal
-  beacons** (hold points) to surface more survivors + supplies. A rolling horde director ramps the threat. Rescue
-  the quota to win. **Solo or online co-op**
+- **Raccoon Outbreak (open-world survival-horror campaign)** — a full six-act homage to the old WC3 “Resident
+  Evil” custom games. Search the wrecked convoy for bolt cutters, breach St. Mary’s Clinic, recover the grid fuse
+  from sewer control, restore the substation, call evacuation, secure aviation fuel, and extract survivors. The RPD
+  armory is an optional high-risk objective with AP ammunition and a squad-wide upgrade.
+  - **Story campaign:** cinematic prologue, act transitions, radio conversations, a Tyrant confrontation, bad ending,
+    standard epilogue, and an unlockable true epilogue. Six selectable protagonists have individual histories,
+    field perks, portraits, and character-specific dialogue. Named survivors—including Dr. Aya Bell, Kenji Sato,
+    Sgt. Imani Mercer, June Hale, and pilot Naomi Velez—carry the story through the playable missions.
+  - **Project Crown secret case:** every recovered document contains part of a seven-file cipher. Completing it
+    reveals Umbra Lab B-12 as a playable secret objective; surviving its purge protocol secures the Crown ledger
+    and changes the ending.
+  - **Survival systems:** condition damage, persistent infection, herbs, first-aid spray, antivirals, finite ammo,
+    magazine reserves, manual reloads, downed/bleed-out states, co-op revives, reinforcements, and fortifications.
+  - **Exploration:** a deterministic streaming city, distinct landmark compounds, searchable containers, medical,
+    ammunition and tool caches, seven interconnected lore files, key-item inventory, named survivor records, an
+    objective compass, and a live case-file map.
+  - **Dynamic campaign:** specialist survivors (medics, officers, and engineers), a secured clinic safe room,
+    blackouts, roaming hordes, distress calls, emergency caches, noise-driven pressure, eight enemy classes, and
+    a three-wave extraction siege with a two-phase **Tyrant**. The complete mission and combat state synchronize in
+    **solo or online co-op**.
 - **Online brawl** — create a room, friends fill the seats (up to 8), empty seats become bots
 - **Ranked — Heaven's Arena** — **1v1 duels only**. Win to climb the **floor tower (1 → 200)**; lose and you slip.
   **Go inactive and your floor decays** (enforced server-side), so you have to keep defending your rank. A
@@ -42,8 +57,9 @@ One hit kills. Bullets ricochet. Level up, loot gear, climb the tower.
 - Everything saves on your device; your full build + level follow you online
 
 ## Controls
-- **Keyboard:** WASD / Arrows move · Space / Enter fire · **Shift / E** ability · **Touch:** left half = move,
-  right half = fire, bottom-center button = ability
+- **Keyboard:** WASD / Arrows move · Space / Enter fire · **Shift / E** ability · Outbreak: **F** interact/revive,
+  **R** reload, **H** heal, **Tab** case file · **Touch:** left half = move, right half = fire, dedicated ability,
+  interact, and heal buttons
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
