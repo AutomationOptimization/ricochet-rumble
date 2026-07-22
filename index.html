@@ -611,12 +611,14 @@ let teamScore = [0,0];
 let me = 0;               // local player index
 let cam = { x:0, y:0 };
 let perspectiveMouseFire=false;
-function perspectiveActive(){return state==='play'&&gmode==='zombies'&&campaign&&campaign.open;}
+function outbreakActive(){return state==='play'&&gmode==='zombies'&&campaign&&campaign.open;}
+function perspectiveActive(){return outbreakActive()&&outbreakView()==='first';}
 function outbreakView(){return save&&save.outbreakView==='first'?'first':'third';}
 function toggleOutbreakView(){
-  if(!perspectiveActive())return;save.outbreakView=outbreakView()==='first'?'third':'first';persistLocal();
-  perspectiveMouseFire=false;const label=outbreakView()==='first'?'FIRST-PERSON':'THIRD-PERSON';pushFeed(`CAMERA — ${label}`);
-  showAnnounce(`<div class="eyebrow">CAMERA MODE</div><div class="gtitle" style="color:#00e5ff;font-size:clamp(24px,5vw,48px)">${label}</div><div class="gtip">V switches view · mouse or right-side drag aims</div>`,900);
+  if(!outbreakActive())return;save.outbreakView=outbreakView()==='first'?'third':'first';persistLocal();
+  perspectiveMouseFire=false;if(outbreakView()==='third'&&document.pointerLockElement)document.exitPointerLock();
+  const label=outbreakView()==='first'?'FIRST-PERSON':'OVERHEAD';pushFeed(`CAMERA — ${label}`);
+  showAnnounce(`<div class="eyebrow">CAMERA MODE</div><div class="gtitle" style="color:#00e5ff;font-size:clamp(24px,5vw,48px)">${label}</div><div class="gtip">V switches view · overhead uses Brawl controls</div>`,900);
 }
 let roundLive = false, freezeT = 0;
 let matchOverAt = 0;
@@ -1029,7 +1031,7 @@ function renderOutbreakBriefing(){
   state='briefing'; netCloseAll(true); lobbyCleanup(); const selected=OUTBREAK_HEROES[save.outbreakHero]?save.outbreakHero:'mara';
   $('#arena').innerHTML=`<div class="menu" style="width:min(96vw,1040px)"><div class="tag">RACCOON OUTBREAK · SELECT YOUR PROTAGONIST</div>
     <div class="gtitle" style="font-size:clamp(30px,6vw,62px);color:var(--gold)">Who goes back in?</div>
-    <div class="note" style="color:var(--dim)">SIX PLAYABLE SURVIVORS · SWITCHABLE THIRD / FIRST-PERSON · 64K CITY · SEVEN ACTS · DISTRICT OPERATIONS · PERSONAL DIALOGUE · BRANCHING TRUE ENDING</div>
+    <div class="note" style="color:var(--dim)">SIX PLAYABLE SURVIVORS · SWITCHABLE OVERHEAD / FIRST-PERSON · 64K CITY · SEVEN ACTS · DISTRICT OPERATIONS · PERSONAL DIALOGUE · BRANCHING TRUE ENDING</div>
     <div class="hero-grid">${Object.entries(OUTBREAK_HEROES).map(([k,h])=>`<button class="hero-card ${k===selected?'selected':''}" data-hero="${k}" style="--hero:${h.color}">
       <div class="hero-head"><div class="hero-portrait">${esc(h.short)}</div><div><h4>${esc(h.name)}</h4><div class="hero-class">${esc(h.role)}</div></div></div>
       <div class="hero-bio">${esc(h.bio)}</div><div class="hero-perk">◆ ${esc(h.perk)}</div></button>`).join('')}</div>
@@ -1091,7 +1093,7 @@ function beginCampaign(){                 // shared solo + co-op; assumes `playe
     goal:campaign.goal, citizensStart:campaign.citizensStart||0, maxWave:campaign.maxWave||0, lives:campaign.lives });
   const coop = np>1;
   if(open){
-    playStoryScene('prologue',()=>{roundLive=true;sfxGo();pushFeed(`${sceneHero().name} · ${sceneHero().perk}`);pushFeed(`CAMERA — ${outbreakView()==='first'?'FIRST-PERSON':'THIRD-PERSON'} · V TO SWITCH · MOUSE / DRAG TO AIM`);});
+    playStoryScene('prologue',()=>{roundLive=true;sfxGo();pushFeed(`${sceneHero().name} · ${sceneHero().perk}`);pushFeed(`CAMERA — ${outbreakView()==='first'?'FIRST-PERSON':'OVERHEAD'} · V TO SWITCH`);});
   } else {
     showAnnounce(`<div class="eyebrow">ZOMBIE SURVIVAL${coop?' · CO-OP':''}</div><div class="gtitle">Hold the town</div>
       <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>
@@ -2629,7 +2631,7 @@ function drawTouch(){
     ctx.fillStyle='rgba(238,242,255,.5)'; ctx.beginPath(); ctx.arc(touch.ox+touch.vx*36, touch.oy+touch.vy*36,16,0,TAU); ctx.fill(); }
   if(isTouch && state==='play'){ ctx.fillStyle='rgba(139,147,168,.4)'; ctx.font='700 11px ui-monospace,monospace';
     ctx.textAlign='center'; ctx.fillText('◈ MOVE', W*0.25, H-24); ctx.fillText('✛ FIRE', W*0.90, H-24);
-    if(gmode==='zombies'&&campaign&&campaign.open){for(const b of [{...interactBtn(),t:'F',c:'#ffcf3f'},{...healBtn(),t:'H',c:'#7cff9b'},{...viewBtn(),t:outbreakView()==='first'?'1P':'3P',c:'#00e5ff'}]){ctx.fillStyle='rgba(6,8,15,.72)';ctx.strokeStyle=b.c;ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=b.c;ctx.font='900 12px ui-monospace,monospace';ctx.fillText(b.t,b.x,b.y+4);}}
+    if(gmode==='zombies'&&campaign&&campaign.open){for(const b of [{...interactBtn(),t:'F',c:'#ffcf3f'},{...healBtn(),t:'H',c:'#7cff9b'},{...viewBtn(),t:outbreakView()==='first'?'1P':'TOP',c:'#00e5ff'}]){ctx.fillStyle='rgba(6,8,15,.72)';ctx.strokeStyle=b.c;ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=b.c;ctx.font='900 12px ui-monospace,monospace';ctx.fillText(b.t,b.x,b.y+4);}}
   }
 }
 
@@ -2657,7 +2659,7 @@ function toMenu(){
       <button class="mbtn b2" id="btnNet"><b>O</b> ONLINE BRAWL<span>make a room · friends fill the seats</span></button>
     </div>
     <div class="modes">
-      <button class="mbtn bg" id="btnOut"><b>X</b> RACCOON OUTBREAK<span>third / first-person · 64k city · seven-act campaign · solo / co-op</span></button>
+      <button class="mbtn bg" id="btnOut"><b>X</b> RACCOON OUTBREAK<span>overhead / first-person · 64k city · seven-act campaign · solo / co-op</span></button>
     </div>
     <div class="modes">
       <button class="mbtn" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · ${p.inv.length}-item stash</span></button>
@@ -3543,7 +3545,7 @@ addEventListener('keydown', e => {
     return;
   }
   if(storySceneState&&mode!=='guest'&&(e.code==='Enter'||e.code==='Space'||e.code==='NumpadEnter')){advanceStoryScene();return;}
-  if(state==='play'&&e.code==='KeyV'&&perspectiveActive()){toggleOutbreakView();return;}
+  if(state==='play'&&e.code==='KeyV'&&outbreakActive()){toggleOutbreakView();return;}
   if(state==='briefing'&&(e.code==='Enter'||e.code==='NumpadEnter')){const b=$('#briefDeploy');if(b)b.click();return;}
   if(state!=='play' && (e.code==='Enter'||e.code==='NumpadEnter')){
     const el = document.activeElement; if(el && el.classList && el.classList.contains('mbtn')){ el.click(); return; } }
@@ -3570,6 +3572,7 @@ addEventListener('pointerdown', e => {
   if(e.target.closest && e.target.closest('button,textarea,input,.mbtn')) return;
   if(e.pointerType!=='touch'){
     if(perspectiveActive()&&e.button===0&&!storySceneState){perspectiveMouseFire=true;if(document.pointerLockElement!==cv&&cv.requestPointerLock){try{const rq=cv.requestPointerLock();if(rq&&rq.catch)rq.catch(()=>{});}catch(err){}}}
+    else if(e.button===0&&!storySceneState)touch.fires.add(e.pointerId);
     return;
   }
   const ab = abilityBtn();

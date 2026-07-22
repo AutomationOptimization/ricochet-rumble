@@ -29,9 +29,9 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
     repeatable field incidents, searchable containers, medical, ammunition and tool caches, seven interconnected
     lore files, key-item inventory, named survivor records, patrol/service-truck road traversal, an objective
     compass, minimap, and full-screen city operations map.
-  - **Perspective:** Outbreak renders in switchable third-person and first-person views over the same authoritative
-    campaign simulation. Aim with the mouse or a right-side touch drag and press **V** (or the on-screen 1P/3P
-    control) to change camera instantly; online aim direction synchronizes with the host.
+  - **Perspective:** Outbreak switches between the Brawl-style overhead view and an immersive first-person view
+    over the same authoritative campaign simulation. Press **V** (or the on-screen TOP/1P control) to change
+    camera instantly; online aim direction synchronizes with the host.
   - **Dynamic campaign:** specialist survivors (medics, officers, and engineers), a secured clinic safe room,
     blackouts, roaming hordes, distress calls, infested nests, armored convoys, hound ambushes, noise-driven
     pressure, eleven enemy classes, multiple unlockable safe rooms, and a 60-second, three-wave extraction siege
