@@ -7,15 +7,15 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
 
 ## Modes
 - **Brawl vs CPU** — you + 7 bots on a big scrolling arena; FFA or Teams 4v4; first to N kills, respawns
-- **Zombie Survival** — defend a town across **8 waves** against **eight infected classes** (walker, runner, brute,
-  ranged spitter, exploding bloater, leaping crawler, horde-calling screamer, and the behemoth boss). Zombies hunt both citizens **and** you (runners and
+- **Zombie Survival** — defend a town across **8 waves** against **eleven infected classes** (walker, runner, brute,
+  ranged spitter, exploding bloater, leaping crawler, horde-calling screamer, hound, licker, regenerator, and the behemoth boss). Zombies hunt both citizens **and** you (runners and
   the boss actively chase players); drops restock ammo/shields; chain kills for a combo bonus. **Pick a roguelite
   field upgrade after every wave.** **Solo or online co-op** — friends defend together (shared reinforcements,
   scaled hordes). The final boss guarantees a legendary
-- **Raccoon Outbreak (open-world survival-horror campaign)** — a full six-act homage to the old WC3 “Resident
-  Evil” custom games. Search the wrecked convoy for bolt cutters, breach St. Mary’s Clinic, recover the grid fuse
-  from sewer control, restore the substation, call evacuation, secure aviation fuel, and extract survivors. The RPD
-  armory is an optional high-risk objective with AP ammunition and a squad-wide upgrade.
+- **Raccoon Outbreak (open-world survival-horror campaign)** — a full seven-act homage to the old WC3 “Resident
+  Evil” custom games, rebuilt across a streaming **64,000 × 64,000** city and a 71,000-unit critical route. Search
+  Convoy 9B, breach St. Mary’s Clinic, reopen Central Station, descend into Sewer Control 4, restore the southern
+  grid, call evacuation, secure aviation fuel, rescue twelve survivors, and defend the hub through extraction.
   - **Story campaign:** cinematic prologue, act transitions, radio conversations, a Tyrant confrontation, bad ending,
     standard epilogue, and an unlockable true epilogue. Six selectable protagonists have individual histories,
     field perks, portraits, and character-specific dialogue. Named survivors—including Dr. Aya Bell, Kenji Sato,
@@ -25,12 +25,17 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
     and changes the ending.
   - **Survival systems:** condition damage, persistent infection, herbs, first-aid spray, antivirals, finite ammo,
     magazine reserves, manual reloads, downed/bleed-out states, co-op revives, reinforcements, and fortifications.
-  - **Exploration:** a deterministic streaming city, distinct landmark compounds, searchable containers, medical,
-    ammunition and tool caches, seven interconnected lore files, key-item inventory, named survivor records, an
-    objective compass, and a live case-file map.
+  - **Exploration:** nine named districts, fifteen authored landmark compounds, seven optional operations,
+    repeatable field incidents, searchable containers, medical, ammunition and tool caches, seven interconnected
+    lore files, key-item inventory, named survivor records, patrol/service-truck road traversal, an objective
+    compass, minimap, and full-screen city operations map.
+  - **Perspective:** Outbreak renders in switchable third-person and first-person views over the same authoritative
+    campaign simulation. Aim with the mouse or a right-side touch drag and press **V** (or the on-screen 1P/3P
+    control) to change camera instantly; online aim direction synchronizes with the host.
   - **Dynamic campaign:** specialist survivors (medics, officers, and engineers), a secured clinic safe room,
-    blackouts, roaming hordes, distress calls, emergency caches, noise-driven pressure, eight enemy classes, and
-    a three-wave extraction siege with a two-phase **Tyrant**. The complete mission and combat state synchronize in
+    blackouts, roaming hordes, distress calls, infested nests, armored convoys, hound ambushes, noise-driven
+    pressure, eleven enemy classes, multiple unlockable safe rooms, and a 60-second, three-wave extraction siege
+    with a two-phase **Tyrant**. The complete mission and combat state synchronize in
     **solo or online co-op**.
 - **Online brawl** — create a room, friends fill the seats (up to 8), empty seats become bots
 - **Ranked — Heaven's Arena** — **1v1 duels only**. Win to climb the **floor tower (1 → 200)**; lose and you slip.
@@ -57,8 +62,8 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
 - Everything saves on your device; your full build + level follow you online
 
 ## Controls
-- **Keyboard:** WASD / Arrows move · Space / Enter fire · **Shift / E** ability · Outbreak: **F** interact/revive,
-  **R** reload, **H** heal, **Tab** case file · **Touch:** left half = move, right half = fire, dedicated ability,
+- **Keyboard:** WASD / Arrows move · Space / mouse fire · **Shift / E** ability · Outbreak: mouse aim, **V** camera,
+  **F** interact/revive, **R** reload, **H** heal, **Tab** case file · **Touch:** left half = move, right half = aim/fire, dedicated ability,
   interact, and heal buttons
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
