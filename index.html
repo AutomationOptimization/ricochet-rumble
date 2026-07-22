@@ -174,6 +174,10 @@ const TAU = Math.PI*2;
 function angDiff(a,b){ return ((b - a + Math.PI*3) % TAU) - Math.PI; }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+function rrect(c, x, y, w, h, r){ c.beginPath();
+  if(c.roundRect) c.roundRect(x, y, w, h, r);
+  else { c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+}
 
 const WORLD = { w: 2600, h: 1700 };
 const MAXP = 8;
@@ -217,6 +221,9 @@ const sfxGo     = () => { tone(660, 0.07); tone(990, 0.12, 'square', 1, null, 0.
 const sfxPick   = () => [0,7,12].forEach((s,i)=>tone(784*Math.pow(2,s/12), 0.06, 'triangle', 0.7, null, i*0.045));
 const sfxWin    = () => [0,4,7,12,16,19,24].forEach((s,i)=>tone(392*Math.pow(2,s/12), 0.15, 'triangle', 0.9, null, i*0.085));
 const sfxLoot   = r => [0,4,7].forEach((s,i)=>tone((440+r*90)*Math.pow(2,s/12), 0.12, 'triangle', 0.8, null, i*0.08));
+const sfxGadget = () => { tone(360, 0.16, 'sawtooth', 0.55, 720); tone(880, 0.1, 'square', 0.4, null, 0.02); };
+const sfxUpgrade= () => [0,5,9,12].forEach((s,i)=>tone(523*Math.pow(2,s/12), 0.14, 'triangle', 0.8, null, i*0.06));
+const sfxPickup = () => tone(680, 0.08, 'triangle', 0.5, 1100);
 
 /* ================= canvas ================= */
 const cv = $('#game'), ctx = cv.getContext('2d');
@@ -239,6 +246,7 @@ let save = null;
 function idcSync(){ let mx = 0; for(const it of save.inv) if(it.id > mx) mx = it.id; idc = mx + 1; }
 function migrateSave(){
   if(!save.equip) save.equip = {weapon:null, armor:null};
+  for(const k of ['weapon','armor','trinket','gadget']) if(!(k in save.equip)) save.equip[k] = null;
   if(!save.alloc) save.alloc = {...DEFAULT_ALLOC};
   for(const k in DEFAULT_ALLOC) if(typeof save.alloc[k] !== 'number') save.alloc[k] = DEFAULT_ALLOC[k];
   for(const k of ['kills','wins','matches','exp','credits','saved']) if(typeof save[k] !== 'number') save[k] = 0;
@@ -246,17 +254,24 @@ function migrateSave(){
   if(!save.pid) save.pid = 'p' + Math.random().toString(36).slice(2,11);   // stable device id for the ladder
   if(!save.handle) save.handle = 'Player' + irand(1000,9999);
   if(typeof save.rating !== 'number') save.rating = 1000;
+  if(typeof save.floor !== 'number') save.floor = 1;        // Heaven's Arena floor
   save.level = levelFromExp(save.exp);                      // level is always derived from exp
+  idcSync();                                                // sync the id counter to THIS inventory before minting seeds
+  // seed a starter trinket + gadget for saves made before broad equipment existed
+  if(!save.inv.some(i=>i.kind==='trinket')){ const t = rollItem('trinket', 0, 'focus'); save.inv.push(t); if(save.equip.trinket==null) save.equip.trinket = t.id; }
+  if(!save.inv.some(i=>i.kind==='gadget')){ const g = rollItem('gadget', 0, 'dash'); save.inv.push(g); if(save.equip.gadget==null) save.equip.gadget = g.id; }
   // drop dangling equip references
-  if(save.equip.weapon != null && !save.inv.some(i=>i.id===save.equip.weapon)) save.equip.weapon = null;
-  if(save.equip.armor  != null && !save.inv.some(i=>i.id===save.equip.armor))  save.equip.armor  = null;
+  for(const k of ['weapon','armor','trinket','gadget'])
+    if(save.equip[k] != null && !save.inv.some(i=>i.id===save.equip[k])) save.equip[k] = null;
 }
 function loadSave(){
   try{ const s = JSON.parse(localStorage.getItem('rr_save_v2')); if(s && s.inv){ save = s; migrateSave(); idcSync(); return; } }catch(e){}
-  save = { inv:[], equip:{weapon:null, armor:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0,
-    pid:'p'+Math.random().toString(36).slice(2,11), handle:'Player'+irand(1000,9999), rating:1000 };
+  save = { inv:[], equip:{weapon:null, armor:null, trinket:null, gadget:null}, alloc:{...DEFAULT_ALLOC}, kills:0, wins:0, matches:0, exp:0, level:1, credits:60, saved:0,
+    pid:'p'+Math.random().toString(36).slice(2,11), handle:'Player'+irand(1000,9999), rating:1000, floor:1 };
   const w = rollItem('weapon', 0, 'pistol'), a = rollItem('armor', 0, 'vest');
-  save.inv.push(w, a); save.equip.weapon = w.id; save.equip.armor = a.id;
+  const t = rollItem('trinket', 0, 'focus'), g = rollItem('gadget', 0, 'dash');
+  save.inv.push(w, a, t, g);
+  save.equip.weapon = w.id; save.equip.armor = a.id; save.equip.trinket = t.id; save.equip.gadget = g.id;
   idcSync(); persist();
 }
 function persist(){ try{ localStorage.setItem('rr_save_v2', JSON.stringify(save)); }catch(e){} cloudSync(); }
@@ -299,8 +314,11 @@ async function refreshRating(){   // rating is authoritative in the ranks table,
 function logout(){ account = null; storeToken(null); }
 const acctId = () => account ? account.aid : save.pid;
 const acctHandle = () => account ? account.handle : save.handle;
-const equippedWeapon = () => save.inv.find(i => i.id === save.equip.weapon) || null;
-const equippedArmor  = () => save.inv.find(i => i.id === save.equip.armor) || null;
+const equippedWeapon  = () => save.inv.find(i => i.id === save.equip.weapon) || null;
+const equippedArmor   = () => save.inv.find(i => i.id === save.equip.armor) || null;
+const equippedTrinket = () => save.inv.find(i => i.id === save.equip.trinket) || null;
+const equippedGadget  = () => save.inv.find(i => i.id === save.equip.gadget) || null;
+const myLoadout = () => resolveLoadout(save.alloc, equippedWeapon(), equippedArmor(), equippedTrinket(), equippedGadget());
 
 /* ================= loot ================= */
 const RARITIES = [
@@ -323,10 +341,31 @@ const ARMORS = {
   plate: { name:'Plate', ic:'🛡️', shield:0.7,  regen:0.0,  spd:-0.06 },
   weave: { name:'Weave', ic:'🕸️', shield:0.15, regen:0.22, spd:0.09 },
 };
+// Trinkets: passive cores. Each biases two of the six combat axes; rarity sets the magnitude.
+const TRINKETS = {
+  focus:   { name:'Focus Core',  ic:'🎯', bias:['rof','vel'] },
+  servo:   { name:'Servo Drive', ic:'⚙️', bias:['spd','spd'] },
+  reactor: { name:'Reactor',     ic:'🔋', bias:['rld','vit'] },
+  magwell: { name:'Mag Well',    ic:'📼', bias:['mag','rof'] },
+  siphon:  { name:'Siphon',      ic:'🩸', bias:['vit','rld'] },
+};
+// Gadgets: active abilities on a cooldown (Shift / E, or the touch button). Rarity cuts CD and boosts potency.
+const GADGETS = {
+  dash:      { name:'Blink Dash',  ic:'💨', cd:5.0,  dur:0.34, desc:'burst + i-frames' },
+  pulse:     { name:'Pulse Nova',  ic:'🌟', cd:8.0,  dur:0.0,  desc:'delete nearby shots + shove' },
+  overclock: { name:'Overclock',   ic:'⏱️', cd:9.0,  dur:3.6,  desc:'fire-rate & reload surge' },
+  cloak:     { name:'Phase Cloak', ic:'👻', cd:10.0, dur:2.6,  desc:'brief invuln + speed' },
+};
+const ITEM_DEF = { weapon:WEAPONS, armor:ARMORS, trinket:TRINKETS, gadget:GADGETS };
+const itemIcon = it => (ITEM_DEF[it.kind] && ITEM_DEF[it.kind][it.base] ? ITEM_DEF[it.kind][it.base].ic : '❔');
+const KIND_ICON = { weapon:'🔫', armor:'🦺', trinket:'💠', gadget:'💨' };
 const W_PREFIX = ['Rusty','Standard','Tuned','Vicious','Prime','Apex','Mythic'];
 const A_PREFIX = ['Worn','Standard','Reinforced','Hardened','Aegis','Bastion','Immortal'];
+const T_PREFIX = ['Cracked','Standard','Tuned','Charged','Prime','Ascendant','Zenith'];
+const G_PREFIX = ['Faulty','Standard','Primed','Rapid','Elite','Master','Godspeed'];
 const W_SUFFIX = ['of Speed','of Fury','of the Bank','of Reach','of Excess','of the Duelist',''];
 const A_SUFFIX = ['of Guard','of Nerve','of Haste','of the Wall','of Recovery',''];
+const T_SUFFIX = ['of Focus','of Flow','of Surge','of Poise','of Mastery',''];
 let idc = 1;
 function rollRarity(minTier, maxTier){
   minTier = minTier || 0; maxTier = (maxTier == null) ? RARITIES.length-1 : maxTier;
@@ -350,7 +389,7 @@ function rollItem(kind, minTier, forceBase, maxTier){
     const pre = W_PREFIX[Math.min(rr + (Math.random()<0.4?1:0), 6)];
     const suf = Math.random() < 0.4 + rr*0.12 ? pick(W_SUFFIX) : '';
     return { id: idc++, kind, base, rr, name: `${pre} ${WEAPONS[base].name} ${suf}`.replace(/\s+/g,' ').trim(), mods };
-  } else {
+  } else if(kind === 'armor'){
     const base = forceBase || pick(Object.keys(ARMORS));
     const axes = ['shield','regen','spd','vit'];
     const nMods = clamp(1 + Math.floor(rr*0.9), 1, 3);
@@ -360,8 +399,25 @@ function rollItem(kind, minTier, forceBase, maxTier){
     const pre = A_PREFIX[Math.min(rr + (Math.random()<0.4?1:0), 6)];
     const suf = Math.random() < 0.4 + rr*0.12 ? pick(A_SUFFIX) : '';
     return { id: idc++, kind, base, rr, name: `${pre} ${ARMORS[base].name} ${suf}`.replace(/\s+/g,' ').trim(), mods };
+  } else if(kind === 'trinket'){
+    const base = forceBase || pick(Object.keys(TRINKETS));
+    const bias = TRINKETS[base].bias;
+    // both biased axes get a bonus; higher rarity adds a small third off-bias axis
+    const extra = ['spd','rof','vel','mag','rld','vit'];
+    bias.forEach(ax => { mods[ax] = (mods[ax]||0) + +(bonus * rand(0.18,0.34)).toFixed(3); });
+    if(rr >= 2){ const ax = pick(extra); mods[ax] = (mods[ax]||0) + +(bonus * rand(0.08,0.16)).toFixed(3); }
+    const pre = T_PREFIX[Math.min(rr + (Math.random()<0.4?1:0), 6)];
+    const suf = Math.random() < 0.35 + rr*0.12 ? pick(T_SUFFIX) : '';
+    return { id: idc++, kind, base, rr, name: `${pre} ${TRINKETS[base].name} ${suf}`.replace(/\s+/g,' ').trim(), mods };
+  } else {   // gadget: rarity cuts cooldown (cdr) and boosts potency (pot)
+    const base = forceBase || pick(Object.keys(GADGETS));
+    mods.cdr = +clamp(bonus * rand(0.10,0.20), 0, 0.5).toFixed(3);
+    if(GADGETS[base].dur > 0) mods.pot = +(bonus * rand(0.12,0.24)).toFixed(3);
+    const pre = G_PREFIX[Math.min(rr + (Math.random()<0.4?1:0), 6)];
+    return { id: idc++, kind, base, rr, name: `${pre} ${GADGETS[base].name}`.replace(/\s+/g,' ').trim(), mods };
   }
 }
+const AXIS_LBL = { spd:'Speed', rof:'RoF', vel:'Vel', mag:'Mag', rld:'Reload', vit:'Vit' };
 function modLabel(it){
   const m = it.mods, parts = [];
   const pct = v => (v>0?'+':'') + Math.round(v*100) + '%';
@@ -370,29 +426,43 @@ function modLabel(it){
     if(m.vel) parts.push('Vel '+pct(m.vel));
     if(m.mag) parts.push('Mag '+pct(m.mag));
     parts.unshift(WEAPONS[it.base].pattern);
-  } else {
+  } else if(it.kind === 'armor'){
     if(m.shield) parts.push('Shield +'+m.shield.toFixed(2)+'s');
     if(m.regen) parts.push('Regen '+pct(m.regen));
     if(m.spd) parts.push('Speed '+pct(m.spd));
     if(m.vit) parts.push('Vit '+pct(m.vit));
     parts.unshift(ARMORS[it.base].name);
+  } else if(it.kind === 'trinket'){
+    for(const ax of ['spd','rof','vel','mag','rld','vit']) if(m[ax]) parts.push(AXIS_LBL[ax]+' '+pct(m[ax]));
+    parts.unshift('passive');
+  } else {   // gadget
+    const g = GADGETS[it.base]; const cd = (g.cd * (1 - (m.cdr||0)));
+    parts.push('CD '+cd.toFixed(1)+'s');
+    if(m.pot && g.dur>0) parts.push('Potency '+pct(m.pot));
+    parts.unshift(g.desc);
   }
   return parts.join(' · ');
 }
 
 /* ================= loadout resolution ================= */
-function resolveLoadout(alloc, wItem, aItem){
+function resolveGadget(gItem){
+  if(!gItem || !GADGETS[gItem.base]) return null;
+  const g = GADGETS[gItem.base], m = gItem.mods || {};
+  return { base: gItem.base, name: g.name, ic: g.ic, desc: g.desc,
+    cd: +(g.cd * (1 - (m.cdr||0))).toFixed(2), dur: +(g.dur * (1 + (m.pot||0))).toFixed(2) };
+}
+function resolveLoadout(alloc, wItem, aItem, tItem, gItem){
   const A = alloc || DEFAULT_ALLOC;
-  const wm = wItem ? wItem.mods : {}, am = aItem ? aItem.mods : {};
+  const wm = wItem ? wItem.mods : {}, am = aItem ? aItem.mods : {}, tm = (tItem && tItem.mods) || {};
   const wbase = wItem ? WEAPONS[wItem.base] : WEAPONS.pistol;
   const abase = aItem ? ARMORS[aItem.base] : {shield:0,regen:0,spd:0};
   const st = 0.07;
-  const spdM = 1 + (A.spd||0)*st + (abase.spd||0) + (am.spd||0);
-  const rofM = 1 + (A.rof||0)*st + (wm.rof||0);
-  const velM = 1 + (A.vel||0)*st + (wm.vel||0);
-  const magM = 1 + (A.mag||0)*st + (wm.mag||0);
-  const rldM = 1 + (A.rld||0)*st + (abase.regen||0) + (am.regen||0);
-  const vitM = 1 + (A.vit||0)*st + (am.vit||0);
+  const spdM = 1 + (A.spd||0)*st + (abase.spd||0) + (am.spd||0) + (tm.spd||0);
+  const rofM = 1 + (A.rof||0)*st + (wm.rof||0) + (tm.rof||0);
+  const velM = 1 + (A.vel||0)*st + (wm.vel||0) + (tm.vel||0);
+  const magM = 1 + (A.mag||0)*st + (wm.mag||0) + (tm.mag||0);
+  const rldM = 1 + (A.rld||0)*st + (abase.regen||0) + (am.regen||0) + (tm.rld||0);
+  const vitM = 1 + (A.vit||0)*st + (am.vit||0) + (tm.vit||0);
   const shieldBonus = (abase.shield||0) + (am.shield||0);
   return {
     accel: 2600 * spdM,
@@ -402,6 +472,7 @@ function resolveLoadout(alloc, wItem, aItem){
     maxAmmo: clamp(Math.round(wbase.mag * magM), 1, 9),
     regenTime: 0.72 / rldM,
     spawnShield: Math.max(0.5, 0.9 * vitM + shieldBonus),
+    gadget: resolveGadget(gItem),
     wbase
   };
 }
@@ -411,7 +482,16 @@ let state = 'menu';       // menu | loadout | lobby | room | play | end
 let mode = null;          // solo | host | guest
 let gmode = 'ffa';        // ffa | teams
 let players = [], bullets = [], parts = [], walls = [], pickups = [];
-let citizens = [], zombies = [], campaign = null;   // zombie-campaign entities
+let citizens = [], zombies = [], zshots = [], campaign = null;   // zombie-campaign entities (zshots = acid globs)
+// ---- open-world (Outbreak) state ----
+let openWorld = false;                 // module flag: next campaign is the streamed open world
+let worldSeed = 1;                     // shared seed → host + guests generate identical chunks
+let chunkWalls = new Map();            // "cx,cy" -> [wall rects] currently loaded
+let populated = new Set();             // "cx,cy" chunks the host has already spawned civilians/POIs into (never clears)
+let extraWalls = [];                   // player-placed barricades that persist across chunk rebuilds
+let pois = [];                         // hold-point beacons
+const CHUNK = 1200, HUB = { x: 12000, y: 12000, r: 240 };
+const HUBC = { x: Math.floor(HUB.x/CHUNK), y: Math.floor(HUB.y/CHUNK) };
 let feed = [];            // kill feed [{txt, t}]
 let teamScore = [0,0];
 let me = 0;               // local player index
@@ -485,8 +565,9 @@ function makePlayer(i, opts){
     alive:false, respT: 0.15 + i*0.05, kills:0, deaths:0,
     level: opts.level || 1, matchExp: 0,
     shield:0, cd:0, ammo:3, regen:0, burst:0, burstT:0,
-    inX:0, inY:0, wantShoot:false, local: !!opts.local,
-    bot: opts.bot ? { retarget:0, tx:0, ty:0, dodge:0, dx:0, dy:0, wob:rand(0,9), skill: opts.skill||1 } : null,
+    gcd:0, abLatch:false, ocT:0, phaseT:0,   // gadget: cooldown, edge-latch, overclock/cloak timers
+    inX:0, inY:0, wantShoot:false, wantAbility:false, local: !!opts.local,
+    bot: opts.bot ? { retarget:0, tx:0, ty:0, dodge:0, dx:0, dy:0, wob:rand(0,9), skill: opts.skill||1, gwait:rand(1,4) } : null,
     ld: opts.ld || resolveLoadout(randBotAlloc(), null, null)
   };
   return p;
@@ -497,13 +578,15 @@ function botLoadout(tierCap){
   const mx = tierCap == null ? DROP_MAX_TIER : tierCap;   // bots never roll legendary
   const wItem = Math.random()<0.6 ? rollItem('weapon',0,null,mx) : null;
   const aItem = Math.random()<0.5 ? rollItem('armor',0,null,mx) : null;
-  return resolveLoadout(randBotAlloc(), wItem, aItem);
+  const tItem = Math.random()<0.45 ? rollItem('trinket',0,null,mx) : null;
+  const gItem = Math.random()<0.55 ? rollItem('gadget',0,null,mx) : null;
+  return resolveLoadout(randBotAlloc(), wItem, aItem, tItem, gItem);
 }
 function spawnPlayer(p){
   const s = farSpawn(p.team);
   p.x = s.x + rand(-30,30); p.y = s.y + rand(-30,30);
   p.vx = p.vy = 0; p.alive = true; p.shield = p.ld.spawnShield;
-  p.ammo = p.ld.maxAmmo; p.cd = 0; p.regen = 0; p.burst = 0;
+  p.ammo = p.ld.maxAmmo; p.cd = 0; p.regen = 0; p.burst = 0; p.gcd = 0; p.ocT = 0; p.phaseT = 0;
   p.aim = Math.atan2(WORLD.h/2 - p.y, WORLD.w/2 - p.x);
   sfxSpawn(); spark(p.x, p.y, p.color, 12);
 }
@@ -519,66 +602,297 @@ function showAnnounce(html, ms){
 function pushFeed(txt){ feed.push({ txt, t: 0 }); if(feed.length > 6) feed.shift();
   if(mode === 'host') netBroadcast({t:'feed', x:txt}); }
 
-/* ================= zombie campaign ================= */
+/* ================= zombie survival ================= */
+// six enemy archetypes: index order matters — it's what the co-op snapshot transmits
+// `hunter` = leans toward chasing players over citizens
+const ZTYPES = [
+  { k:'walker',   r:13, hp:1,  spd:[58,84],   c:'#5a8f3c', eye:'#89c559' },
+  { k:'runner',   r:10, hp:1,  spd:[132,170], c:'#c25236', eye:'#ff8b6a', hunter:true },
+  { k:'brute',    r:23, hp:6,  spd:[42,56],   c:'#3c6f9a', eye:'#6ab6d6', tough:true },
+  { k:'spitter',  r:13, hp:2,  spd:[50,68],   c:'#8f5ac0', eye:'#c79bff', ranged:true },
+  { k:'bloater',  r:19, hp:3,  spd:[38,52],   c:'#7a8f3c', eye:'#d0e05a', explodes:true },
+  { k:'behemoth', r:36, hp:24, spd:[72,72],   c:'#b56bff', eye:'#ff9f1c', boss:true, summons:true, hunter:true },
+];
+const ZI = {}; ZTYPES.forEach((t,i)=> ZI[t.k]=i);
+
+/* ================= open world: deterministic procedural generation ================= */
+// AI-designed content, assembled at play time by a seeded generator so every co-op client
+// builds the exact same world from the shared worldSeed — no per-chunk network sync needed.
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function chunkRng(salt, cx, cy){ let h=(worldSeed^salt)>>>0;
+  h=Math.imul(h^(cx*374761393),0x85EBCA6B)>>>0; h=Math.imul(h^(cy*668265263),0xC2B2AE35)>>>0;
+  h=(h^h>>>13)>>>0; return mulberry32(h); }
+const chunkKey = (cx,cy) => cx+','+cy;
+// the central hub: a walled compound with a wide south gate you drive survivors into
+function hubWalls(){
+  const x=HUB.x, y=HUB.y, s=HUB.r+40, t=26, gate=150;
+  return [
+    { x:x-s, y:y-s, w:2*s, h:t },                         // north
+    { x:x-s, y:y-s, w:t, h:2*s },                         // west
+    { x:x+s-t, y:y-s, w:t, h:2*s },                       // east
+    { x:x-s, y:y+s-t, w:(2*s-gate)/2, h:t },              // south-left
+    { x:x+gate/2, y:y+s-t, w:(2*s-gate)/2, h:t },         // south-right
+  ];
+}
+// a chunk's cover geometry: 2–4 buildings, each a room with a doorway (survivors shelter inside)
+function genChunkWalls(cx, cy){
+  if(cx===HUBC.x && cy===HUBC.y) return hubWalls();
+  const rng=chunkRng(0x1111, cx, cy), out=[], ox=cx*CHUNK, oy=cy*CHUNK, n=2+Math.floor(rng()*3);
+  for(let i=0;i<n;i++){
+    const bw=120+rng()*230, bh=120+rng()*230;
+    const bx=ox+50+rng()*(CHUNK-100-bw), by=oy+50+rng()*(CHUNK-100-bh), t=22;
+    const side=Math.floor(rng()*4), dpos=0.25+rng()*0.5;
+    // four walls with one doorway gap on a random side
+    if(side===0){ const dg=bx+dpos*bw-45; out.push({x:bx,y:by,w:dg-bx,h:t}, {x:dg+90,y:by,w:bx+bw-(dg+90),h:t}); }
+    else out.push({x:bx,y:by,w:bw,h:t});
+    if(side===1){ const dg=by+dpos*bh-45; out.push({x:bx,y:by,w:t,h:dg-by}, {x:bx,y:dg+90,w:t,h:by+bh-(dg+90)}); }
+    else out.push({x:bx,y:by,w:t,h:bh});
+    if(side===2){ const dg=by+dpos*bh-45; out.push({x:bx+bw-t,y:by,w:t,h:dg-by}, {x:bx+bw-t,y:dg+90,w:t,h:by+bh-(dg+90)}); }
+    else out.push({x:bx+bw-t,y:by,w:t,h:bh});
+    if(side===3){ const dg=bx+dpos*bw-45; out.push({x:bx,y:by+bh-t,w:dg-bx,h:t}, {x:dg+90,y:by+bh-t,w:bx+bw-(dg+90),h:t}); }
+    else out.push({x:bx,y:by+bh-t,w:bw,h:t});
+  }
+  return out.filter(w=>w.w>1 && w.h>1);
+}
+// host-only: spawn survivors + the occasional beacon into a chunk exactly once
+function populateChunk(cx, cy){
+  const key=chunkKey(cx,cy);
+  if(populated.has(key)) return; populated.add(key);
+  if(mode==='guest') return;
+  if(Math.abs(cx-HUBC.x)<=0 && Math.abs(cy-HUBC.y)<=0) return;         // keep the hub tile clear
+  if(Math.abs(cx-HUBC.x)<=1 && Math.abs(cy-HUBC.y)<=1){ return; }       // breathing room around the hub
+  const rng=chunkRng(0x2222, cx, cy), ox=cx*CHUNK, oy=cy*CHUNK;
+  const nc=1+Math.floor(rng()*3);                                      // 1–3 survivors per chunk
+  for(let i=0;i<nc;i++){ const c=spawnCitizen(); c.x=ox+120+rng()*(CHUNK-240); c.y=oy+120+rng()*(CHUNK-240);
+    for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } } citizens.push(c); }
+  if(rng()<0.14) pois.push({ x:ox+CHUNK/2, y:oy+CHUNK/2, r:30, captured:false, prog:0 });
+}
+// load/unload chunk cover in a window around the given world points; rebuild the active walls list
+function ensureChunks(points){
+  const want=new Set();
+  for(const pt of points){ const px=Math.floor(pt.x/CHUNK), py=Math.floor(pt.y/CHUNK);
+    for(let dx=-2;dx<=2;dx++) for(let dy=-2;dy<=2;dy++) want.add(chunkKey(px+dx, py+dy)); }
+  let changed=false;
+  for(const key of want){ if(!chunkWalls.has(key)){ const [cx,cy]=key.split(',').map(Number);
+    chunkWalls.set(key, genChunkWalls(cx,cy)); populateChunk(cx,cy); changed=true; } }
+  for(const key of [...chunkWalls.keys()]){ if(!want.has(key)){ chunkWalls.delete(key); changed=true; } }  // unload far cover
+  if(changed){ walls = extraWalls.slice(); for(const ws of chunkWalls.values()) walls.push(...ws); }
+}
 function spawnCitizen(){
-  const c = { x: rand(WORLD.w*0.18, WORLD.w*0.82), y: rand(WORLD.h*0.18, WORLD.h*0.82),
+  const c = { x: rand(WORLD.w*0.2, WORLD.w*0.8), y: rand(WORLD.h*0.2, WORLD.h*0.8),
     vx:0, vy:0, r:11, alive:true, converting:0, wob:rand(0,TAU) };
   for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
   return c;
 }
-function makeZombie(x, y, level, boss){
-  return { x, y, vx:0, vy:0, r: boss?34:13, alive:true, boss:!!boss,
-    hp: boss?16:1, maxhp: boss?16:1, level, speed: boss?78:rand(60,92), wob:rand(0,TAU) };
+function makeZombie(x, y, level, ti, waveHpBonus){
+  const T = ZTYPES[ti]||ZTYPES[0], hp = T.hp + (waveHpBonus||0);
+  return { x, y, vx:0, vy:0, r:T.r, alive:true, ti, boss:!!T.boss, tough:!!T.tough,
+    hp, maxhp:hp, level, speed:rand(T.spd[0], T.spd[1]), wob:rand(0,TAU), spitCd:rand(0.6,1.6), sumCd:2.4 };
 }
-function spawnZombie(level, boss){
+function spawnZombie(level, ti, waveHpBonus){
   const e = irand(0,3); let x,y;
   if(e===0){ x=rand(40,WORLD.w-40); y=24; } else if(e===1){ x=rand(40,WORLD.w-40); y=WORLD.h-24; }
   else if(e===2){ x=24; y=rand(40,WORLD.h-40); } else { x=WORLD.w-24; y=rand(40,WORLD.h-40); }
-  zombies.push(makeZombie(x, y, level, boss));
+  zombies.push(makeZombie(x, y, level, ti, waveHpBonus));
 }
-function startCampaign(){                 // solo entry
-  mode='solo'; me=0; gmode='zombies';
-  players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }) ];
+// per-wave horde recipe (before player-count scaling); bosses handled separately
+function waveTypes(w){
+  const t = [], add=(k,n)=>{ for(let i=0;i<Math.max(0,Math.round(n));i++) t.push(ZI[k]); };
+  add('walker', 4 + w*2);
+  if(w>=2) add('runner', w*1.3);
+  if(w>=3) add('spitter', w*0.7);
+  if(w>=4) add('brute', (w-2)*0.7);
+  if(w>=5) add('bloater', (w-3)*0.7);
+  return t;
+}
+// roguelite between-wave picks. each(p) hits every defender's live loadout; once() fires a single global effect
+const ZUPGRADES = [
+  { k:'mag',    ic:'🔫', name:'Extended Mags',   desc:'+2 max ammo',          each:p=>{ p.ld.maxAmmo = clamp(p.ld.maxAmmo+2, 1, 14); } },
+  { k:'rof',    ic:'⚡', name:'Trigger Job',      desc:'+25% fire rate',       each:p=>{ p.ld.cdBase *= 0.8; } },
+  { k:'rld',    ic:'🔋', name:'Fast Hands',       desc:'+30% reload speed',    each:p=>{ p.ld.regenTime *= 0.77; } },
+  { k:'spd',    ic:'💨', name:'Adrenaline',       desc:'+15% move speed',      each:p=>{ p.ld.accel *= 1.15; p.ld.maxV *= 1.15; } },
+  { k:'pierce', ic:'🎯', name:'Piercing Rounds',  desc:'shots pierce +1 enemy',each:p=>{ p.pierce = (p.pierce||0)+1; } },
+  { k:'cdr',    ic:'⏱️', name:'Capacitor',        desc:'-25% gadget cooldown', each:p=>{ if(p.ld.gadget) p.ld.gadget.cd *= 0.75; } },
+  { k:'vel',    ic:'📡', name:'Hot Loads',        desc:'+20% muzzle velocity', each:p=>{ p.ld.bulletSpeed *= 1.2; } },
+  { k:'life',   ic:'❤️', name:'Reinforcements',   desc:'+2 reinforcement lives', once:()=>{ campaign.lives += 2; } },
+  { k:'heal',   ic:'🚑', name:'Rescue Op',        desc:'call in 3 survivors', once:()=>{
+      const live = players.filter(p=>p&&p.alive), a = live.length?pick(live):{x:HUB.x,y:HUB.y};
+      for(let i=0;i<3;i++){ const c=spawnCitizen(); c.x=a.x+rand(-60,60); c.y=a.y+rand(-60,60);
+        if(campaign.open && a.i!=null) c.following=a.i; citizens.push(c); } } },
+  { k:'wall',   ic:'🧱', name:'Barricades',       desc:'drop cover around town', once:()=>{ addBarricades(); } },
+];
+function addBarricades(){
+  // arena: ring the town center; open world: deployable cover around a live defender
+  let cx=WORLD.w/2, cy=WORLD.h/2;
+  if(campaign && campaign.open){ const live=players.filter(p=>p&&p.alive); if(live.length){ const a=pick(live); cx=a.x; cy=a.y; } }
+  const R=200;
+  const segs = [ {x:cx-R-20,y:cy-70,w:26,h:140}, {x:cx+R-6,y:cy-70,w:26,h:140}, {x:cx-70,y:cy-R-20,w:140,h:26}, {x:cx-70,y:cy+R-6,w:140,h:26} ];
+  extraWalls.push(...segs); walls.push(...segs);   // extraWalls persists across open-world chunk rebuilds
+  if(mode==='host') netBroadcast({ t:'zbar', segs: segs.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]) });
+}
+function startCampaign(){                 // solo entry — classic arena defense
+  mode='solo'; me=0; gmode='zombies'; rankedMode=false; duelMode=false; openWorld=false;
+  players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }) ];
+  beginCampaign();
+}
+function startOutbreak(){                 // solo entry — open-world escort
+  mode='solo'; me=0; gmode='zombies'; rankedMode=false; duelMode=false; openWorld=true;
+  players = [ makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }) ];
   beginCampaign();
 }
 function beginCampaign(){                 // shared solo + co-op; assumes `players` already built
   gmode='zombies'; clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
-  bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; teamScore=[0,0];
-  const list = players.filter(Boolean), np = list.length;
-  campaign = { wave:0, maxWave:5, lives:2+np, citizensStart:14, goal:6, waveClearedT:0, np };
-  WORLD.w=2400; WORLD.h=1600; spawns = makeSpawns(); genWalls();
-  list.forEach((p,i)=>{ const a = i/Math.max(1,np)*TAU;
-    p.x=WORLD.w/2+Math.cos(a)*(np>1?110:0); p.y=WORLD.h/2+Math.sin(a)*(np>1?110:0);
-    p.vx=p.vy=0; p.alive=true; p.shield=2.4; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.kills=0; p.matchExp=0; p.deaths=0; });
-  for(let i=0;i<campaign.citizensStart;i++) citizens.push(spawnCitizen());
+  bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; zshots=[]; pickups=[]; teamScore=[0,0];
+  const list = players.filter(Boolean), np = list.length, open = openWorld;
+  chunkWalls = new Map(); populated = new Set(); pois = []; extraWalls = []; walls = [];
+  if(open){
+    worldSeed = (mode==='host'||mode==='solo') ? (irand(1,2e9)) : worldSeed;   // host picks; guest keeps the one from zsetup
+    campaign = { open:true, wave:0, lives:2+np, goal:12, rescued:0, escorting:0, np, waveTimer:26, waveClearedT:0,
+      combo:0, comboT:0, best:0, upgrading:false };
+    WORLD.w = 24000; WORLD.h = 24000;
+    spawns = []; for(let i=0;i<6;i++){ const a=i/6*TAU; spawns.push({x:HUB.x+Math.cos(a)*90, y:HUB.y+Math.sin(a)*90}); }  // respawn ring INSIDE the hub (not stale arena points)
+    ensureChunks([HUB]);                                     // hub + immediate ring
+    list.forEach((p,i)=>{ const a=i/Math.max(1,np)*TAU;
+      p.x=HUB.x+Math.cos(a)*(np>1?70:0); p.y=HUB.y+70+Math.sin(a)*(np>1?40:0);
+      p.vx=p.vy=0; p.alive=true; p.shield=2.6; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.gcd=0; p.ocT=0; p.phaseT=0;
+      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; });
+    ensureChunks(list.map(p=>({x:p.x,y:p.y})));
+  } else {
+    campaign = { wave:0, maxWave:8, lives:2+np, citizensStart:14, goal:6, waveClearedT:0, np,
+      combo:0, comboT:0, best:0, upgrading:false };
+    WORLD.w=2400; WORLD.h=1600; spawns = makeSpawns(); genWalls();
+    list.forEach((p,i)=>{ const a = i/Math.max(1,np)*TAU;
+      p.x=WORLD.w/2+Math.cos(a)*(np>1?110:0); p.y=WORLD.h/2+Math.sin(a)*(np>1?110:0);
+      p.vx=p.vy=0; p.alive=true; p.shield=2.4; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.gcd=0; p.ocT=0; p.phaseT=0;
+      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; });
+    for(let i=0;i<campaign.citizensStart;i++) citizens.push(spawnCitizen());
+  }
   $('#arena').innerHTML='';
-  if(mode==='host') netBroadcast({ t:'zsetup', world:{w:WORLD.w,h:WORLD.h},
-    walls: walls.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]),
+  if(mode==='host') netBroadcast({ t:'zsetup', world:{w:WORLD.w,h:WORLD.h}, open:open?1:0, seed:worldSeed, hub:HUB,
+    walls: open?[]:walls.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]),
     players: players.map(p=>p?{color:p.color,name:p.name}:null),
-    goal:campaign.goal, citizensStart:campaign.citizensStart, maxWave:campaign.maxWave, lives:campaign.lives });
+    goal:campaign.goal, citizensStart:campaign.citizensStart||0, maxWave:campaign.maxWave||0, lives:campaign.lives });
   const coop = np>1;
-  showAnnounce(`<div class="eyebrow">ZOMBIE DEFENSE${coop?' · CO-OP':''}</div><div class="gtitle">Protect the town</div>
-    <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>Zombies convert anyone they touch — shoot them, bank shots through the horde.</div>`, 2400);
-  after(2400, ()=>{ roundLive=true; sfxGo(); nextWave(); });
+  if(open){
+    showAnnounce(`<div class="eyebrow">OUTBREAK${coop?' · CO-OP':''}</div><div class="gtitle" style="color:#3ddc84">Escort the survivors</div>
+      <div class="gtip">The city is procedurally generated as you push outward. Walk up to <b>survivors</b> — they'll follow you.<br>
+      Lead them back to the <b>hub</b> to extract. Rescue <b>${campaign.goal}</b>. The horde hunts you and them.</div>`, 2800);
+    after(2800, ()=>{ roundLive=true; sfxGo(); });
+  } else {
+    showAnnounce(`<div class="eyebrow">ZOMBIE SURVIVAL${coop?' · CO-OP':''}</div><div class="gtitle">Hold the town</div>
+      <div class="gtip">Keep <b>${campaign.goal}+ of ${campaign.citizensStart} citizens</b> alive through <b>${campaign.maxWave} waves</b>.<br>
+      Six breeds of undead. Pick an <b>upgrade</b> after every wave. Bank ricochets through the horde.</div>`, 2600);
+    after(2600, ()=>{ roundLive=true; sfxGo(); nextWave(); });
+  }
+}
+// open-world horde: spawn just outside a random player's view, plus some pressure on the hub
+function spawnFrontier(level, ti, hpBonus){
+  const live = players.filter(p=>p&&p.alive); if(!live.length) return;
+  let x, y;
+  if(Math.random()<0.25){ const a=rand(0,TAU), d=HUB.r+rand(120,360); x=HUB.x+Math.cos(a)*d; y=HUB.y+Math.sin(a)*d; }
+  else { const p=pick(live), a=rand(0,TAU), d=rand(620,900); x=p.x+Math.cos(a)*d; y=p.y+Math.sin(a)*d; }
+  x=clamp(x,40,WORLD.w-40); y=clamp(y,40,WORLD.h-40);
+  zombies.push(makeZombie(x, y, level, ti, hpBonus));
+}
+// hold points: stand on a signal beacon to secure it → survivors + supplies drop in
+function updateBeacons(dt){
+  for(const b of pois){ if(b.captured) continue;
+    let near=false; for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-b.x,p.y-b.y)<b.r+46){ near=true; break; } }
+    if(near){ b.prog += dt/3.5; if(b.prog>=1){ b.captured=true; captureBeacon(b); } }
+    else b.prog = Math.max(0, b.prog - dt*0.6);
+  }
+}
+function captureBeacon(b){
+  sfxUpgrade(); pushFeed('SIGNAL SECURED — survivors surfacing, supplies inbound');
+  for(let i=0;i<3;i++){ const c=spawnCitizen(); c.x=b.x+rand(-70,70); c.y=b.y+rand(-70,70); citizens.push(c); }
+  pickups.push({ x:b.x-16, y:b.y, r:9, type:'ammo',   alive:true, life:26, wob:0 });
+  pickups.push({ x:b.x+16, y:b.y, r:9, type:'shield', alive:true, life:26, wob:0 });
+  for(let i=0;i<4;i++){ const roster=waveTypes(Math.max(2,campaign.wave)); spawnFrontier(save.level+campaign.wave, roster[irand(0,roster.length-1)], Math.floor(campaign.wave/3)); }  // it draws heat
+}
+// open-world horde director: steady spawns that ramp, timed waves that trigger the upgrade breather
+function updateOutbreakWaves(dt){
+  const c = campaign;
+  c.spawnAcc = (c.spawnAcc||0) + dt;
+  const cap = 46 + c.np*14;
+  const interval = Math.max(0.45, 2.3 - c.wave*0.14) / (0.4 + c.np*0.6);
+  if(c.spawnAcc >= interval && zombies.length < cap){ c.spawnAcc = 0;
+    const roster = waveTypes(Math.max(1, c.wave)), ti = roster.length ? roster[irand(0,roster.length-1)] : ZI.walker;
+    const hpBonus = Math.floor(c.wave/3);
+    spawnFrontier(save.level + c.wave, ti, ti===ZI.brute ? hpBonus*2 : hpBonus);
+  }
+  c.waveTimer -= dt;
+  if(c.waveTimer <= 0){ c.wave++; c.waveTimer = 30;
+    if(c.wave % 4 === 0) spawnFrontier(save.level + c.wave + 4, ZI.behemoth, Math.floor(c.wave/2));   // periodic behemoth
+    if(mode !== 'guest') offerUpgrade();   // brief tactical breather + a field upgrade
+  }
 }
 function nextWave(){
   if(!campaign) return;
   campaign.wave++;
   if(campaign.wave > campaign.maxWave){ campaignEnd(true); return; }
-  const w = campaign.wave, boss = (w === campaign.maxWave);
-  const count = Math.round((5 + w*3) * (0.7 + 0.34*campaign.np));   // scale horde with player count
-  showAnnounce(`<div class="eyebrow">WAVE ${w} / ${campaign.maxWave}${boss?' · BOSS':''}</div>
-    <div class="gtitle" style="color:${boss?'#ff9f1c':'var(--p1)'}">${boss?'THE BEHEMOTH':'Wave '+w}</div>`, 1500);
-  campaign.spawning = true;                       // block wave-clear until the whole batch has spawned
-  let last = 0;
-  for(let i=0;i<count;i++){ const d = 400 + i*80; last = Math.max(last, d); after(d, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w, false); }); }
-  if(boss){ const n = campaign.np>2?2:1; for(let k=0;k<n;k++){ const d = 900+k*300; last = Math.max(last, d); after(d, ()=>{ if(campaign && state==='play') spawnZombie(save.level + w + 6, true); }); } }
+  const w = campaign.wave, boss = (w === campaign.maxWave), mini = (w === 4);
+  const lvl = save.level + w;
+  const title = boss ? 'THE BEHEMOTH' : mini ? 'THE FIRST BEHEMOTH' : 'Wave '+w;
+  const col = (boss||mini) ? '#ff9f1c' : 'var(--p1)';
+  showAnnounce(`<div class="eyebrow">WAVE ${w} / ${campaign.maxWave}${boss?' · FINAL':mini?' · MINI-BOSS':''}</div>
+    <div class="gtitle" style="color:${col}">${title}</div>`, 1500);
+  campaign.spawning = true;
+  const scale = 0.7 + 0.34*campaign.np, hpBonus = Math.floor(w/3);
+  const roster = waveTypes(w);
+  let last = 0, n = Math.round(roster.length * scale);
+  for(let i=0;i<n;i++){ const ti = roster[irand(0,roster.length-1)], d = 350 + i*70; last = Math.max(last,d);
+    after(d, ()=>{ if(campaign && state==='play' && !campaign.upgrading) spawnZombie(lvl, ti, ti===ZI.brute?hpBonus*2:hpBonus); }); }
+  if(mini){ const d=800; last=Math.max(last,d); after(d, ()=>{ if(campaign && state==='play') spawnZombie(lvl+4, ZI.behemoth, -6); }); }  // weaker mini-boss
+  if(boss){ const nb = campaign.np>2?2:1; for(let k=0;k<nb;k++){ const d=900+k*400; last=Math.max(last,d);
+    after(d, ()=>{ if(campaign && state==='play') spawnZombie(lvl+6, ZI.behemoth, Math.floor(w/2)); }); } }
   after(last + 60, ()=>{ if(campaign) campaign.spawning = false; });
+}
+/* ---- between-wave upgrade draft (solo + host authoritative) ---- */
+function waveCleared(){
+  if(!campaign) return;
+  if(campaign.wave >= campaign.maxWave){ campaignEnd(true); return; }   // final wave cleared → win
+  if(mode==='guest'){ return; }                                        // guests wait for host's next wave
+  offerUpgrade();
+}
+function offerUpgrade(){
+  campaign.upgrading = true; roundLive = false;
+  const picks = ZUPGRADES.slice().sort(()=>Math.random()-0.5).slice(0,3);
+  campaign._picks = picks;
+  if(mode==='host') netBroadcast({ t:'zpause', wave:campaign.wave });
+  const open = campaign.open;
+  const head = open ? `THREAT LEVEL ${campaign.wave}` : `WAVE ${campaign.wave} CLEARED`;
+  const foot = open ? `SURVIVORS EXTRACTED: ${campaign.rescued} / ${campaign.goal}` : `NEXT: WAVE ${campaign.wave+1} / ${campaign.maxWave}`;
+  $('#arena').innerHTML = `<div class="panel">
+    <div style="text-align:center"><div class="rtitle" style="color:var(--gold);font-size:clamp(22px,4.6vw,40px)">${head}</div>
+      <div class="rsub">choose a field upgrade — it lasts the rest of the run${campaign.np>1?' (whole squad)':''}</div></div>
+    <div class="prow" id="upgrades">
+      ${picks.map((u,i)=>`<button class="card" data-i="${i}" style="cursor:pointer;text-align:center;border-color:var(--line);transition:border-color .15s,transform .12s">
+        <div style="font-size:34px">${u.ic}</div>
+        <div class="nm2" style="font-weight:900;font-style:italic;font-size:18px;margin:6px 0 4px;color:var(--gold)">${u.name}</div>
+        <div class="mods" style="font-size:12px">${u.desc}</div></button>`).join('')}
+    </div>
+    <div class="note" style="text-align:center">${foot}</div>
+  </div>`;
+  $('#upgrades').querySelectorAll('button').forEach(b=>{ b.onmouseenter=()=>{ b.style.borderColor='var(--gold)'; b.style.transform='translateY(-3px)'; };
+    b.onmouseleave=()=>{ b.style.borderColor='var(--line)'; b.style.transform='none'; };
+    b.onclick=()=> chooseUpgrade(+b.dataset.i); });
+}
+function chooseUpgrade(i){
+  if(!campaign || !campaign.upgrading) return;
+  const u = campaign._picks[i]; if(!u) return;
+  if(u.each) players.filter(Boolean).forEach(p=> u.each(p));
+  if(u.once) u.once();
+  sfxUpgrade(); flashScreen('var(--gold)');
+  campaign.upgrading = false; $('#arena').innerHTML=''; roundLive = true;
+  pushFeed(`FIELD UPGRADE — ${u.name}`);
+  if(mode==='host') showAnnounce(`<div class="eyebrow">FIELD UPGRADE</div><div class="gtitle" style="color:var(--gold);font-size:clamp(20px,4vw,34px)">${u.ic} ${u.name}</div>`, 1200);
+  if(!campaign.open) nextWave();   // arena advances a scripted wave; open world keeps its rolling director
 }
 function playerInputZ(p){
   if(p.local) return localInput();
-  if(mode==='host'){ const pr = netPeerFor(p.i); return pr ? pr.rin : {x:0,y:0,s:false}; }
-  return {x:0,y:0,s:false};
+  if(mode==='host'){ const pr = netPeerFor(p.i); return pr ? pr.rin : {x:0,y:0,s:false,a:false}; }
+  return {x:0,y:0,s:false,a:false};
 }
 function respawnZ(p){
   let best={x:WORLD.w/2,y:WORLD.h/2}, bd=-1;
@@ -598,46 +912,129 @@ function stepPlayerZ(p, dt){
   if(!p.alive){ if(p.respT>0){ p.respT-=dt; if(p.respT<=0) respawnZ(p); } return; }
   const inp = playerInputZ(p); p.inX=inp.x; p.inY=inp.y; p.wantShoot=!!inp.s;
   if(p.inX||p.inY){ const want=Math.atan2(p.inY,p.inX); p.aim += clamp(angDiff(p.aim,want), -16*dt, 16*dt); }
+  gadgetInput(p, !!inp.a); tickGadget(p, dt);
+  const spK = p.phaseT>0?1.55:1, ocK = p.ocT>0?0.5:1;
   if(p.burst>0){ p.burstT-=dt; if(p.burstT<=0){ p.burstT=0.06; p.burst--; const spd=p.ld.bulletSpeed;
-    bullets.push({x:p.x+Math.cos(p.aim)*(p.r+9),y:p.y+Math.sin(p.aim)*(p.r+9),px:0,py:0,vx:Math.cos(p.aim)*spd,vy:Math.sin(p.aim)*spd,r:4.5,owner:p.i,team:-1,b:0,maxB:p.ld.wbase.bounce,life:2.6,c:p.color}); sfxShoot(); } }
-  const il=Math.hypot(p.inX,p.inY)||1; p.vx+=(p.inX/il)*p.ld.accel*dt; p.vy+=(p.inY/il)*p.ld.accel*dt;
-  const sp=Math.hypot(p.vx,p.vy); if(sp>p.ld.maxV){ const k=p.ld.maxV/sp; p.vx*=k; p.vy*=k; }
+    bullets.push({x:p.x+Math.cos(p.aim)*(p.r+9),y:p.y+Math.sin(p.aim)*(p.r+9),px:0,py:0,vx:Math.cos(p.aim)*spd,vy:Math.sin(p.aim)*spd,r:4.5,owner:p.i,team:-1,b:0,maxB:p.ld.wbase.bounce,life:2.6,c:p.color,pierce:p.pierce||0}); sfxShoot(); } }
+  const il=Math.hypot(p.inX,p.inY)||1; p.vx+=(p.inX/il)*p.ld.accel*spK*dt; p.vy+=(p.inY/il)*p.ld.accel*spK*dt;
+  const mv=p.ld.maxV*spK, sp=Math.hypot(p.vx,p.vy); if(sp>mv){ const k=mv/sp; p.vx*=k; p.vy*=k; }
   const damp=Math.max(0,1-7*dt); p.vx*=damp; p.vy*=damp; p.x+=p.vx*dt; p.y+=p.vy*dt;
   p.x=clamp(p.x,p.r,WORLD.w-p.r); p.y=clamp(p.y,p.r,WORLD.h-p.r);
   for(const wl of walls){ const q=circleRectPush(p.x,p.y,p.r,wl); if(q){ p.x+=q.x; p.y+=q.y; if(q.x)p.vx=0; if(q.y)p.vy=0; } }
-  p.cd-=dt; p.shield-=dt; if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime){ p.ammo++; p.regen=0; } }
+  // walk over pickups
+  for(const pk of pickups){ if(!pk.alive) continue; if(Math.hypot(pk.x-p.x,pk.y-p.y) < p.r+pk.r+4){ collectPickup(p, pk); } }
+  // open world: rally nearby survivors to follow you
+  if(campaign.open){ for(const c of citizens){ if(c.alive && c.converting<=0 && c.following==null && Math.hypot(c.x-p.x,c.y-p.y) < p.r+c.r+42){
+    c.following = p.i; sfxPick(); if(p.local) pushFeed('a survivor falls in behind you'); } } }
+  p.cd-=dt; p.shield-=dt; if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime*ocK){ p.ammo++; p.regen=0; } }
   if(p.wantShoot) fire(p);
 }
+function collectPickup(p, pk){
+  pk.alive=false; sfxPickup();
+  if(pk.type==='ammo'){ p.ammo=p.ld.maxAmmo; p.regen=0; spark(pk.x,pk.y,'#ffcf3f',12); if(p.local) pushFeed('ammo restocked'); }
+  else { p.shield=Math.max(p.shield,2.4); spark(pk.x,pk.y,'#00e5ff',12); if(p.local) pushFeed('shield charged'); }
+}
+function dropPickup(x,y,boss){
+  const r = Math.random();
+  if(!boss && r>0.14) return;                       // ~14% drop from a normal kill
+  const type = Math.random()<0.5 ? 'ammo' : 'shield';
+  pickups.push({ x, y, r:9, type, alive:true, life:14, wob:rand(0,TAU) });
+  if(boss){ pickups.push({ x:x+rand(-30,30), y:y+rand(-30,30), r:9, type: type==='ammo'?'shield':'ammo', alive:true, life:20, wob:rand(0,TAU) }); }
+}
+function bumpCombo(p){
+  if(!campaign) return;
+  campaign.combo++; campaign.comboT = 2.4; if(campaign.combo>campaign.best) campaign.best=campaign.combo;
+  if(p && campaign.combo>=3){ p.matchExp += Math.floor(campaign.combo*0.6); }   // streak bonus exp
+}
+function zombieDown(z, ow){
+  z.alive=false;
+  const T = ZTYPES[z.ti]||ZTYPES[0];
+  burst(z.x, z.y, z.boss?'#ff9f1c':T.eye, z.boss?70:24); sfxDie();
+  if(ow){ ow.kills++; ow.matchExp += expForKill(z.level) * (z.boss?6:1); bumpCombo(ow); }
+  if(T.explodes) bloaterBurst(z);
+  dropPickup(z.x, z.y, z.boss);
+  if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed('THE BEHEMOTH FALLS'); }
+  else if(Math.random()<0.25) pushFeed(`${T.k} down`);
+}
+function bloaterBurst(z){
+  const R=110; burst(z.x,z.y,'#c5d659',44); ringFx(z.x,z.y,'#c5d659',R); shake();
+  for(const c of citizens){ if(c.alive && c.converting<=0 && Math.hypot(c.x-z.x,c.y-z.y)<R) c.converting=0.85; }
+  for(const p of players){ if(p && p.alive && p.shield<=0 && Math.hypot(p.x-z.x,p.y-z.y)<R) playerDieZ(p); }
+}
+function nearestPlayerTo(x, y){ let pn=null, pd=1e9; for(const p of players){ if(!p||!p.alive) continue;
+  const d=Math.hypot(p.x-x,p.y-y); if(d<pd){ pd=d; pn=p; } } return { p:pn, d:pd }; }
 function updateZombies(dt){
-  if(roundLive){
+  if(roundLive && !campaign.upgrading){
     for(const p of players){ if(p) stepPlayerZ(p, dt); }
-    // ---- citizens (flee nearest zombie) ----
+    // ---- combo timer ----
+    if(campaign.comboT>0){ campaign.comboT-=dt; if(campaign.comboT<=0) campaign.combo=0; }
+    // ---- pickups (bob + expire) ----
+    for(const pk of pickups){ if(!pk.alive) continue; pk.wob+=dt*4; pk.life-=dt; if(pk.life<=0) pk.alive=false; }
+    // ---- citizens (follow their escort, else flee the nearest zombie) ----
     for(const c of citizens){ if(!c.alive) continue;
       if(c.converting>0){ c.converting-=dt; if(c.converting<=0){ c.alive=false; spark(c.x,c.y,'#7cff9b',12);
-        zombies.push(makeZombie(c.x,c.y, save.level+campaign.wave, false)); } continue; }
-      let zn=null, zd=1e9; for(const z of zombies){ if(!z.alive) continue; const d=Math.hypot(z.x-c.x,z.y-c.y); if(d<zd){ zd=d; zn=z; } }
+        zombies.push(makeZombie(c.x,c.y, save.level+(campaign.wave||1), ZI.walker, 0)); } continue; }
       c.wob += dt*2.4;
-      if(zn && zd<250){ const a=Math.atan2(c.y-zn.y,c.x-zn.x)+Math.sin(c.wob)*0.35; c.vx+=Math.cos(a)*1100*dt; c.vy+=Math.sin(a)*1100*dt; }
-      else { c.vx+=Math.cos(c.wob*0.7)*160*dt; c.vy+=Math.sin(c.wob*0.9)*160*dt; }
-      const cs=Math.hypot(c.vx,c.vy); if(cs>165){ const k=165/cs; c.vx*=k; c.vy*=k; }
+      const leader = (c.following!=null) ? players[c.following] : null;
+      // open world: idle survivors far from every player just wait (keeps the sim cheap as the map grows)
+      if(campaign.open && !leader){ let near=false; for(const pl of players){ if(pl&&pl.alive&&Math.hypot(pl.x-c.x,pl.y-c.y)<2600){ near=true; break; } } if(!near) continue; }
+      let zn=null, zd=1e9; for(const z of zombies){ if(!z.alive) continue; const d=Math.hypot(z.x-c.x,z.y-c.y); if(d<zd){ zd=d; zn=z; } }
+      if(leader && leader.alive){                 // escorted: stick close, only panic if a zombie is right on them
+        const dx=leader.x-c.x, dy=leader.y-c.y, d=Math.hypot(dx,dy)||1;
+        if(d>44){ c.vx+=dx/d*1000*dt; c.vy+=dy/d*1000*dt; }
+        if(zn && zd<64){ const a=Math.atan2(c.y-zn.y,c.x-zn.x); c.vx+=Math.cos(a)*900*dt; c.vy+=Math.sin(a)*900*dt; }
+      } else {
+        if(leader) c.following=null;              // lost the leader — go back to fleeing
+        if(zn && zd<250){ const a=Math.atan2(c.y-zn.y,c.x-zn.x)+Math.sin(c.wob)*0.35; c.vx+=Math.cos(a)*1100*dt; c.vy+=Math.sin(a)*1100*dt; }
+        else { c.vx+=Math.cos(c.wob*0.7)*160*dt; c.vy+=Math.sin(c.wob*0.9)*160*dt; }
+      }
+      const cap = leader ? 210 : 165, cs=Math.hypot(c.vx,c.vy); if(cs>cap){ const k=cap/cs; c.vx*=k; c.vy*=k; }
       c.vx*=Math.max(0,1-5*dt); c.vy*=Math.max(0,1-5*dt); c.x+=c.vx*dt; c.y+=c.vy*dt;
       c.x=clamp(c.x,c.r,WORLD.w-c.r); c.y=clamp(c.y,c.r,WORLD.h-c.r);
       for(const wl of walls){ const p=circleRectPush(c.x,c.y,c.r,wl); if(p){ c.x+=p.x; c.y+=p.y; } }
     }
-    // ---- zombies (target nearest citizen, else nearest player) ----
+    // ---- zombies (behavior varies by type) ----
     for(const z of zombies){ if(!z.alive) continue;
+      const T = ZTYPES[z.ti]||ZTYPES[0];
       let cn=null, cd=1e9; for(const c of citizens){ if(!c.alive||c.converting>0) continue; const d=Math.hypot(c.x-z.x,c.y-z.y); if(d<cd){ cd=d; cn=c; } }
-      let tx, ty;
-      if(cn){ tx=cn.x; ty=cn.y; }
-      else { let pn=null, pd=1e9; for(const p of players){ if(!p||!p.alive) continue; const d=Math.hypot(p.x-z.x,p.y-z.y); if(d<pd){ pd=d; pn=p; } }
-        if(pn){ tx=pn.x; ty=pn.y; } else { tx=WORLD.w/2; ty=WORLD.h/2; } }
-      const a=Math.atan2(ty-z.y, tx-z.x); z.vx += Math.cos(a)*z.speed*5*dt; z.vy += Math.sin(a)*z.speed*5*dt;
-      const zs=Math.hypot(z.vx,z.vy); if(zs>z.speed){ const k=z.speed/zs; z.vx*=k; z.vy*=k; }
+      const np = nearestPlayerTo(z.x, z.y);
+      let tx, ty, advance = true;
+      if(T.ranged && np.p && np.d < 340){       // spitter: hang back and spit acid at players
+        tx=np.p.x; ty=np.p.y; advance = np.d > 240;
+        z.spitCd -= dt;
+        if(z.spitCd<=0 && np.d<360){ z.spitCd = rand(1.4,2.2);
+          const a=Math.atan2(np.p.y-z.y, np.p.x-z.x), sp=250;
+          zshots.push({x:z.x,y:z.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:7,life:2.6}); tone(220,0.12,'sawtooth',0.4,90); }
+      } else {
+        // chase whichever is nearer — citizen OR player — so a player in the horde is a real target.
+        // hunters weight players heavier (treat them as closer); others still lean slightly toward players.
+        const pw = T.hunter ? 0.55 : 0.9;
+        const cDist = cn ? cd : Infinity, pDist = np.p ? np.d * pw : Infinity;
+        if(np.p && pDist <= cDist){ tx=np.p.x; ty=np.p.y; }
+        else if(cn){ tx=cn.x; ty=cn.y; }
+        else if(np.p){ tx=np.p.x; ty=np.p.y; }
+        else { tx=WORLD.w/2; ty=WORLD.h/2; }
+      }
+      if(T.summons){ z.sumCd -= dt; if(z.sumCd<=0){ z.sumCd = rand(4,6);
+        const a=rand(0,TAU); zombies.push(makeZombie(z.x+Math.cos(a)*50, z.y+Math.sin(a)*50, z.level, ZI.runner, 0)); spark(z.x,z.y,'#ff9f1c',14); } }
+      if(advance){ const a=Math.atan2(ty-z.y, tx-z.x); z.vx += Math.cos(a)*z.speed*5*dt; z.vy += Math.sin(a)*z.speed*5*dt; }
+      const zsp=Math.hypot(z.vx,z.vy); if(zsp>z.speed){ const k=z.speed/zsp; z.vx*=k; z.vy*=k; }
+      z.vx*=Math.max(0,1-1.5*dt); z.vy*=Math.max(0,1-1.5*dt);   // light drag so knockback settles
       z.x+=z.vx*dt; z.y+=z.vy*dt; z.x=clamp(z.x,z.r,WORLD.w-z.r); z.y=clamp(z.y,z.r,WORLD.h-z.r);
       for(const wl of walls){ const p=circleRectPush(z.x,z.y,z.r,wl); if(p){ z.x+=p.x; z.y+=p.y; } }
       if(cn && cd < z.r+cn.r+2 && cn.converting<=0){ cn.converting = 0.85; }
       for(const p of players){ if(p && p.alive && p.shield<=0 && Math.hypot(p.x-z.x,p.y-z.y) < z.r+p.r){ playerDieZ(p); break; } }
     }
+    // ---- acid globs ----
+    for(const sh of zshots){ if(sh.life<=0) continue; sh.x+=sh.vx*dt; sh.y+=sh.vy*dt; sh.life-=dt;
+      if(sh.x<0||sh.x>WORLD.w||sh.y<0||sh.y>WORLD.h){ sh.life=0; continue; }
+      for(const wl of walls){ if(sh.x>wl.x&&sh.x<wl.x+wl.w&&sh.y>wl.y&&sh.y<wl.y+wl.h){ sh.life=0; spark(sh.x,sh.y,'#c79bff',5); break; } }
+      if(sh.life<=0) continue;
+      for(const c of citizens){ if(c.alive&&c.converting<=0&&Math.hypot(c.x-sh.x,c.y-sh.y)<c.r+sh.r){ c.converting=0.85; sh.life=0; break; } }
+      if(sh.life<=0) continue;
+      for(const p of players){ if(p&&p.alive&&Math.hypot(p.x-sh.x,p.y-sh.y)<p.r+sh.r){ sh.life=0; if(p.shield<=0) playerDieZ(p); else spark(sh.x,sh.y,'#fff',6); break; } }
+    }
+    zshots = zshots.filter(s=>s.life>0);
     // ---- bullets (all players) vs walls + zombies ----
     for(const bl of bullets){ bl.px=bl.x; bl.py=bl.y;
       for(let s=0;s<2 && bl.life>0;s++){ const h=dt/2; bl.x+=bl.vx*h; bl.y+=bl.vy*h;
@@ -646,24 +1043,41 @@ function updateZombies(dt){
         for(const wl of walls){ const p=circleRectPush(bl.x,bl.y,bl.r,wl); if(p){ bl.x+=p.x; bl.y+=p.y; if(Math.abs(p.x)>Math.abs(p.y))bl.vx=-bl.vx; else bl.vy=-bl.vy; bl.b++; sfxBounce(); } }
         if(bl.b>bl.maxB){ bl.life=0; spark(bl.x,bl.y,bl.c,5); }
         for(const z of zombies){ if(!z.alive||bl.life<=0) continue;
-          if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){ bl.life=0;
+          if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){
+            if(bl.hit && bl.hit.has(z)) continue;            // a piercing bullet only strikes each enemy once
+            const ow = players[bl.owner];
             if(z.hp>1){ z.hp--; spark(bl.x,bl.y,'#ff6b6b',7); }
-            else { z.alive=false; burst(z.x,z.y, z.boss?'#ff9f1c':'#8bd67a', z.boss?64:22); sfxDie();
-              const ow = players[bl.owner]; if(ow){ ow.kills++; ow.matchExp += expForKill(z.level) * (z.boss?5:1); }
-              if(z.boss){ shake(); flashScreen('#ff9f1c'); pushFeed('THE BEHEMOTH FALLS'); }
-              else if(Math.random()<0.3) pushFeed(`zombie down`); } } }
+            else { zombieDown(z, ow); }
+            if(bl.pierce>0){ bl.pierce--; (bl.hit || (bl.hit=new Set())).add(z); }   // pass through, remember this one
+            else { bl.life=0; } } }
       }
       bl.life-=dt;
     }
     bullets = bullets.filter(b=>b.life>0);
+    pickups = pickups.filter(p=>p.alive);
     zombies = zombies.filter(z=>z.alive);
-    // ---- win / lose / wave advance ----
-    const alive = citizens.filter(c=>c.alive).length;
-    if(alive===0){ campaignEnd(false); }
-    else if(campaign.wave>=1 && !campaign.spawning && zombies.length===0 && !citizens.some(c=>c.converting>0)){
-      campaign.waveClearedT += dt;
-      if(campaign.waveClearedT > 1.2){ campaign.waveClearedT = 0; nextWave(); }
-    } else campaign.waveClearedT = 0;
+    citizens = citizens.filter(c=>c.alive);
+    if(campaign.open){
+      ensureChunks(players.filter(p=>p&&p.alive).map(p=>({x:p.x,y:p.y})));   // stream the city around the squad
+      // extraction: survivors that reach the hub are rescued
+      for(const c of citizens){ if(c.converting>0) continue;
+        if(Math.hypot(c.x-HUB.x, c.y-HUB.y) < HUB.r-16){ c.alive=false; campaign.rescued++;
+          const ow = c.following!=null ? players[c.following] : null; if(ow){ ow.matchExp += 40; }
+          spark(c.x,c.y,'#3ddc84',18); sfxPickup(); pushFeed(`survivor extracted — ${campaign.rescued}/${campaign.goal}`); } }
+      citizens = citizens.filter(c=>c.alive);
+      campaign.escorting = citizens.filter(c=>c.following!=null).length;
+      updateBeacons(dt);
+      updateOutbreakWaves(dt);
+      if(campaign.rescued >= campaign.goal) campaignEnd(true);
+    } else {
+      // ---- arena win / lose / wave advance ----
+      const alive = citizens.length;
+      if(alive===0){ campaignEnd(false); }
+      else if(campaign.wave>=1 && !campaign.spawning && zombies.length===0 && !citizens.some(c=>c.converting>0)){
+        campaign.waveClearedT += dt;
+        if(campaign.waveClearedT > 1.0){ campaign.waveClearedT = 0; waveCleared(); }
+      } else campaign.waveClearedT = 0;
+    }
   }
   for(const f of feed) f.t += dt;
   updateParts(dt); updateCamera(dt);
@@ -671,13 +1085,14 @@ function updateZombies(dt){
 function campaignEnd(won){
   if(state!=='play') return;
   state='end'; roundLive=false; clearTimers(); $('#announce').classList.remove('show'); sfxWin();
-  const saved = citizens.filter(c=>c.alive).length;
-  if(mode==='host') netBroadcast({ t:'zend', won, saved, citizensStart:campaign.citizensStart,
-    goal:campaign.goal, maxWave:campaign.maxWave, wave:campaign.wave,
+  const open = !!campaign.open;
+  const saved = open ? campaign.rescued : citizens.filter(c=>c.alive).length;
+  if(mode==='host') netBroadcast({ t:'zend', won, saved, open:open?1:0, citizensStart:campaign.citizensStart||0,
+    goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,
     standings: players.map(p=>p?{name:p.name,color:p.color,kills:p.kills,matchExp:p.matchExp}:null) });
   const you = players[me] || players[0];
-  renderCampaignEnd({ won, saved, gained:(you&&you.matchExp)||0, kills:(you&&you.kills)||0,
-    citizensStart:campaign.citizensStart, goal:campaign.goal, maxWave:campaign.maxWave, wave:campaign.wave,
+  renderCampaignEnd({ won, saved, open, gained:(you&&you.matchExp)||0, kills:(you&&you.kills)||0, bestCombo:campaign.best||0,
+    citizensStart:campaign.citizensStart||0, goal:campaign.goal, maxWave:campaign.maxWave||0, wave:campaign.wave,
     standings: players.filter(Boolean).map(p=>({name:p.name,color:p.color,kills:p.kills,local:!!p.local})) });
 }
 function renderCampaignEnd(ctx){
@@ -687,47 +1102,54 @@ function renderCampaignEnd(ctx){
   const credits = 20 + Math.round(gained/4) + (ctx.won?60:0) + (ctx.saved||0)*4;
   const prog = applyProgression(gained, ctx.won, ctx.won?1:5, { legendary: metGoal, credits });
   prog.drops.forEach((d,i)=> after(300+i*220, ()=> sfxLoot(d.rr)));
-  const title = ctx.won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell';
+  const title = ctx.open ? (ctx.won?'Extraction complete':'Squad overrun') : (ctx.won ? (metGoal?'Town saved!':'Waves cleared') : 'The town fell');
   const tc = ctx.won ? 'var(--gold)' : 'var(--p1)';
   const wavesSurvived = ctx.won ? ctx.maxWave : Math.max(0, ctx.wave-1);
   const coop = ctx.standings.length > 1;
   const squad = coop ? `<div class="card"><h3>Squad</h3>${ctx.standings.slice().sort((a,b)=>b.kills-a.kills).map(s=>
       `<div class="stat" style="margin-bottom:5px"><span class="nm" style="width:auto;flex:1;color:${s.color}${s.local?';font-weight:900':''}">${esc(s.name)}${s.local?' (you)':''}</span>
        <span style="font-family:var(--mono);color:#eef2ff">${s.kills} kills</span></div>`).join('')}</div>` : '';
+  const rsub = ctx.open
+    ? `${ctx.saved} survivors extracted · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':''} · reached threat ${ctx.wave}`
+    : (ctx.won ? `${ctx.saved} / ${ctx.citizensStart} citizens survived · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${ctx.wave} · ${ctx.saved} citizens left`);
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div>
-      <div class="rsub">${ctx.won ? `${ctx.saved} / ${ctx.citizensStart} citizens survived · goal ${ctx.goal}${metGoal?' &nbsp;✓ LEGENDARY EARNED':' (short of goal)'}` : `overrun on wave ${ctx.wave} · ${ctx.saved} citizens left`}</div></div>
+      <div class="rsub">${rsub}</div></div>
     ${progressStrip(prog, gained)}
     <div class="prow">
-      ${squad || `<div class="card"><h3>Defense Report</h3>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Waves survived</span><span style="font-family:var(--mono);color:#eef2ff">${wavesSurvived} / ${ctx.maxWave}</span></div>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Citizens saved</span><span style="font-family:var(--mono);color:#7cff9b">${ctx.saved}</span></div>
-        <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.kills}</span></div></div>`}
+      ${squad || `<div class="card"><h3>${ctx.open?'Extraction Report':'Defense Report'}</h3>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">${ctx.open?'Threat reached':'Waves survived'}</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.open?ctx.wave:wavesSurvived+' / '+ctx.maxWave}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">${ctx.open?'Survivors extracted':'Citizens saved'}</span><span style="font-family:var(--mono);color:#7cff9b">${ctx.saved}</span></div>
+        <div class="stat"><span class="nm" style="width:auto;flex:1">Zombies dropped</span><span style="font-family:var(--mono);color:#eef2ff">${ctx.kills}</span></div>
+        ${ctx.bestCombo?`<div class="stat"><span class="nm" style="width:auto;flex:1">Best combo</span><span style="font-family:var(--mono);color:#ffcf3f">${ctx.bestCombo}×</span></div>`:''}</div>`}
       <div class="card"><h3>Loot — ${prog.drops.length} drop${prog.drops.length!==1?'s':''}</h3>
         <div class="invlist">${lootRow(prog.drops)}</div>
         <div style="height:8px"></div><div class="ptsline" style="color:var(--dim)">saved to your stash · equip in Loadout</div></div>
     </div>
     ${endButtons(mode==='guest'?'BACK TO LOBBY':'REDEPLOY')}</div>`;
-  wireEndButtons(() => { if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host'){ hostRecampaign(); } else startCampaign(); });
+  wireEndButtons(() => { if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host'){ hostRecampaign(); } else (openWorld?startOutbreak():startCampaign()); });
 }
 function hostRecampaign(){ if(mode==='host'){ beginCampaign(); } }
 
 function beginMatch(){
   state = 'play'; roundLive = false; freezeT = 0; clearTimers(); endStandings = null;
-  WORLD.w = 2600; WORLD.h = 1700; citizens = []; zombies = []; campaign = null;
+  const duel = duelMode;
+  WORLD.w = duel ? 1900 : 2600; WORLD.h = duel ? 1300 : 1700; citizens = []; zombies = []; campaign = null;
   bullets = []; parts = []; pickups = []; feed = []; teamScore = [0,0];
-  target = gmode === 'teams' ? TEAM_TARGET : FFA_TARGET;
+  target = duel ? DUEL_TARGET : (gmode === 'teams' ? TEAM_TARGET : FFA_TARGET);
   spawns = makeSpawns(); genWalls();
-  for(const p of players){ p.kills = 0; p.deaths = 0; p.alive = false; p.respT = 0.2 + p.i*0.06; }
+  for(const p of players){ if(!p) continue; p.kills = 0; p.deaths = 0; p.alive = false; p.respT = 0.2 + p.i*0.06; }
   $('#arena').innerHTML = '';
   if(mode === 'host'){
     netBroadcast({t:'setup', gmode, target, world:WORLD,
       walls: walls.map(w=>[w.x|0,w.y|0,w.w|0,w.h|0]),
       players: players.map(p=>({team:p.team, color:p.color, name:p.name}))});
   }
-  const modeLabel = gmode === 'teams' ? 'TEAM DEATHMATCH' : 'FREE-FOR-ALL';
-  showAnnounce(`<div class="eyebrow">${modeLabel} · FIRST TO ${target}</div><div class="gtitle">Brawl!</div>
-    <div class="gtip">Respawns are instant-ish. <b>One hit kills.</b> Bullets ricochet — bank them.</div>`, 1500);
+  const modeLabel = duel ? (rankedMode?'RANKED DUEL':'DUEL') : (gmode === 'teams' ? 'TEAM DEATHMATCH' : 'FREE-FOR-ALL');
+  const tip = duel ? `<b>One hit kills.</b> First to ${target} takes the floor. Bank ricochets — dash to survive.`
+    : `Respawns are instant-ish. <b>One hit kills.</b> Bullets ricochet — bank them.`;
+  showAnnounce(`<div class="eyebrow">${modeLabel} · FIRST TO ${target}</div><div class="gtitle">${duel?'Duel!':'Brawl!'}</div>
+    <div class="gtip">${tip}</div>`, 1500);
   after(1500, () => { roundLive = true; sfxGo(); });
 }
 function onKill(victim, killer, banked){
@@ -768,12 +1190,21 @@ function matchEnd(winner){
 
 /* ================= start modes ================= */
 function startSolo(){
-  mode = 'solo'; me = 0; rankedMode = false; gmode = (gmode==='zombies'?'ffa':gmode);
+  mode = 'solo'; me = 0; rankedMode = false; duelMode = false; gmode = (gmode==='zombies'?'ffa':gmode);
   players = [];
-  players.push(makePlayer(0, { local:true, name:'You', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) }));
+  players.push(makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }));
   const names = BOT_NAMES.slice().sort(()=>Math.random()-0.5);
   for(let i=1;i<MAXP;i++) players.push(makePlayer(i, { bot:true, name:names[i-1], skill:rand(0.8,1.25),
     level: clamp(save.level + irand(-2,3), 1, 99), ld: botLoadout() }));
+  beginMatch();
+}
+function startDuelPractice(){   // 1v1 vs a single tough bot — unranked warm-up for the tower
+  mode = 'solo'; me = 0; rankedMode = false; duelMode = true; gmode = 'ffa';
+  players = [
+    makePlayer(0, { local:true, name:'You', level:save.level, ld: myLoadout() }),
+    makePlayer(1, { bot:true, name:pick(BOT_NAMES)+' the Challenger', skill:rand(1.0,1.35),
+      level: clamp(save.level + irand(-1,3), 1, 99), ld: botLoadout() }),
+  ];
   beginMatch();
 }
 
@@ -792,6 +1223,7 @@ function botThink(p, dt){
     if(p.team>=0 && players[bl.owner] && players[bl.owner].team===p.team) continue;
     const dx = p.x-bl.x, dy = p.y-bl.y, d = Math.hypot(dx,dy);
     if(d < 190 && (bl.vx*dx + bl.vy*dy)/d > 220){ threat = bl; break; } }
+  p.threatened = !!threat;
   if(threat && b.dodge <= -0.3 && Math.random() < b.skill*0.4){
     b.dodge = 0.24; const s = Math.random()<0.5?1:-1;
     b.dx = -threat.vy*s; b.dy = threat.vx*s; const m = Math.hypot(b.dx,b.dy)||1; b.dx/=m; b.dy/=m;
@@ -822,12 +1254,12 @@ function botThink(p, dt){
 function fire(p){
   if(p.cd > 0 || p.ammo < 1 || !p.alive) return;
   const wb = p.ld.wbase;
-  p.ammo--; p.cd = p.ld.cdBase;
-  const spd = p.ld.bulletSpeed, big = !!wb.big, bmax = wb.bounce;
+  p.ammo--; p.cd = p.ld.cdBase * (p.ocT > 0 ? 0.5 : 1);
+  const spd = p.ld.bulletSpeed, big = !!wb.big, bmax = wb.bounce, pierce = p.pierce||0;
   const mk = (ang, sp) => bullets.push({
     x: p.x + Math.cos(ang)*(p.r+9), y: p.y + Math.sin(ang)*(p.r+9),
     px:0, py:0, vx: Math.cos(ang)*(sp||spd), vy: Math.sin(ang)*(sp||spd),
-    r: big?9:4.5, owner: p.i, team: p.team, b:0, maxB: bmax, life: 2.6, c: p.color });
+    r: big?9:4.5, owner: p.i, team: p.team, b:0, maxB: bmax, life: 2.6, c: p.color, pierce });
   if(wb.pattern === 'spread'){ const n = wb.n, sp = wb.spread;
     for(let i=0;i<n;i++) mk(p.aim - sp/2 + sp*i/(n-1)); }
   else if(wb.pattern === 'burst'){ mk(p.aim); p.burst = (wb.n||3)-1; p.burstT = 0.06; }
@@ -848,21 +1280,74 @@ const spark = fxWrap('sk', function(x, y, color, n=8){
 });
 function shake(){ const s = $('#shake'); s.classList.remove('shaking'); void s.offsetWidth; s.classList.add('shaking'); }
 function flashScreen(c){ const f = $('#flash'); f.style.background = c; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+const ringFx = fxWrap('rg', function(x, y, color, R){
+  for(let i=0;i<26;i++){ const a = i/26*TAU; parts.push({x:x+Math.cos(a)*8, y:y+Math.sin(a)*8,
+    vx:Math.cos(a)*R*2.4, vy:Math.sin(a)*R*2.4, life:0.34, t:0, s:4, c:color}); }
+});
+
+/* ================= gadgets (active abilities) ================= */
+function tickGadget(p, dt){
+  if(p.gcd > 0) p.gcd -= dt;
+  if(p.ocT > 0) p.ocT -= dt;
+  if(p.phaseT > 0){ p.phaseT -= dt; p.shield = Math.max(p.shield, 0.06); }   // cloak keeps invuln alive
+}
+function gadgetInput(p, want){   // edge-triggered so a held key fires once
+  if(p.ld.gadget && want && !p.abLatch && p.gcd <= 0 && p.alive) fireGadget(p);
+  p.abLatch = want;
+}
+function fireGadget(p){
+  const g = p.ld.gadget; if(!g) return; p.gcd = g.cd;
+  const ml = Math.hypot(p.inX, p.inY), dir = ml > 0.1 ? Math.atan2(p.inY, p.inX) : p.aim;
+  if(g.base === 'dash'){
+    const B = p.ld.maxV * 2.6; p.vx += Math.cos(dir)*B; p.vy += Math.sin(dir)*B;
+    p.shield = Math.max(p.shield, 0.1 + g.dur); ringFx(p.x, p.y, p.color, 90); burst(p.x, p.y, p.color, 14);
+  } else if(g.base === 'pulse'){
+    const R = 210;
+    for(const bl of bullets){ if(bl.owner === p.i) continue; if(Math.hypot(bl.x-p.x, bl.y-p.y) < R){ bl.life = 0; spark(bl.x, bl.y, '#fff', 3); } }
+    // players get flung via velocity (their speed cap is high); zombies get shoved by direct displacement
+    // because their velocity is re-clamped to a slow crawl every frame
+    for(const q of players){ if(!q || q===p || !q.alive) continue;
+      const dx = q.x-p.x, dy = q.y-p.y, d = Math.hypot(dx,dy)||1; if(d < R){ const k = (1 - d/R) * 640; q.vx += dx/d*k; q.vy += dy/d*k; } }
+    if(gmode === 'zombies'){ for(const z of zombies){ if(!z.alive) continue;
+      const dx = z.x-p.x, dy = z.y-p.y, d = Math.hypot(dx,dy)||1; if(d < R){ const push = (1 - d/R) * (z.tough?55:110);
+        z.x = clamp(z.x + dx/d*push, z.r, WORLD.w-z.r); z.y = clamp(z.y + dy/d*push, z.r, WORLD.h-z.r); z.vx*=0.2; z.vy*=0.2; } } }
+    p.shield = Math.max(p.shield, 0.35); ringFx(p.x, p.y, p.color, R);
+  } else if(g.base === 'overclock'){
+    p.ocT = g.dur; ringFx(p.x, p.y, '#ffcf3f', 70);
+  } else if(g.base === 'cloak'){
+    p.phaseT = g.dur; p.shield = Math.max(p.shield, 0.12); ringFx(p.x, p.y, '#b56bff', 70);
+  }
+  if(p.local){ shake(); sfxGadget(); }
+  else if(mode === 'host') sfxGadget();
+}
+function botGadget(p, dt){   // bots use gadgets to survive: dash off threats, pulse a swarm, else buff
+  const b = p.bot; if(!p.ld.gadget || p.gcd > 0){ b.gwait -= dt; return; }
+  b.gwait -= dt; if(b.gwait > 0) return; b.gwait = rand(1.5, 4);
+  const g = p.ld.gadget;
+  if((g.base === 'dash' || g.base === 'cloak') && (p.threatened || Math.random() < 0.3)){ gadgetInput(p, true); p.abLatch = false; }
+  else if(g.base === 'pulse'){ let near = 0; for(const bl of bullets){ if(bl.owner!==p.i && Math.hypot(bl.x-p.x,bl.y-p.y)<150) near++; }
+    if(near >= 1 || Math.random() < 0.4){ gadgetInput(p, true); p.abLatch = false; } }
+  else if(Math.random() < 0.5){ gadgetInput(p, true); p.abLatch = false; }
+}
 
 /* ================= input ================= */
 const KEYS0 = { up:'KeyW', left:'KeyA', down:'KeyS', right:'KeyD' };
 const KEYS1 = { up:'ArrowUp', left:'ArrowLeft', down:'ArrowDown', right:'ArrowRight' };
 const SHOOT = ['Space','Enter','NumpadEnter','KeyF','ShiftRight'];
-const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set() };
+const ABILITY = ['ShiftLeft','KeyE','KeyQ'];
+const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set(), abilityId:null };
 function localInput(){
   let x = (held[KEYS0.right]?1:0)-(held[KEYS0.left]?1:0) + (held[KEYS1.right]?1:0)-(held[KEYS1.left]?1:0);
   let y = (held[KEYS0.down]?1:0)-(held[KEYS0.up]?1:0) + (held[KEYS1.down]?1:0)-(held[KEYS1.up]?1:0);
   x = clamp(x,-1,1); y = clamp(y,-1,1);
   let s = SHOOT.some(c => held[c]);
+  let a = ABILITY.some(c => held[c]);
   if(touch.stick !== null){ x = touch.vx; y = touch.vy; }
   if(touch.fires.size) s = true;
-  return { x, y, s };
+  if(touch.abilityId !== null) a = true;
+  return { x, y, s, a };
 }
+function abilityBtn(){ const r = clamp(Math.min(W,H)*0.07, 34, 52); return { x: W/2, y: H - r - 18, r }; }
 
 /* ================= update ================= */
 function tnow(){ return performance.now(); }
@@ -875,26 +1360,30 @@ function update(dt){
       if(!p) continue;
       if(!p.alive){ p.respT -= dt; if(p.respT <= 0) spawnPlayer(p); continue; }
       // input
-      if(p.bot) botThink(p, dt);
+      let inp;
+      if(p.bot){ botThink(p, dt); botGadget(p, dt); }
       else {
-        let inp;
-        if(mode === 'host' && !p.local){ const pr = netPeerFor(p.i); inp = pr ? pr.rin : {x:0,y:0,s:false}; }
+        if(mode === 'host' && !p.local){ const pr = netPeerFor(p.i); inp = pr ? pr.rin : {x:0,y:0,s:false,a:false}; }
         else inp = localInput();
         p.inX = inp.x; p.inY = inp.y; p.wantShoot = !!inp.s;
         if(p.inX || p.inY){ const want = Math.atan2(p.inY, p.inX);
           p.aim += clamp(angDiff(p.aim, want), -16*dt, 16*dt); }
+        gadgetInput(p, !!inp.a);
       }
+      tickGadget(p, dt);
+      const spK = p.phaseT > 0 ? 1.55 : 1;                       // cloak speed surge
+      const ocK = p.ocT > 0 ? 0.5 : 1;                           // overclock fire/reload boost
       // burst follow-up
       if(p.burst > 0){ p.burstT -= dt; if(p.burstT <= 0){ p.burstT = 0.06; p.burst--;
         const spd = p.ld.bulletSpeed; bullets.push({ x:p.x+Math.cos(p.aim)*(p.r+9), y:p.y+Math.sin(p.aim)*(p.r+9),
-          px:0,py:0, vx:Math.cos(p.aim)*spd, vy:Math.sin(p.aim)*spd, r:4.5, owner:p.i, team:p.team, b:0, maxB:p.ld.wbase.bounce, life:2.6, c:p.color });
+          px:0,py:0, vx:Math.cos(p.aim)*spd, vy:Math.sin(p.aim)*spd, r:4.5, owner:p.i, team:p.team, b:0, maxB:p.ld.wbase.bounce, life:2.6, c:p.color, pierce:p.pierce||0 });
         sfxShoot(); } }
       // physics
       const il = Math.hypot(p.inX, p.inY) || 1;
-      p.vx += (p.inX/il) * p.ld.accel * dt;
-      p.vy += (p.inY/il) * p.ld.accel * dt;
-      const sp = Math.hypot(p.vx, p.vy);
-      if(sp > p.ld.maxV){ const k = p.ld.maxV/sp; p.vx*=k; p.vy*=k; }
+      p.vx += (p.inX/il) * p.ld.accel * spK * dt;
+      p.vy += (p.inY/il) * p.ld.accel * spK * dt;
+      const sp = Math.hypot(p.vx, p.vy), mv = p.ld.maxV * spK;
+      if(sp > mv){ const k = mv/sp; p.vx*=k; p.vy*=k; }
       const damp = Math.max(0, 1 - 7*dt); p.vx*=damp; p.vy*=damp;
       p.x += p.vx*dt; p.y += p.vy*dt;
       if(p.x < p.r){ p.x = p.r; p.vx = Math.max(0,p.vx); }
@@ -904,7 +1393,7 @@ function update(dt){
       for(const wl of walls){ const push = circleRectPush(p.x, p.y, p.r, wl);
         if(push){ p.x += push.x; p.y += push.y; if(push.x) p.vx = 0; if(push.y) p.vy = 0; } }
       p.cd -= dt; p.shield -= dt;
-      if(p.ammo < p.ld.maxAmmo){ p.regen += dt; if(p.regen >= p.ld.regenTime){ p.ammo++; p.regen = 0; } }
+      if(p.ammo < p.ld.maxAmmo){ p.regen += dt; if(p.regen >= p.ld.regenTime*ocK){ p.ammo++; p.regen = 0; } }
       if(p.wantShoot) fire(p);
     }
     // player-player soft separation
@@ -977,6 +1466,7 @@ function guestUpdate(dt){
     const k = Math.min(1, dt*18); p.x += (p.tx-p.x)*k; p.y += (p.ty-p.y)*k;
     p.aim += angDiff(p.aim, p.taim)*Math.min(1, dt*20); }
   for(const bl of bullets){ bl.x += bl.vx*dt; bl.y += bl.vy*dt; bl.px = bl.x-bl.vx*0.02; bl.py = bl.y-bl.vy*0.02; }
+  if(campaign && campaign.open){ const me0=players[me]; ensureChunks([ (me0&&me0.init)?{x:me0.x,y:me0.y}:HUB ]); }   // self-generate the city for rendering
   for(const f of feed) f.t += dt;
   updateCamera(dt);
 }
@@ -1002,19 +1492,35 @@ function draw(){
     ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.moveTo(bl.px,bl.py); ctx.lineTo(bl.x,bl.y); ctx.stroke(); ctx.globalAlpha=1;
     ctx.save(); ctx.shadowColor = bl.c; ctx.shadowBlur = 12; ctx.fillStyle='#fff';
     ctx.beginPath(); ctx.arc(bl.x,bl.y,bl.r,0,TAU); ctx.fill(); ctx.restore(); }
-  // players
+  // players — overhead view of an operator's head (square, facing = aim)
   for(const p of players){ if(!p || !p.alive) continue;
+    const cloaked = p.phaseT > 0;
     ctx.save(); ctx.translate(p.x, p.y);
-    if(p.shield > 0){ ctx.strokeStyle = `rgba(255,255,255,${clamp(p.shield,0,0.8)})`; ctx.lineWidth=2;
+    ctx.globalAlpha = cloaked ? 0.4 : 1;
+    if(p.shield > 0 && !cloaked){ ctx.strokeStyle = `rgba(255,255,255,${clamp(p.shield,0,0.8)})`; ctx.lineWidth=2;
       ctx.beginPath(); ctx.arc(0,0,p.r+6,0,TAU); ctx.stroke(); }
+    if(p.ocT > 0){ ctx.strokeStyle = 'rgba(255,207,63,.8)'; ctx.lineWidth=2.5;    // overclock aura
+      ctx.beginPath(); ctx.arc(0,0,p.r+9,0,TAU); ctx.stroke(); }
     ctx.rotate(p.aim);
-    ctx.shadowColor = p.color; ctx.shadowBlur = 16; ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-12,-11); ctx.lineTo(-6,0); ctx.lineTo(-12,11); ctx.closePath(); ctx.fill();
+    const s = p.r;                                  // half-extent of the head
+    ctx.shadowColor = p.color; ctx.shadowBlur = cloaked ? 6 : 15;
+    // skull plate
+    ctx.fillStyle = p.color; rrect(ctx, -s, -s, s*2, s*2, s*0.42); ctx.fill();
+    ctx.shadowBlur = 0;
+    // hair / crown at the back (−x) for depth
+    ctx.fillStyle = 'rgba(3,6,12,.34)'; rrect(ctx, -s, -s, s*0.78, s*2, s*0.42); ctx.fill();
+    // brow line
+    ctx.fillStyle = 'rgba(3,6,12,.22)'; ctx.fillRect(-s*0.05, -s*0.72, s*0.5, s*1.44);
+    // visor / facing nub at the front (+x)
+    ctx.fillStyle = '#0a0e1a'; rrect(ctx, s*0.66, -s*0.34, s*0.5, s*0.68, 2); ctx.fill();
+    // eyes near the front
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.beginPath(); ctx.arc(s*0.34, -s*0.4, s*0.15, 0, TAU); ctx.arc(s*0.34, s*0.4, s*0.15, 0, TAU); ctx.fill();
     ctx.restore();
+    ctx.globalAlpha = 1;
     // name / marker
     ctx.textAlign='center';
-    if(p.local){ ctx.fillStyle='#fff'; ctx.font=`700 ${13/VIEW*VIEW|0 || 13}px var(--mono)`;
-      ctx.font='700 13px ui-monospace,Menlo,monospace'; ctx.fillStyle='rgba(255,255,255,.85)';
+    if(p.local){ ctx.font='700 13px ui-monospace,Menlo,monospace'; ctx.fillStyle='rgba(255,255,255,.85)';
       ctx.fillText('▼', p.x, p.y - p.r - 12); }
     else { ctx.font='600 12px ui-monospace,Menlo,monospace'; ctx.fillStyle='rgba(238,242,255,.6)';
       ctx.fillText(p.name, p.x, p.y - p.r - 9); }
@@ -1024,33 +1530,103 @@ function draw(){
   }
   drawParticlesWorld();
   ctx.restore();
+  if(gmode === 'zombies' && state === 'play') drawNightVignette();
   // screen HUD
   drawHUD();
   drawMinimap();
   drawTouch();
+  drawGadgetHUD();
+}
+let vignetteGrad = null, vignetteKey = '';
+function drawNightVignette(){
+  const key = W+'x'+H;
+  if(vignetteKey !== key){ vignetteKey = key;
+    const g = ctx.createRadialGradient(W/2, H*0.46, Math.min(W,H)*0.25, W/2, H*0.5, Math.max(W,H)*0.75);
+    g.addColorStop(0, 'rgba(8,6,14,0)'); g.addColorStop(0.7, 'rgba(6,4,12,0.34)'); g.addColorStop(1, 'rgba(2,2,8,0.72)');
+    vignetteGrad = g; }
+  ctx.save(); ctx.fillStyle = vignetteGrad; ctx.fillRect(0,0,W,H);
+  // subtle blood-moon threat pulse near a boss
+  if(campaign && zombies.some(z=>z.boss)){ ctx.globalAlpha = 0.06 + 0.04*Math.sin(tnow()/300);
+    ctx.fillStyle = '#ff2d55'; ctx.fillRect(0,0,W,H); }
+  ctx.restore();
+}
+function drawGadgetHUD(){
+  const p = players[me]; if(!p || !p.ld || !p.ld.gadget || state!=='play') return;
+  const g = p.ld.gadget, b = abilityBtn(), ready = p.gcd <= 0, frac = ready ? 1 : 1 - clamp(p.gcd/g.cd, 0, 1);
+  ctx.save();
+  // cooldown ring
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,14,24,.85)';
+  ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
+  ctx.fillStyle = ready ? 'rgba(0,229,255,.16)' : 'rgba(10,14,24,.7)';
+  ctx.beginPath(); ctx.arc(b.x, b.y, b.r-1, 0, TAU); ctx.fill();
+  ctx.strokeStyle = ready ? '#00e5ff' : '#5a6178';
+  ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI/2, -Math.PI/2 + frac*TAU); ctx.stroke();
+  // icon + label
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `${Math.round(b.r*0.9)}px system-ui`; ctx.globalAlpha = ready ? 1 : 0.45;
+  ctx.fillText(g.ic, b.x, b.y+1); ctx.globalAlpha = 1;
+  ctx.textBaseline='alphabetic'; ctx.font='700 10px ui-monospace,monospace'; ctx.fillStyle = ready ? '#00e5ff' : '#8b93a8';
+  ctx.fillText(ready ? (isTouch?'ABILITY':'SHIFT / E') : p.gcd.toFixed(1)+'s', b.x, b.y + b.r + 13);
+  ctx.restore();
 }
 function drawZombieEntities(){
+  if(campaign && campaign.open){
+    // the extraction hub (safe zone)
+    ctx.save();
+    ctx.strokeStyle='rgba(61,220,132,.5)'; ctx.lineWidth=3; ctx.setLineDash([14,10]);
+    ctx.beginPath(); ctx.arc(HUB.x, HUB.y, HUB.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    const g=ctx.createRadialGradient(HUB.x,HUB.y,10,HUB.x,HUB.y,HUB.r);
+    g.addColorStop(0,'rgba(61,220,132,.14)'); g.addColorStop(1,'rgba(61,220,132,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(HUB.x,HUB.y,HUB.r,0,TAU); ctx.fill();
+    ctx.fillStyle='rgba(124,255,155,.9)'; ctx.textAlign='center'; ctx.font='900 italic 26px system-ui'; ctx.fillText('◊ HUB', HUB.x, HUB.y-6);
+    ctx.font='700 12px ui-monospace,monospace'; ctx.fillStyle='rgba(124,255,155,.7)'; ctx.fillText('EXTRACTION', HUB.x, HUB.y+16);
+    ctx.restore();
+    // hold-point beacons
+    for(const b of pois){ ctx.save(); const col = b.captured?'#3ddc84':'#ffcf3f';
+      ctx.shadowColor=col; ctx.shadowBlur=14; ctx.strokeStyle=col; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,TAU); ctx.stroke();
+      if(!b.captured && b.prog>0){ ctx.lineWidth=5; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,-Math.PI/2,-Math.PI/2+b.prog*TAU); ctx.stroke(); }
+      ctx.shadowBlur=0; ctx.fillStyle=col; ctx.textAlign='center'; ctx.font='16px system-ui'; ctx.textBaseline='middle';
+      ctx.fillText(b.captured?'✓':'📡', b.x, b.y+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
+  }
   // citizens
   for(const c of citizens){ if(!c.alive) continue;
-    const conv = c.converting>0;
-    ctx.fillStyle = conv ? `rgba(255,${120+Math.sin(c.wob*6)*80|0},80,1)` : '#7cff9b';
-    ctx.shadowColor = conv ? '#ff7a3c' : '#3ddc84'; ctx.shadowBlur = 8;
+    const conv = c.converting>0, following = c.following!=null;
+    if(following){ const ldr = players[c.following]; if(ldr && ldr.alive){   // escort tether
+      ctx.strokeStyle='rgba(124,255,155,.35)'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(ldr.x,ldr.y); ctx.stroke(); ctx.setLineDash([]); } }
+    ctx.fillStyle = conv ? `rgba(255,${120+Math.sin(c.wob*6)*80|0},80,1)` : (following?'#aef7c4':'#7cff9b');
+    ctx.shadowColor = conv ? '#ff7a3c' : '#3ddc84'; ctx.shadowBlur = following?12:8;
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(4,8,14,.6)'; ctx.beginPath(); ctx.arc(c.x, c.y-1, c.r*0.5, 0, TAU); ctx.fill();
   }
-  // zombies
-  for(const z of zombies){ if(!z.alive) continue;
+  // acid globs
+  for(const sh of zshots){ if(sh.life<=0) continue;
+    ctx.save(); ctx.shadowColor='#c79bff'; ctx.shadowBlur=8; ctx.fillStyle='#a56bff';
+    ctx.beginPath(); ctx.arc(sh.x, sh.y, sh.r, 0, TAU); ctx.fill();
+    ctx.fillStyle='rgba(220,190,255,.9)'; ctx.beginPath(); ctx.arc(sh.x-sh.r*0.3, sh.y-sh.r*0.3, sh.r*0.4, 0, TAU); ctx.fill();
+    ctx.restore(); }
+  // pickups
+  for(const pk of pickups){ if(!pk.alive) continue; const yb = Math.sin(pk.wob)*3, isA = pk.type==='ammo', col = isA?'#ffcf3f':'#00e5ff';
+    ctx.save(); ctx.globalAlpha = pk.life<3 ? (0.4+0.6*Math.abs(Math.sin(pk.wob*3))) : 1;
+    ctx.shadowColor=col; ctx.shadowBlur=12; ctx.strokeStyle=col; ctx.lineWidth=2; ctx.fillStyle='rgba(6,8,15,.8)';
+    rrect(ctx, pk.x-pk.r, pk.y-pk.r+yb, pk.r*2, pk.r*2, 3); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0; ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='11px system-ui';
+    ctx.fillText(isA?'⦿':'✦', pk.x, pk.y+yb+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
+  // zombies — type-colored
+  for(const z of zombies){ if(!z.alive) continue; const T = ZTYPES[z.ti]||ZTYPES[0];
     ctx.save(); ctx.translate(z.x, z.y);
-    ctx.shadowColor = z.boss ? '#ff9f1c' : '#6ab04c'; ctx.shadowBlur = z.boss?20:10;
-    ctx.fillStyle = z.boss ? '#b56bff' : '#5a8f3c';
+    ctx.shadowColor = z.boss ? '#ff9f1c' : T.c; ctx.shadowBlur = z.boss?20:9;
+    ctx.fillStyle = T.c;
     ctx.beginPath(); ctx.arc(0,0,z.r,0,TAU); ctx.fill();
-    ctx.shadowBlur = 0; ctx.fillStyle = z.boss ? '#ff9f1c' : '#89c559';
+    if(T.tough){ ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,z.r-3,0,TAU); ctx.stroke(); }
+    ctx.shadowBlur = 0; ctx.fillStyle = T.eye;
     ctx.beginPath(); ctx.arc(-z.r*0.3,-z.r*0.2,z.r*0.22,0,TAU); ctx.arc(z.r*0.3,-z.r*0.2,z.r*0.22,0,TAU); ctx.fill();
     ctx.restore();
-    if(z.boss){ // hp bar
-      const bw=z.r*2.2, f=z.hp/z.maxhp;
-      ctx.fillStyle='rgba(4,8,14,.8)'; ctx.fillRect(z.x-bw/2, z.y-z.r-16, bw, 6);
-      ctx.fillStyle='#ff9f1c'; ctx.fillRect(z.x-bw/2, z.y-z.r-16, bw*f, 6);
+    if(z.maxhp>2){ // hp bar for tanky/boss
+      const bw=z.r*2.2, f=clamp(z.hp/z.maxhp,0,1);
+      ctx.fillStyle='rgba(4,8,14,.8)'; ctx.fillRect(z.x-bw/2, z.y-z.r-13, bw, 5);
+      ctx.fillStyle=z.boss?'#ff9f1c':'#ff5c5c'; ctx.fillRect(z.x-bw/2, z.y-z.r-13, bw*f, 5);
     }
   }
 }
@@ -1058,13 +1634,59 @@ function drawParticlesWorld(){ for(const p of parts){ ctx.globalAlpha = clamp(1-
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
 function drawParticlesScreen(){ for(const p of parts){ ctx.globalAlpha = clamp(1-p.t/p.life,0,1);
   ctx.fillStyle = p.c; ctx.fillRect(p.x-p.s/2, p.y-p.s/2, p.s, p.s); } ctx.globalAlpha=1; }
+function drawOutbreakHUD(){
+  const c = campaign;
+  // top-center: rescue progress bar
+  ctx.textAlign='center'; ctx.font='700 12px ui-monospace,monospace'; ctx.fillStyle='#8b93a8';
+  ctx.fillText(`OUTBREAK · THREAT ${c.wave}${zombies.some(z=>z.boss)?' · BEHEMOTH':''}`, W/2, 22);
+  const bw=200, bx=W/2-bw/2, frac=clamp(c.rescued/c.goal,0,1);
+  ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fillRect(bx,30,bw,7);
+  ctx.fillStyle='#3ddc84'; ctx.fillRect(bx,30,bw*frac,7);
+  ctx.fillStyle='#7cff9b'; ctx.font='900 italic 13px system-ui'; ctx.textAlign='left'; ctx.fillText(`◊ ${c.rescued}`, bx-34, 38);
+  ctx.fillStyle='#8b93a8'; ctx.textAlign='right'; ctx.font='700 11px ui-monospace,monospace'; ctx.fillText(`/ ${c.goal}`, bx+bw+30, 38);
+  // top-left: escort count
+  ctx.textAlign='left'; ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle='#aef7c4';
+  ctx.fillText(`🚶 ${c.escorting||0}`, 16, 30);
+  ctx.font='600 11px ui-monospace,monospace'; ctx.fillStyle='#8b93a8'; ctx.fillText('escorting', 56, 30);
+  // top-right: lives
+  ctx.textAlign='right'; ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle='#ff2d55';
+  ctx.fillText('❤'.repeat(Math.max(0,c.lives+1)) || '—', W-16, 30);
+  // hub compass (points home when the hub is off-screen)
+  const you=players[me];
+  if(you){ const dx=HUB.x-you.x, dy=HUB.y-you.y, dist=Math.hypot(dx,dy);
+    if(dist>HUB.r+40){ const a=Math.atan2(dy,dx), cx=W/2, cy=H/2, rad=Math.min(W,H)*0.32;
+      const ax=cx+Math.cos(a)*rad, ay=cy+Math.sin(a)*rad;
+      ctx.save(); ctx.translate(ax,ay); ctx.rotate(a);
+      ctx.fillStyle='rgba(61,220,132,.9)'; ctx.beginPath(); ctx.moveTo(14,0); ctx.lineTo(-8,-7); ctx.lineTo(-8,7); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle='rgba(124,255,155,.85)'; ctx.textAlign='center'; ctx.font='700 10px ui-monospace,monospace';
+      ctx.fillText('HUB '+(dist/100|0)+'m', ax, ay+22); }
+  }
+  // kill feed
+  ctx.textAlign='left'; ctx.font='600 12px ui-monospace,monospace';
+  let fy = H - 16 - (isTouch?70:0);
+  for(let i=feed.length-1;i>=0;i--){ const f=feed[i]; const a=clamp(3.5-f.t,0,1); if(a<=0) continue;
+    ctx.globalAlpha=a; ctx.fillStyle='#c9d2e6'; ctx.fillText(f.txt, 16, fy); fy-=18; }
+  ctx.globalAlpha=1;
+  if(you && !you.alive && state==='play'){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.font='900 italic 22px system-ui,sans-serif';
+    ctx.fillText(c.lives>0 ? 'RESPAWNING AT HUB…' : 'DOWN — allies fighting on', W/2, H/2+60); }
+}
 function drawHUD(){
   ctx.textAlign = 'left';
+  if(gmode === 'zombies' && campaign && campaign.open){ drawOutbreakHUD(); return; }
   if(gmode === 'zombies' && campaign){
     const alive = citizens.filter(c=>c.alive).length;
+    const boss = campaign.wave>=campaign.maxWave || zombies.some(z=>z.boss);
     ctx.textAlign='center'; ctx.font='700 12px ui-monospace,monospace';
-    ctx.fillStyle = campaign.wave>=campaign.maxWave ? '#ff9f1c' : '#8b93a8';
-    ctx.fillText(`WAVE ${campaign.wave} / ${campaign.maxWave}${campaign.wave>=campaign.maxWave?' · BOSS':''}`, W/2, 26);
+    ctx.fillStyle = boss ? '#ff9f1c' : '#8b93a8';
+    ctx.fillText(`WAVE ${campaign.wave} / ${campaign.maxWave}${boss?' · BOSS':''}`, W/2, 26);
+    // combo meter (center, under wave)
+    if(campaign.combo>=2){ const t=clamp(campaign.comboT/2.4,0,1);
+      ctx.font='900 italic 15px system-ui,sans-serif'; ctx.fillStyle = campaign.combo>=8?'#ff9f1c':campaign.combo>=5?'#ffcf3f':'#00e5ff';
+      ctx.fillText(`${campaign.combo}× COMBO`, W/2, 46);
+      ctx.fillStyle='rgba(255,255,255,.15)'; ctx.fillRect(W/2-40, 52, 80, 3);
+      ctx.fillStyle=campaign.combo>=8?'#ff9f1c':'#00e5ff'; ctx.fillRect(W/2-40, 52, 80*t, 3); }
     // citizens alive vs goal
     ctx.textAlign='left'; ctx.font='900 italic 15px system-ui,sans-serif';
     ctx.fillStyle = alive>=campaign.goal ? '#7cff9b' : '#ff5c5c';
@@ -1097,7 +1719,7 @@ function drawHUD(){
   } else {
     const lead = players.filter(Boolean).reduce((m,p)=>p.kills>m?p.kills:m,0);
     ctx.fillStyle='#8b93a8'; ctx.font='700 11px ui-monospace,monospace';
-    ctx.fillText(`FREE-FOR-ALL · FIRST TO ${target} · LEADER ${lead}`, W/2, 26);
+    ctx.fillText(`${duelMode?(rankedMode?'RANKED DUEL':'DUEL'):'FREE-FOR-ALL'} · FIRST TO ${target} · LEADER ${lead}`, W/2, 26);
   }
   // leaderboard top-right
   const rank = players.filter(Boolean).slice().sort((a,b)=> (gmode==='teams'? b.kills-a.kills : b.kills-a.kills));
@@ -1121,22 +1743,32 @@ function drawHUD(){
     ctx.font='900 italic 22px system-ui,sans-serif'; ctx.fillText('RESPAWNING…', W/2, H/2); }
 }
 function drawMinimap(){
-  const mw = clamp(W*0.16, 120, 200), mh = mw * WORLD.h/WORLD.w;
+  const open = gmode==='zombies' && campaign && campaign.open;
+  const mw = clamp(W*0.16, 120, 200), mh = open ? mw : mw * WORLD.h/WORLD.w;
   const mx = W - mw - 14, my = H - mh - 14;
   ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(6,8,15,.8)'; ctx.fillRect(mx,my,mw,mh);
   ctx.strokeStyle = 'rgba(120,140,200,.4)'; ctx.lineWidth=1; ctx.strokeRect(mx,my,mw,mh);
-  const sx = mw/WORLD.w, sy = mh/WORLD.h;
+  // open world: a local window centred on the local player; classic: the whole arena
+  let sx, sy, ox=0, oy=0;
+  if(open){ const span=4200, you=players[me]||{x:HUB.x,y:HUB.y}; ox=you.x-span/2; oy=you.y-span/2; sx=mw/span; sy=mh/span; }
+  else { sx=mw/WORLD.w; sy=mh/WORLD.h; }
+  const M = (x,y)=>[mx+(x-ox)*sx, my+(y-oy)*sy], inBox=(px,py)=>px>=mx&&px<=mx+mw&&py>=my&&py<=my+mh;
   ctx.fillStyle = 'rgba(43,52,82,.9)';
-  for(const wl of walls) ctx.fillRect(mx+wl.x*sx, my+wl.y*sy, Math.max(1,wl.w*sx), Math.max(1,wl.h*sy));
-  if(gmode === 'zombies'){
-    for(const c of citizens){ if(!c.alive) continue; ctx.fillStyle = c.converting>0?'#ff7a3c':'#7cff9b';
-      ctx.fillRect(mx+c.x*sx-1, my+c.y*sy-1, 2, 2); }
-    for(const z of zombies){ if(!z.alive) continue; ctx.fillStyle = z.boss?'#ff9f1c':'#ff5c5c';
-      ctx.beginPath(); ctx.arc(mx+z.x*sx, my+z.y*sy, z.boss?3:1.6, 0, TAU); ctx.fill(); }
+  for(const wl of walls){ const [px,py]=M(wl.x,wl.y); if(open && !inBox(px,py)) continue;
+    ctx.fillRect(px, py, Math.max(1,wl.w*sx), Math.max(1,wl.h*sy)); }
+  if(open){ // hub + beacons
+    const [hx,hy]=M(HUB.x,HUB.y); if(inBox(hx,hy)){ ctx.strokeStyle='#3ddc84'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(hx,hy,Math.max(3,HUB.r*sx),0,TAU); ctx.stroke(); }
+    for(const b of pois){ const [bx,by]=M(b.x,b.y); if(!inBox(bx,by)) continue; ctx.fillStyle=b.captured?'#3ddc84':'#ffcf3f'; ctx.fillRect(bx-1.5,by-1.5,3,3); }
   }
-  for(const p of players){ if(!p || !p.alive) continue;
+  if(gmode === 'zombies'){
+    for(const c of citizens){ if(!c.alive) continue; const [px,py]=M(c.x,c.y); if(open&&!inBox(px,py)) continue;
+      ctx.fillStyle = c.converting>0?'#ff7a3c':(c.following!=null?'#aef7c4':'#7cff9b'); ctx.fillRect(px-1, py-1, 2, 2); }
+    for(const z of zombies){ if(!z.alive) continue; const [px,py]=M(z.x,z.y); if(open&&!inBox(px,py)) continue;
+      ctx.fillStyle = z.boss?'#ff9f1c':'#ff5c5c'; ctx.beginPath(); ctx.arc(px, py, z.boss?3:1.6, 0, TAU); ctx.fill(); }
+  }
+  for(const p of players){ if(!p || !p.alive) continue; const [px,py]=M(p.x,p.y); if(open&&!inBox(px,py)) continue;
     ctx.fillStyle = p.color; const d = p.local ? 4 : 2.6;
-    ctx.beginPath(); ctx.arc(mx+p.x*sx, my+p.y*sy, d, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, d, 0, TAU); ctx.fill();
     if(p.local){ ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke(); } }
   ctx.globalAlpha = 1;
 }
@@ -1150,13 +1782,13 @@ function drawTouch(){
 
 /* ================= menus ================= */
 function toMenu(){
-  state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = []; rankedMode = false;
+  state = 'menu'; mode = null; roundLive = false; clearTimers(); parts = []; bullets = []; rankedMode = false; duelMode = false;
   netCloseAll(true); lobbyCleanup();
   $('#announce').classList.remove('show');
   const p = save; const xi = expInfo(p.exp);
   $('#arena').innerHTML = `<div class="menu">
     <div class="logo"><span class="l1">Ricochet</span><span class="l2">Rumble</span></div>
-    <div class="tag">8-PLAYER BRAWL · ZOMBIE DEFENSE · ONE HIT KILLS</div>
+    <div class="tag">8-PLAYER BRAWL · ZOMBIE SURVIVAL · 1v1 DUEL TOWER · ONE HIT KILLS</div>
     <div class="lvlbar" style="max-width:520px">
       <div class="lvlbadge">LV ${p.level}</div>
       <div class="xptrack"><i style="transform:scaleX(${xi.frac})"></i></div>
@@ -1168,21 +1800,25 @@ function toMenu(){
       : `<b style="color:var(--p2)">◔ GUEST</b> <span>tap to sign in — sync progress across devices</span>`}</button>
     <div class="modes">
       <button class="mbtn b1" id="btnSolo"><b>SPACE</b> BRAWL vs CPU<span>you + 7 bots · FFA or teams</span></button>
-      <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE CAMPAIGN<span>defend the town · boss drops a legendary</span></button>
+      <button class="mbtn bg" id="btnCamp"><b>Z</b> ZOMBIE SURVIVAL<span>arena defense · 8 waves · 6 breeds</span></button>
       <button class="mbtn b2" id="btnNet"><b>O</b> ONLINE BRAWL<span>make a room · friends fill the seats</span></button>
+    </div>
+    <div class="modes">
+      <button class="mbtn bg" id="btnOut"><b>X</b> OUTBREAK · OPEN WORLD<span>escort survivors to the hub · co-op · procedural city</span></button>
     </div>
     <div class="modes">
       <button class="mbtn" id="btnLoad"><b>L</b> LOADOUT & LOOT<span>stats · gear · ${p.inv.length}-item stash</span></button>
       <button class="mbtn bg" id="btnShop"><b>B</b> SHOP<span>spend credits · buy legendaries</span></button>
-      <button class="mbtn b2" id="btnRanked"><b>R</b> RANKED<span>Elo ladder · ${p.rating} rating</span></button>
+      <button class="mbtn b2" id="btnRanked"><b>R</b> RANKED DUELS<span>Heaven's Arena · 1v1 · floor ${myFloor()}</span></button>
     </div>
     <div class="note">W A S D / ARROWS MOVE · SPACE / ENTER FIRE · ${isTouch?'TOUCH: LEFT MOVE, RIGHT FIRE · ':''}KILLS ${p.kills} · WINS ${p.wins} · CITIZENS SAVED ${p.saved}</div>
   </div>`;
   $('#btnSolo').onclick = () => openLoadout('solo');
   $('#btnCamp').onclick = () => startCampaign();
+  $('#btnOut').onclick = () => startOutbreak();
   $('#btnLoad').onclick = () => openLoadout('view');
   $('#btnShop').onclick = () => openShop();
-  $('#btnNet').onclick = () => { rankedMode = false; renderLobby(); };
+  $('#btnNet').onclick = () => { rankedMode = false; duelMode = false; renderLobby(); };
   $('#btnRanked').onclick = () => renderRanked();
   $('#btnAcct').onclick = () => renderAccount();
 }
@@ -1202,10 +1838,21 @@ function openLoadout(next){
   netCloseAll(true); lobbyCleanup();
   renderLoadout();
 }
+const SLOTS = [
+  { kind:'weapon',  id:'slotW', def:'🔫', empty:'pick a weapon' },
+  { kind:'armor',   id:'slotA', def:'🦺', empty:'pick armor' },
+  { kind:'trinket', id:'slotT', def:'💠', empty:'pick a trinket' },
+  { kind:'gadget',  id:'slotG', def:'💨', empty:'pick a gadget' },
+];
+function slotHtml(sl){
+  const it = save.inv.find(i => i.id === save.equip[sl.kind]) || null;
+  const c = it ? RARITIES[it.rr].c : '#eef2ff';
+  return `<div class="slot" id="${sl.id}"><div class="ic">${it?itemIcon(it):sl.def}</div>
+    <div><div class="nm2" style="color:${c}">${it?esc(it.name):'— none —'}</div>
+    <div class="mods">${it?modLabel(it):sl.empty}</div></div></div>`;
+}
 function renderLoadout(){
-  const w = equippedWeapon(), a = equippedArmor();
   const left = statPool() - allocUsed();
-  const rarC = it => RARITIES[it.rr].c;
   const xi = expInfo(save.exp);
   $('#arena').innerHTML = `<div class="panel">
     <div class="lvlbar">
@@ -1232,16 +1879,10 @@ function renderLoadout(){
         <div class="ptsline">each point ≈ +7% · max ${STAT_CAP}/stat · +1 point per level</div>
       </div>
       <div class="card">
-        <h3>Equipped</h3>
-        <div class="slot" id="slotW"><div class="ic">${w?WEAPONS[w.base].ic:'🔫'}</div>
-          <div><div class="nm2" style="color:${w?rarC(w):'#eef2ff'}">${w?esc(w.name):'— none —'}</div>
-          <div class="mods">${w?modLabel(w):'pick a weapon'}</div></div></div>
-        <div style="height:10px"></div>
-        <div class="slot" id="slotA"><div class="ic">${a?ARMORS[a.base].ic:'🦺'}</div>
-          <div><div class="nm2" style="color:${a?rarC(a):'#eef2ff'}">${a?esc(a.name):'— none —'}</div>
-          <div class="mods">${a?modLabel(a):'pick armor'}</div></div></div>
+        <h3>Equipped — 4 slots</h3>
+        ${SLOTS.map((sl,i)=> slotHtml(sl) + (i<SLOTS.length-1?'<div style="height:9px"></div>':'')).join('')}
         <div style="height:12px"></div>
-        <div class="ptsline" style="color:var(--dim)">tap a slot to swap from your stash (${save.inv.length})</div>
+        <div class="ptsline" style="color:var(--dim)">tap a slot to swap from your stash (${save.inv.length}) · gadget = active ability (Shift / E)</div>
       </div>
     </div>
     <div class="modes">
@@ -1256,32 +1897,35 @@ function renderLoadout(){
     if(statPool()-allocUsed()>0 && save.alloc[k]<STAT_CAP){ save.alloc[k]++; persist(); renderLoadout(); } });
   $('#arena').querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { const k=b.dataset.dec;
     if(save.alloc[k]>0){ save.alloc[k]--; persist(); renderLoadout(); } });
-  $('#slotW').onclick = () => renderStash('weapon');
-  $('#slotA').onclick = () => renderStash('armor');
+  SLOTS.forEach(sl => { const el = $('#'+sl.id); if(el) el.onclick = () => renderStash(sl.kind); });
   $('#btnBack').onclick = toMenu;
   $('#btnFight').onclick = () => startSolo();
 }
+const KIND_LABEL = { weapon:'Weapons', armor:'Armor', trinket:'Trinkets', gadget:'Gadgets' };
 function renderStash(kind){
   const items = save.inv.filter(i => i.kind === kind).sort((a,b)=> b.rr-a.rr || b.id-a.id);
-  const eqId = kind==='weapon' ? save.equip.weapon : save.equip.armor;
+  const eqId = save.equip[kind];
+  const optional = (kind==='trinket' || kind==='gadget');   // these slots can be emptied
   $('#arena').innerHTML = `<div class="panel">
     <div class="card">
-      <h3>${kind==='weapon'?'Weapons':'Armor'} — ${items.length} in stash</h3>
+      <h3>${KIND_LABEL[kind]} — ${items.length} in stash</h3>
       <div class="invlist" id="stash">
+        ${optional ? `<button class="item" data-id="none" style="border-left-color:#2b3452">
+          <div class="ic">✖</div><div class="col"><div class="nm2" style="color:#8b93a8">— none —</div>
+            <div class="mods">leave this slot empty</div></div>${eqId==null?'<span class="eqp">EQUIPPED</span>':''}</button>` : ''}
         ${items.length ? items.map(it => `<button class="item" data-id="${it.id}" style="border-left-color:${RARITIES[it.rr].c}">
-          <div class="ic">${it.kind==='weapon'?WEAPONS[it.base].ic:ARMORS[it.base].ic}</div>
+          <div class="ic">${itemIcon(it)}</div>
           <div class="col"><div class="nm2" style="color:${RARITIES[it.rr].c}">${esc(it.name)}</div>
             <div class="mods">${modLabel(it)}</div></div>
           <span class="rr" style="color:${RARITIES[it.rr].c}">${RARITIES[it.rr].k}</span>
           ${it.id===eqId?'<span class="eqp">EQUIPPED</span>':''}
-        </button>`).join('') : '<div class="mods" style="padding:8px">empty — win brawls to earn loot</div>'}
+        </button>`).join('') : (optional?'':'<div class="mods" style="padding:8px">empty — win brawls to earn loot</div>')}
       </div>
     </div>
     <div class="modes"><button class="mbtn sm" id="btnBack"><b>ESC</b> BACK TO LOADOUT</button></div>
   </div>`;
   $('#stash').querySelectorAll('.item').forEach(b => b.onclick = () => {
-    const id = +b.dataset.id;
-    if(kind==='weapon') save.equip.weapon = id; else save.equip.armor = id;
+    save.equip[kind] = b.dataset.id === 'none' ? null : +b.dataset.id;
     persist(); sfxPick(); renderLoadout();
   });
   $('#btnBack').onclick = renderLoadout;
@@ -1290,10 +1934,10 @@ function renderStash(kind){
 /* ---- shop (the reliable legendary source: buy with credits) ---- */
 let shopStock = null;
 function genShopStock(){
-  const stock = [];
-  for(let i=0;i<4;i++){ const kind = Math.random()<0.5?'weapon':'armor'; stock.push(rollItem(kind, 1, null, 3)); } // green→purple
-  stock.push(rollItem('weapon', 4, null, 4));   // guaranteed legendary weapon
-  stock.push(rollItem('armor',  4, null, 4));   // guaranteed legendary armor
+  const stock = [], kinds = ['weapon','armor','trinket','gadget'];
+  for(let i=0;i<5;i++){ stock.push(rollItem(pick(kinds), 1, null, 3)); }   // green→purple, any kind
+  stock.push(rollItem(Math.random()<0.5?'weapon':'armor', 4, null, 4));    // guaranteed legendary weapon/armor
+  stock.push(rollItem(Math.random()<0.5?'trinket':'gadget', 4, null, 4));  // guaranteed legendary trinket/gadget
   for(const it of stock){ it.price = Math.round(RARITIES[it.rr].price * rand(0.92,1.12)); it.sold = false; }
   return stock.sort((a,b)=> a.rr-b.rr || a.price-b.price);
 }
@@ -1308,7 +1952,7 @@ function renderShop(){
     <div class="card"><h3>Stock</h3>
       <div class="shopgrid" id="stock">
         ${shopStock.map((it,i)=>`<div class="shopitem" style="border-left-color:${RARITIES[it.rr].c}">
-          <div class="ic">${it.kind==='weapon'?WEAPONS[it.base].ic:ARMORS[it.base].ic}</div>
+          <div class="ic">${itemIcon(it)}</div>
           <div class="col"><div class="nm2" style="color:${RARITIES[it.rr].c}">${esc(it.name)}</div>
             <div class="mods">${modLabel(it)}</div></div>
           <span class="rr" style="color:${RARITIES[it.rr].c}">${RARITIES[it.rr].k}</span>
@@ -1359,7 +2003,7 @@ function progressStrip(prog, gained){
   </div>${prog.leveled>0?`<div class="rsub" style="color:var(--gold);text-align:center">LEVEL UP! +${prog.leveled} stat point${prog.leveled>1?'s':''} — spend in Loadout</div>`:''}`;
 }
 function lootRow(drops){ return drops.length ? drops.map(d => `<div class="item" style="border-left-color:${RARITIES[d.rr].c};cursor:default">
-    <div class="ic">${d.kind==='weapon'?WEAPONS[d.base].ic:ARMORS[d.base].ic}</div>
+    <div class="ic">${itemIcon(d)}</div>
     <div class="col"><div class="nm2" style="color:${RARITIES[d.rr].c}">${esc(d.name)}</div>
       <div class="mods">${modLabel(d)}</div></div>
     <span class="rr" style="color:${RARITIES[d.rr].c}">${RARITIES[d.rr].k}</span></div>`).join('')
@@ -1393,7 +2037,7 @@ function renderEnd(winner){
       <span style="font-family:var(--mono);color:#eef2ff">${p.kills}</span></div>`).join('');
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:${tc}">${title}</div></div>
-    ${rankedMode?'<div class="lvlbar" style="justify-content:center"><div class="netstat" id="rankStrip" style="color:var(--p2)">submitting to the ranked ladder…</div></div>':''}
+    ${rankedMode?'<div class="lvlbar" style="justify-content:center"><div class="netstat" id="rankStrip" style="color:var(--p2)">reporting the duel to Heaven\'s Arena…</div></div>':''}
     ${progressStrip(prog, gained)}
     <div class="prow">
       <div class="card"><h3>Final Standings</h3>${board}</div>
@@ -1410,8 +2054,9 @@ function rollLoot(place, won, gained, opts){
   const minTier = clamp((won?1:0) + boost, 0, DROP_MAX_TIER);
   const n = won ? (Math.random()<0.5?2:3) : (place<=3 ? 2 : 1);
   const out = [];
-  if(opts.legendary) out.push(rollItem(pick(['weapon','armor']), 4, null, 4));   // guaranteed orange (campaign boss)
-  for(let i=0;i<n;i++){ const kind = Math.random()<0.55 ? 'weapon' : 'armor';
+  const LOOT_KINDS = ['weapon','weapon','armor','armor','trinket','gadget'];   // weapons/armor weighted a bit higher
+  if(opts.legendary) out.push(rollItem(pick(LOOT_KINDS), 4, null, 4));   // guaranteed orange (campaign boss)
+  for(let i=0;i<n;i++){ const kind = pick(LOOT_KINDS);
     out.push(rollItem(kind, Math.random()<0.5 ? minTier : Math.max(0,minTier-1), null, DROP_MAX_TIER)); }
   return out;
 }
@@ -1420,71 +2065,124 @@ function rollLoot(place, won, gained, opts){
 const HOSTED_URL = 'https://automationoptimization.github.io/ricochet-rumble/';
 const NEG_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/negotiate?hub=lobby';
 const RANK_URL = 'https://rr-negotiate-qrwiob.azurewebsites.net/api/rank';
-let rankedMode = false;   // true while queued/playing a ranked online match
-function rankTierColor(r){ return r>=1300?'#ff9f1c':r>=1150?'#b56bff':r>=1050?'#3aa0ff':r>=950?'#3ddc84':'#eef2ff'; }
-function rankTierName(r){ return r>=1300?'LEGEND':r>=1150?'DIAMOND':r>=1050?'PLATINUM':r>=950?'GOLD':r>=850?'SILVER':'BRONZE'; }
+let rankedMode = false;   // true while queued/playing a ranked online duel
+let duelMode = false;     // 1v1 first-to-N (ranked online, or practice vs CPU)
+const DUEL_TARGET = 8;
+// Heaven's Arena tower: floors 1→200. Server tracks the floor; this derives one from Elo when the server is old.
+const RANK_DECAY_GRACE_DAYS = 3, RANK_DECAY_PER_DAY = 4;
+function floorFromRating(r){ return clamp(Math.round((( r||1000) - 760) / 3.6) + 1, 1, 200); }
+const FLOOR_TIERS = [
+  { min:200, name:'FLOOR MASTER', c:'#ff9f1c' },
+  { min:150, name:'TOP FLOORS',   c:'#b56bff' },
+  { min:100, name:'HIGH FLOORS',  c:'#3aa0ff' },
+  { min:50,  name:'MID FLOORS',   c:'#3ddc84' },
+  { min:1,   name:'GROUND FLOOR', c:'#eef2ff' },
+];
+function floorTier(f){ for(const t of FLOOR_TIERS) if(f>=t.min) return t; return FLOOR_TIERS[FLOOR_TIERS.length-1]; }
+function floorColor(f){ return floorTier(f).c; }
+// legacy helpers (handle coloring elsewhere) now key off the derived floor
+function rankTierColor(r){ return floorColor(floorFromRating(r)); }
+function rankTierName(r){ return floorTier(floorFromRating(r)).name; }
+function myFloor(){ return (account && typeof account.floor==='number') ? account.floor : (save.floor || floorFromRating(save.rating)); }
+function decayInfo(lastPlayed){
+  if(!lastPlayed) return { unknown:true };
+  const days = (Date.now() - lastPlayed) / 86400000;
+  if(days >= RANK_DECAY_GRACE_DAYS) return { decaying:true, lost: Math.max(1, Math.floor((days - RANK_DECAY_GRACE_DAYS) * RANK_DECAY_PER_DAY)) };
+  return { decaying:false, daysLeft: Math.max(1, Math.ceil(RANK_DECAY_GRACE_DAYS - days)) };
+}
+function towerHtml(floor){
+  const t = floorTier(floor), frac = clamp(floor/200, 0, 1);
+  return `<div style="display:flex;gap:16px;align-items:center">
+    <div style="width:34px;height:150px;border:1px solid var(--line);position:relative;background:#0a0e1a;border-radius:4px;overflow:hidden">
+      <div style="position:absolute;left:0;right:0;bottom:0;height:${frac*100}%;background:linear-gradient(0deg,${t.c},${t.c}44)"></div>
+      <div style="position:absolute;left:0;right:0;bottom:calc(${frac*100}% - 1px);height:2px;background:#fff"></div>
+    </div>
+    <div style="flex:1;text-align:left">
+      <div style="font-size:12px;font-family:var(--mono);color:var(--dim);letter-spacing:.1em">FLOOR</div>
+      <div style="font-size:44px;font-weight:900;font-style:italic;line-height:1;color:${t.c}">${floor}<span style="font-size:15px;color:var(--dim)"> / 200</span></div>
+      <div style="font-size:13px;font-weight:900;font-style:italic;letter-spacing:.08em;color:${t.c};margin-top:4px">${t.name}</div>
+    </div></div>`;
+}
 async function renderRanked(){
-  state='ranked'; netCloseAll(true); lobbyCleanup(); mode=null;
+  state='ranked'; netCloseAll(true); lobbyCleanup(); mode=null; rankedMode=false; duelMode=false;
   const signedIn = !!account, canRank = signedIn && account.verified;
-  const standMsg = canRank ? 'loading your rating…'
-    : signedIn ? '<span style="color:var(--gold)">confirm your email to unlock ranked</span>'
-    : '<span style="color:var(--gold)">sign in to compete on the ladder</span>';
   $('#arena').innerHTML = `<div class="panel">
-    <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">RANKED</div>
-      <div class="xptext" style="flex:1">online FFA · email-verified accounts only · Elo updates after every match</div></div>
+    <div class="lvlbar"><div class="lvlbadge" style="color:var(--p2)">HEAVEN'S ARENA</div>
+      <div class="xptext" style="flex:1">1v1 duel tower · climb by winning · <span style="color:var(--gold)">go idle and you slip down the floors</span></div></div>
     <div class="prow">
-      <div class="card"><h3>Your Standing</h3>
-        <div id="myrank" class="netstat">${standMsg}</div>
+      <div class="card"><h3>Your Floor</h3>
+        <div id="myrank" class="netstat">${canRank?'loading your standing…':signedIn?'<span style="color:var(--gold)">confirm your email to enter ranked</span>':'<span style="color:var(--gold)">sign in to climb the tower</span>'}</div>
       </div>
-      <div class="card"><h3>Global Leaderboard</h3><div id="lb" class="invlist"><div class="netstat">loading…</div></div></div>
+      <div class="card"><h3>Floor Masters — Top of the Tower</h3><div id="lb" class="invlist"><div class="netstat">loading…</div></div></div>
     </div>
     <div class="modes">
       ${canRank
-        ? `<button class="mbtn b2" id="btnPlay"><b>▶</b> PLAY RANKED<span>online FFA · results update your Elo</span></button>`
+        ? `<button class="mbtn b2" id="btnPlay"><b>⚔</b> ENTER A DUEL<span>online 1v1 · win climbs floors</span></button>`
         : signedIn
-        ? `<button class="mbtn bg" id="btnVerify2"><b>✉</b> CONFIRM EMAIL<span>required to play ranked</span></button>`
-        : `<button class="mbtn b2" id="btnSignin"><b>▶</b> SIGN IN TO PLAY<span>ranked needs a verified account</span></button>`}
+        ? `<button class="mbtn bg" id="btnVerify2"><b>✉</b> CONFIRM EMAIL<span>required for ranked duels</span></button>`
+        : `<button class="mbtn b2" id="btnSignin"><b>▶</b> SIGN IN TO CLIMB<span>ranked needs a verified account</span></button>`}
+      <button class="mbtn bg" id="btnPractice"><b>🤖</b> PRACTICE DUEL<span>1v1 vs CPU · unranked warm-up</span></button>
       <button class="mbtn sm" id="btnBack"><b>ESC</b> BACK</button>
     </div></div>`;
   $('#btnBack').onclick = toMenu;
-  if(canRank) $('#btnPlay').onclick = ()=>{ rankedMode = true; gmode='ffa'; renderLobby(); };
+  $('#btnPractice').onclick = ()=> startDuelPractice();
+  if(canRank) $('#btnPlay').onclick = ()=>{ rankedMode = true; duelMode = true; gmode='ffa'; renderLobby(); };
   else if(signedIn) $('#btnVerify2').onclick = ()=>{ doResend(); renderVerify(); };
   else $('#btnSignin').onclick = ()=> renderAccount();
   try{
     const qid = canRank ? account.aid : '';
     const r = await fetch(RANK_URL+'?id='+encodeURIComponent(qid), {cache:'no-store'});
-    const j = await r.json(); if(canRank){ account.rating = j.rating; }
-    if(canRank && $('#myrank')) $('#myrank').innerHTML =
-      `<div style="font-size:26px;font-weight:900;font-style:italic;color:${rankTierColor(j.rating)}">${j.rating} <span style="font-size:12px;color:var(--dim)">ELO · ${rankTierName(j.rating)}</span></div>
-       <div class="netlbl" style="color:var(--dim)">${esc(account.handle)} · ${j.rank?('rank #'+j.rank+' of '+j.total+' · '):''}${j.wins}W ${j.losses}L</div>`;
-    if($('#lb')) $('#lb').innerHTML = (j.top&&j.top.length) ? j.top.map((t,i)=>`<div class="stat" style="margin-bottom:4px">
+    const j = await r.json();
+    if(canRank){ if(typeof j.rating==='number') account.rating = j.rating; if(typeof j.floor==='number'){ account.floor = j.floor; save.floor = j.floor; persistLocal(); } }
+    if(canRank && $('#myrank')){
+      const fl = (typeof j.floor==='number') ? j.floor : floorFromRating(j.rating);
+      const dk = decayInfo(j.lastPlayed);
+      const decayLine = dk.unknown ? '<span style="color:var(--dim)">play a duel to start your decay clock</span>'
+        : dk.decaying ? `<span style="color:#ff5c5c">⚠ inactive — you're bleeding floors (about ${dk.lost} lost)</span>`
+        : `<span style="color:#3ddc84">✓ defended</span> <span style="color:var(--dim)">· idle ${dk.daysLeft} more day${dk.daysLeft>1?'s':''} and decay begins</span>`;
+      $('#myrank').innerHTML = towerHtml(fl) +
+        `<div class="netlbl" style="color:var(--dim);margin-top:10px">${esc(account.handle)} · ${j.rank?('ranked #'+j.rank+' of '+j.total+' · '):''}${j.wins||0}W ${j.losses||0}L</div>
+         <div class="netstat" style="margin-top:4px">${decayLine}</div>`;
+    }
+    if($('#lb')) $('#lb').innerHTML = (j.top&&j.top.length) ? j.top.map((t,i)=>{ const fl=(typeof t.floor==='number')?t.floor:floorFromRating(t.rating);
+        return `<div class="stat" style="margin-bottom:4px">
         <span class="nm" style="width:24px;text-align:right;color:var(--dim)">${i+1}</span>
-        <span class="nm" style="width:auto;flex:1;color:${rankTierColor(t.rating)}">${esc(t.handle)}</span>
-        <span style="font-family:var(--mono);color:#eef2ff">${t.rating}</span></div>`).join('')
-      : '<div class="netstat">no ranked games yet — be the first on the board</div>';
-  }catch(e){ if(canRank && $('#myrank')) $('#myrank').innerHTML = '<div class="netstat">ladder unreachable from here — open the hosted app</div>'; }
+        <span class="nm" style="width:auto;flex:1;color:${floorColor(fl)}">${esc(t.handle)}</span>
+        <span style="font-family:var(--mono);color:#eef2ff">FL ${fl}</span></div>`; }).join('')
+      : '<div class="netstat">no duels fought yet — be the first to climb</div>';
+  }catch(e){ if(canRank && $('#myrank')) $('#myrank').innerHTML = '<div class="netstat">tower unreachable from here — open the hosted app</div>'; }
 }
-function showRankDelta(rating, delta){
-  save.rating = rating; if(account) account.rating = rating; persist();
+function showRankDelta(res){
+  const rating = res.rating, delta = res.delta||0;
+  const hasFloor = (typeof res.floorDelta === 'number' && typeof res.floor === 'number');
+  save.rating = rating; if(account) account.rating = rating;
+  if(hasFloor){ save.floor = res.floor; if(account) account.floor = res.floor; }   // only trust a real server floor
+  persist();
   const el = $('#rankStrip'); if(!el) return;
-  const up = delta>=0;
-  el.innerHTML = `<span style="color:${up?'#3ddc84':'#ff5c5c'};font-weight:900">RANKED ${up?'+':''}${delta}</span>
-    <span style="color:var(--dim)"> → </span><span style="color:${rankTierColor(rating)};font-weight:900">${rating} ELO</span>`;
+  if(hasFloor){
+    const fd = res.floorDelta, up = fd>=0, floor = res.floor;
+    el.innerHTML = `<span style="color:${up?'#3ddc84':'#ff5c5c'};font-weight:900">${up?'▲ CLIMBED':'▼ FELL'} ${Math.abs(fd)} FLOOR${Math.abs(fd)===1?'':'S'}</span>
+      <span style="color:var(--dim)"> → </span><span style="color:${floorColor(floor)};font-weight:900">FLOOR ${floor} · ${floorTier(floor).name}</span>`;
+  } else {   // older backend without the floor tower — report the real Elo swing instead of a bogus floor change
+    const up = delta>=0, floor = floorFromRating(rating);
+    el.innerHTML = `<span style="color:${up?'#3ddc84':'#ff5c5c'};font-weight:900">RANKED ${up?'+':''}${delta}</span>
+      <span style="color:var(--dim)"> → </span><span style="color:${floorColor(floor)};font-weight:900">${rating} · ~FLOOR ${floor}</span>`;
+  }
 }
-async function submitRanked(){   // host only, after a ranked brawl ends — accounts only, token-verified
+async function submitRanked(){   // host only, after a ranked duel ends — accounts only, token-verified
   if(mode!=='host' || !rankedMode || !net) return;
   const humans = [];
   if(account) humans.push({ token:account.token, handle:account.handle, aid:account.aid, kills:(players[0]?players[0].kills:0) });
   for(const pr of net.peers){ if(pr.token) humans.push({ token:pr.token, handle:pr.handle||'Player', aid:pr.aid, kills:(players[pr.idx]?players[pr.idx].kills:0) }); }
-  if(humans.length < 2){ const el=$('#rankStrip'); if(el) el.textContent='unranked — needs 2+ signed-in players'; return; }
+  if(humans.length < 2){ const el=$('#rankStrip'); if(el) el.textContent='unranked — a ranked duel needs two signed-in players'; return; }
   humans.sort((a,b)=> b.kills-a.kills);                    // placement = winner first
   try{
     const r = await fetch(RANK_URL, { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ results: humans.map(h=>({token:h.token, handle:h.handle})) }) });
+      body: JSON.stringify({ mode:'duel', results: humans.map(h=>({token:h.token, handle:h.handle})) }) });
     const j = await r.json(); if(!j.ratings) throw 0;
-    netBroadcast({ t:'rankres', ratings: j.ratings });     // tell guests their new ratings
-    const mine = account && j.ratings.find(x=>x.id===account.aid); if(mine){ showRankDelta(mine.rating, mine.delta); account.rating = mine.rating; }
-  }catch(e){ const el=$('#rankStrip'); if(el) el.textContent='ladder submit failed'; }
+    netBroadcast({ t:'rankres', ratings: j.ratings });     // tell guests their new floors
+    const mine = account && j.ratings.find(x=>x.id===account.aid); if(mine) showRankDelta(mine);
+  }catch(e){ const el=$('#rankStrip'); if(el) el.textContent='tower submit failed'; }
 }
 /* ---- account screen ---- */
 let acctMode = 'login';
@@ -1637,17 +2335,18 @@ function newPC(){ return new RTCPeerConnection({ iceServers:[
 async function renderLobby(){
   netCloseAll(true); lobbyCleanup(); clearTimers(); mode = null; endStandings = null;
   state = 'lobby';
-  if(rankedMode) gmode = 'ffa';
-  $('#arena').innerHTML = `<div class="menu"><div class="tag">${rankedMode?'<span style="color:var(--p2)">RANKED</span> — FFA · RESULTS UPDATE YOUR ELO':'ONLINE BRAWL — LIVE ROOMS · ONE-TAP JOIN'}</div>
+  if(rankedMode){ gmode = 'ffa'; duelMode = true; }
+  $('#arena').innerHTML = `<div class="menu"><div class="tag">${rankedMode?'<span style="color:var(--p2)">RANKED DUEL</span> — 1v1 · WINNER CLIMBS THE TOWER':'ONLINE BRAWL — LIVE ROOMS · ONE-TAP JOIN'}</div>
     <div class="netwrap">
       <div class="netrow">
         <input class="namebox" id="roomName" maxlength="22" placeholder="name your room" autocomplete="off">
         <button class="mbtn b1 sm" id="btnMake"><b>+</b> CREATE</button>
       </div>
       ${rankedMode?'':`<div class="modewrap"><div class="seg" id="segGM">
-        <button data-m="ffa" class="${gmode==='ffa'?'on':''}">FFA</button>
-        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button>
-        <button data-m="zombies" class="${gmode==='zombies'?'on':''}">CO-OP</button></div></div>`}
+        <button data-m="ffa" data-open="0" class="${gmode==='ffa'?'on':''}">FFA</button>
+        <button data-m="teams" data-open="0" class="${gmode==='teams'?'on':''}">TEAMS</button>
+        <button data-m="zombies" data-open="0" class="${gmode==='zombies'&&!openWorld?'on':''}">CO-OP</button>
+        <button data-m="zombies" data-open="1" class="${gmode==='zombies'&&openWorld?'on':''}">OUTBREAK</button></div></div>`}
       <div class="netlbl">${rankedMode?'RANKED ROOMS — CLICK TO JOIN':'OPEN ROOMS — CLICK TO JOIN'}</div>
       <div id="roomList" class="roomlist"><div class="netstat">connecting to Azure lobby…</div></div>
       <div class="netstat" id="netStat"></div>
@@ -1656,8 +2355,8 @@ async function renderLobby(){
   $('#btnBack').onclick = () => { lobbyCleanup(); toMenu(); };
   $('#btnMake').onclick = createRoom;
   const seg = $('#segGM');
-  if(seg) seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m;
-    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.m===gmode)); });
+  if(seg) seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; openWorld = b.dataset.open==='1';
+    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.m===gmode && (x.dataset.open==='1')===openWorld)); });
 
   const cid = 'rr' + Math.random().toString(36).slice(2, 10);
   let url;
@@ -1735,16 +2434,17 @@ function renderRoom(){
   const coop = gmode === 'zombies';
   const humanLabel = coop ? 'defender' : 'human';
   const seatList = [coop?'You (host)':'You (host)', ...lobby.seats.map((s,i)=>(coop?'Ally ':'Challenger ')+(i+1))];
-  if(!coop){ while(seatList.length < 8) seatList.push('— CPU bot —'); }
+  if(!coop){ while(seatList.length < roomCap()) seatList.push('— CPU bot —'); }
   $('#arena').innerHTML = `<div class="menu"><div class="tag">ROOM LIVE — VISIBLE IN EVERY LOBBY</div>
     <div class="netwrap">
       <div class="gtitle" style="font-size:clamp(22px,4.6vw,40px)">${esc(lobby.hosting.name)}</div>
       ${rankedMode
-        ? `<div class="tag" style="color:var(--p2)">RANKED · FFA · your Elo is on the line</div>`
+        ? `<div class="tag" style="color:var(--p2)">RANKED DUEL · 1v1 · your floor is on the line</div>`
         : `<div class="modewrap"><div class="seg" id="segGM2">
-        <button data-m="ffa" class="${gmode==='ffa'?'on':''}">FFA</button>
-        <button data-m="teams" class="${gmode==='teams'?'on':''}">TEAMS</button>
-        <button data-m="zombies" class="${gmode==='zombies'?'on':''}">CO-OP ZOMBIES</button></div></div>`}
+        <button data-m="ffa" data-open="0" class="${gmode==='ffa'?'on':''}">FFA</button>
+        <button data-m="teams" data-open="0" class="${gmode==='teams'?'on':''}">TEAMS</button>
+        <button data-m="zombies" data-open="0" class="${gmode==='zombies'&&!openWorld?'on':''}">CO-OP</button>
+        <button data-m="zombies" data-open="1" class="${gmode==='zombies'&&openWorld?'on':''}">OUTBREAK</button></div></div>`}
       <div class="netlbl">${coop?'DEFENDERS':'SEATS'} (${1+lobby.seats.length} ${humanLabel}${lobby.seats.length?'s':''}${coop?'':' · rest are bots'})</div>
       <div class="roomlist">${seatList.map((s,i)=>`<div class="roomrow" style="cursor:default">
         <span style="color:${gmode==='teams'?TEAM_COLORS[i<4?0:1]:FFA_COLORS[i]}">${esc(s)}</span>
@@ -1755,14 +2455,15 @@ function renderRoom(){
         <button class="mbtn sm" id="btnCancel"><b>ESC</b> CLOSE ROOM</button>
       </div>
     </div></div>`;
-  { const s2=$('#segGM2'); if(s2) s2.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; announceRoom(); renderRoom(); }); }
+  { const s2=$('#segGM2'); if(s2) s2.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; openWorld=b.dataset.open==='1'; announceRoom(); renderRoom(); }); }
   $('#btnCancel').onclick = () => { lobbyCleanup(); renderLobby(); };
   $('#btnStart').onclick = hostStart;
 }
+function roomCap(){ return rankedMode ? 2 : MAXP; }   // ranked = strict 1v1 duel
 async function hostAccept(jid){
   if(!lobby || !lobby.hosting || lobby.starting) return;   // no late joins once the match starts
   if(lobby.pending.has(jid) || lobby.seats.includes(jid)) return;
-  if(1 + lobby.seats.length >= MAXP){ wpsTo(sigGroup(lobby.cid), {t:'full', from:lobby.cid, to:jid}); return; }
+  if(1 + lobby.seats.length >= roomCap()){ wpsTo(sigGroup(lobby.cid), {t:'full', from:lobby.cid, to:jid}); return; }
   try{
     const pc = newPC(); const ch = pc.createDataChannel('g', {ordered:true});
     lobby.pending.set(jid, { pc, ch });
@@ -1778,7 +2479,7 @@ async function hostAccept(jid){
 function hostSeat(jid, pc, ch){
   if(!lobby || !lobby.hosting){ try{ pc.close(); }catch(e){} return; }
   lobby.pending.delete(jid);
-  if(lobby.seats.includes(jid) || 1+lobby.seats.length >= MAXP){ try{ pc.close(); }catch(e){} return; }
+  if(lobby.seats.includes(jid) || 1+lobby.seats.length >= roomCap()){ try{ pc.close(); }catch(e){} return; }
   const idx = 1 + lobby.seats.length;          // host is seat 0; assign now so welcome is reliable
   lobby.seats.push(jid);
   if(!lobby._chans) lobby._chans = new Map();
@@ -1796,11 +2497,11 @@ function hostSeat(jid, pc, ch){
   announceRoom();
   if(state === 'room') renderRoom();
   lobbyStatus(`${lobby.seats.length} challenger${lobby.seats.length>1?'s':''} joined — start when ready`);
-  if(1 + lobby.seats.length >= MAXP) hostStart();
+  if(1 + lobby.seats.length >= roomCap()) hostStart();     // ranked auto-starts once the duel is full
 }
 function hostRoomMsg(jid, m){   // pre-game: capture the guest's chosen loadout + level
   if(m && m.t==='ld' && lobby && lobby._chans && lobby._chans.has(jid))
-    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, level:m.level, pid:m.pid, handle:m.handle, token:m.token, aid:m.aid };
+    lobby._chans.get(jid).ld = { alloc:m.alloc, w:m.w, a:m.a, t:m.tr, g:m.gd, level:m.level, pid:m.pid, handle:m.handle, token:m.token, aid:m.aid };
 }
 function hostStart(){
   if(!lobby || !lobby.hosting || lobby.starting) return;
@@ -1812,17 +2513,17 @@ function hostStart(){
   const coop = gmode === 'zombies';
   const seated = lobby._chans ? [...lobby._chans.values()] : [];   // seat order
   players = new Array(MAXP);
-  players[0] = makePlayer(0, { local:true, name:coop?'You':'Host', level:save.level, ld: resolveLoadout(save.alloc, equippedWeapon(), equippedArmor()) });
+  players[0] = makePlayer(0, { local:true, name:coop?'You':'Host', level:save.level, ld: myLoadout() });
   for(const cn of seated){ const idx = cn.idx; if(idx<1 || idx>=MAXP || players[idx]) continue;
     const pr = { pc:cn.pc, ch:cn.ch, idx, rin:{x:0,y:0,s:false}, ready:true, pid:cn.ld&&cn.ld.pid, handle:cn.ld&&cn.ld.handle, token:cn.ld&&cn.ld.token, aid:cn.ld&&cn.ld.aid };
-    const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a) : botLoadout();  // honor the guest's build
+    const ld = cn.ld ? resolveLoadout(cn.ld.alloc, cn.ld.w, cn.ld.a, cn.ld.t, cn.ld.g) : botLoadout();  // honor the guest's build
     players[idx] = makePlayer(idx, { name:(coop?'Ally ':'Rival ')+idx, level: (cn.ld && cn.ld.level) || save.level, ld });
     const dropHandler = coop
       ? () => { pr.ready = false; }   // co-op: a dropped ally just stops shooting (no bot takeover of a defender)
       : () => { pr.ready = false; const pl = players[idx];
           if(pl && !pl.bot){ pl.bot = {retarget:0,tx:0,ty:0,dodge:0,dx:0,dy:0,wob:rand(0,9),skill:1}; pl.wantShoot = false; pushFeed(`${pl.name} disconnected — bot took over`); } };
     cn.ch.onmessage = e => { try{ const m=JSON.parse(e.data);
-      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s}; } else if(m.t==='bye'){ dropHandler(); } }catch(err){} };
+      if(m.t==='in'){ pr.rin = {x:+m.x||0,y:+m.y||0,s:!!m.s,a:!!m.a}; } else if(m.t==='bye'){ dropHandler(); } }catch(err){} };
     cn.pc.onconnectionstatechange = () => { if(['failed','disconnected','closed'].includes(cn.pc.connectionState)) dropHandler(); };
     net.peers.push(pr);
     try{ cn.ch.send(JSON.stringify({t:'welcome', idx, world:WORLD})); }catch(e){}   // resend for safety
@@ -1834,7 +2535,9 @@ function hostStart(){
         try{ pr.ch.send(JSON.stringify({t:'welcome', idx:i, world:WORLD})); }catch(e){} } });
     beginCampaign();
   } else {
-    for(let i=0;i<MAXP;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), level: clamp(save.level+irand(-2,3),1,99), ld: botLoadout() });
+    const cap = duelMode ? 2 : MAXP;   // ranked duel = exactly 2 seats, no extra bots
+    for(let i=0;i<cap;i++) if(!players[i]) players[i] = makePlayer(i, { bot:true, name:pick(BOT_NAMES)+i, skill:rand(0.8,1.2), level: clamp(save.level+irand(-2,3),1,99), ld: botLoadout() });
+    if(duelMode) players = players.slice(0, cap);
     beginMatch();
   }
 }
@@ -1869,7 +2572,7 @@ async function joinOffer(roomId, sdp){
 function wireGuest(pc, ch){
   net = { role:'guest', pc, ch, me:null, hab:WORLD, lastIn:{x:9,y:9,s:false}, inAcc:0, ready:false, matched:false };
   ch.onopen = () => { net.ready = true; net.matched = true; if(lobby) lobby.starting = true;
-    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), level:save.level, pid:save.pid,
+    try{ ch.send(JSON.stringify({t:'ld', alloc:save.alloc, w:equippedWeapon(), a:equippedArmor(), tr:equippedTrinket(), gd:equippedGadget(), level:save.level, pid:save.pid,
       handle:acctHandle(), token: account?account.token:null, aid: account?account.aid:null})); }catch(e){}  // build + ladder identity for the host
     lobbyCleanup();
     mode = 'guest'; state = 'wait'; parts=[]; bullets=[]; players=[]; $('#arena').innerHTML='';
@@ -1906,25 +2609,34 @@ function guestRecv(m){
     case 'zsetup':
       gmode='zombies'; WORLD.w=m.world.w; WORLD.h=m.world.h; net.hab=m.world;
       if(net.me==null) net.me=1;
-      walls = m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]}));
+      openWorld = !!m.open; if(typeof m.seed==='number') worldSeed = m.seed;
+      chunkWalls = new Map(); populated = new Set(); extraWalls = []; pois = [];
+      walls = openWorld ? [] : m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]}));
       players = m.players.map((meta,i)=> meta ? guestGhost(i, {team:-1,color:meta.color,name:meta.name}) : null);
       players.forEach(p=>{ if(p) p.local = (p.i===net.me); });
-      campaign = { wave:0, maxWave:m.maxWave, lives:m.lives, citizensStart:m.citizensStart, goal:m.goal, np:m.players.filter(Boolean).length };
-      me=net.me; citizens=[]; zombies=[]; bullets=[]; parts=[]; feed=[]; state='play';
+      campaign = { open:openWorld, wave:0, maxWave:m.maxWave, lives:m.lives, citizensStart:m.citizensStart, goal:m.goal, rescued:0, escorting:0, np:m.players.filter(Boolean).length, combo:0, comboT:0 };
+      me=net.me; citizens=[]; zombies=[]; zshots=[]; pickups=[]; bullets=[]; parts=[]; feed=[]; state='play';
+      if(openWorld) ensureChunks([HUB]);
       $('#arena').innerHTML=''; $('#announce').classList.remove('show');
       break;
+    case 'zwalls': walls = m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})); break;
+    case 'zbar': { const segs = m.segs.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})); extraWalls.push(...segs); walls.push(...segs); break; }
+    case 'zpause': if(campaign){ campaign.wave=m.wave; } break;   // host is drafting an upgrade; hold position
     case 'zs':
-      if(campaign){ campaign.wave=m.w; campaign.lives=m.lv; campaign.citizensAlive=m.ca; }
+      if(campaign){ campaign.wave=m.w; campaign.lives=m.lv; campaign.citizensAlive=m.ca; campaign.combo=m.cb||0; campaign.comboT=campaign.combo>1?2.4:0;
+        if(campaign.open){ campaign.rescued=m.rs||0; campaign.escorting=m.es||0; pois=(m.po||[]).map(a=>({x:a[0],y:a[1],r:30,captured:!!a[2],prog:a[3]||0})); } }
       if(players.length){ m.p.forEach((a,i)=>{ const g=players[i]; if(!g||!a) return;
         g.tx=a[0]; g.ty=a[1]; g.taim=a[2]; g.alive=!!a[3]; g.shield=a[4]?1:0; g.ammo=a[5]; g.ld.maxAmmo=a[6]||3; g.kills=a[7]; }); }
-      citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],r:11,wob:0}));
-      zombies = m.z.map(a=>({x:a[0],y:a[1],boss:!!a[2],hp:a[3],maxhp:a[4],alive:true,r:a[2]?34:13}));
+      citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],following:(a[3]!=null&&a[3]>=0)?a[3]:null,r:11,wob:0}));
+      zombies = m.z.map(a=>{ const T=ZTYPES[a[2]]||ZTYPES[0]; return {x:a[0],y:a[1],ti:a[2],boss:!!T.boss,tough:!!T.tough,hp:a[3],maxhp:a[4],alive:true,r:T.r}; });
+      zshots = (m.k||[]).map(a=>({x:a[0],y:a[1],r:7,life:1}));
+      pickups = (m.pk||[]).map(a=>({x:a[0],y:a[1],r:9,type:a[2]?'shield':'ammo',alive:true,life:10,wob:0}));
       bullets = m.b.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],r:a[4],owner:a[5],px:a[0]-a[2]*0.02,py:a[1]-a[3]*0.02,c:(players[a[5]]&&players[a[5]].color)||'#eef2ff',life:1}));
       break;
     case 'zend': {
       state='end';
       const mine = m.standings[net.me] || {};
-      renderCampaignEnd({ won:m.won, saved:m.saved, gained:mine.matchExp||0, kills:mine.kills||0,
+      renderCampaignEnd({ won:m.won, saved:m.saved, open:!!m.open, gained:mine.matchExp||0, kills:mine.kills||0,
         citizensStart:m.citizensStart, goal:m.goal, maxWave:m.maxWave, wave:m.wave,
         standings: m.standings.map((s,i)=> s?{name:s.name,color:s.color,kills:s.kills,local:(i===net.me)}:null).filter(Boolean) });
       break;
@@ -1938,7 +2650,7 @@ function guestRecv(m){
       endStandings = m.standings.map((s,i)=>({ i, name:s.name, kills:s.kills, team:s.team, color:s.color, matchExp:s.matchExp||0, level:s.level, local:(i===net.me) }));
       renderEnd(null);
       break;
-    case 'rankres': { const mine = account && (m.ratings||[]).find(x=>x.id===account.aid); if(mine){ showRankDelta(mine.rating, mine.delta); account.rating = mine.rating; } break; }
+    case 'rankres': { const mine = account && (m.ratings||[]).find(x=>x.id===account.aid); if(mine) showRankDelta(mine); break; }
     case 'bye': guestDropped(); break;
   }
 }
@@ -1964,13 +2676,14 @@ addEventListener('keydown', e => {
   if(state==='menu'){
     if(e.code==='Space') openLoadout('solo');
     else if(e.code==='KeyZ') startCampaign();
-    else if(e.code==='KeyO'){ rankedMode=false; renderLobby(); }
+    else if(e.code==='KeyX') startOutbreak();
+    else if(e.code==='KeyO'){ rankedMode=false; duelMode=false; renderLobby(); }
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyB') openShop();
     else if(e.code==='KeyR') renderRanked();
     else if(e.code==='KeyA') renderAccount();
   } else if(state==='end'){
-    if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else if(gmode==='zombies') startCampaign(); else startSolo(); }
+    if(e.code==='Space'){ if(mode==='guest'){ netCloseAll(true); renderLobby(); } else if(mode==='host') hostRematch(); else if(gmode==='zombies') (openWorld?startOutbreak():startCampaign()); else startSolo(); }
     else if(e.code==='KeyL') openLoadout('view');
     else if(e.code==='KeyM'){ netCloseAll(true); toMenu(); }
   }
@@ -1982,13 +2695,16 @@ addEventListener('pointerdown', e => {
   if(e.pointerType!=='touch') return;
   if(state!=='play') return;
   if(e.target.closest && e.target.closest('button,textarea,input,.mbtn')) return;
-  if(e.clientX < W*0.5 && touch.stick===null){ touch.stick=e.pointerId; touch.ox=e.clientX; touch.oy=e.clientY; touch.vx=0; touch.vy=0; }
+  const ab = abilityBtn();
+  if(Math.hypot(e.clientX-ab.x, e.clientY-ab.y) < ab.r+8){ touch.abilityId = e.pointerId; }   // ability button (bottom-center)
+  else if(e.clientX < W*0.5 && touch.stick===null){ touch.stick=e.pointerId; touch.ox=e.clientX; touch.oy=e.clientY; touch.vx=0; touch.vy=0; }
   else touch.fires.add(e.pointerId);
 }, {passive:true});
 addEventListener('pointermove', e => { if(e.pointerId!==touch.stick) return;
   let dx=(e.clientX-touch.ox)/44, dy=(e.clientY-touch.oy)/44; const m=Math.hypot(dx,dy);
   if(m>1){ dx/=m; dy/=m; } touch.vx = m<0.22?0:dx; touch.vy = m<0.22?0:dy; }, {passive:true});
-const pEnd = e => { if(e.pointerId===touch.stick){ touch.stick=null; touch.vx=0; touch.vy=0; } touch.fires.delete(e.pointerId); };
+const pEnd = e => { if(e.pointerId===touch.stick){ touch.stick=null; touch.vx=0; touch.vy=0; }
+  if(e.pointerId===touch.abilityId){ touch.abilityId=null; } touch.fires.delete(e.pointerId); };
 addEventListener('pointerup', pEnd, {passive:true});
 addEventListener('pointercancel', pEnd, {passive:true});
 addEventListener('touchmove', e => { if(state==='play') e.preventDefault(); }, {passive:false});
@@ -2006,9 +2722,14 @@ function loop(t){
     if(net.snapAcc >= 0.05){ net.snapAcc = 0;
       if(gmode==='zombies'){
         netBroadcast({ t:'zs', w:campaign?campaign.wave:0, lv:campaign?campaign.lives:0, ca: citizens.filter(c=>c.alive).length,
+          cb: campaign?campaign.combo:0,
+          rs: campaign?campaign.rescued||0:0, es: campaign?campaign.escorting||0:0,
+          po: (campaign&&campaign.open)? pois.map(b=>[b.x|0,b.y|0,b.captured?1:0,+b.prog.toFixed(2)]) : undefined,
           p: players.map(p=>p?[p.x|0,p.y|0,+p.aim.toFixed(2), p.alive?1:0, p.shield>0?1:0, p.ammo, p.ld.maxAmmo, p.kills]:null),
-          c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0]),
-          z: zombies.map(z=>[z.x|0,z.y|0,z.boss?1:0,z.hp,z.maxhp]),
+          c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0, c.following!=null?c.following:-1]),
+          z: zombies.map(z=>[z.x|0,z.y|0,z.ti,z.hp,z.maxhp]),
+          k: zshots.map(s=>[s.x|0,s.y|0]),
+          pk: pickups.filter(p=>p.alive).map(p=>[p.x|0,p.y|0,p.type==='ammo'?0:1]),
           b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) });
       } else {
         netBroadcast({ t:'s', ts:teamScore,
@@ -2019,9 +2740,9 @@ function loop(t){
   }
   if(mode==='guest' && net && net.ready){
     net.inAcc += dt; const cur = localInput();
-    const ch = cur.x!==net.lastIn.x || cur.y!==net.lastIn.y || cur.s!==net.lastIn.s;
+    const ch = cur.x!==net.lastIn.x || cur.y!==net.lastIn.y || cur.s!==net.lastIn.s || cur.a!==net.lastIn.a;
     if(ch || net.inAcc>0.1){ net.inAcc=0; net.lastIn=cur;
-      try{ if(net.ch.readyState==='open') net.ch.send(JSON.stringify({t:'in', x:+cur.x.toFixed(2), y:+cur.y.toFixed(2), s:cur.s?1:0})); }catch(e){} }
+      try{ if(net.ch.readyState==='open') net.ch.send(JSON.stringify({t:'in', x:+cur.x.toFixed(2), y:+cur.y.toFixed(2), s:cur.s?1:0, a:cur.a?1:0})); }catch(e){} }
   }
   if(state==='end' && Math.random()<0.25){ const cols=['#ffcf3f','#eef2ff','#00e5ff','#ff2d55'];
     const vw=W/VIEW; // world-space so it rains correctly through the camera transform
