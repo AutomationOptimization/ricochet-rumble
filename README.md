@@ -23,8 +23,17 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
   - **Project Crown secret case:** every recovered document contains part of a seven-file cipher. Completing it
     reveals Umbra Lab B-12 as a playable secret objective; surviving its purge protocol secures the Crown ledger
     and changes the ending.
-  - **Survival systems:** a real six-slot field pack, two carried weapons, the scavenged M37 riot gun, separate 9mm
-    and shell reserves, manual weapon swaps/reloads, condition damage, infection, herbs, spray, antivirals,
+  - **Class loadouts and armory:** six protagonists now deploy with distinct kits and reserves. The eight-gun
+    arsenal includes the SLS-9 service pistol, VP-70 burst pistol, M5 tactical SMG, M37 riot gun, S.T.A.R.S.
+    marksman rifle, Hawk .44 magnum, M79 grenade launcher, and ATM-4 rocket launcher. Guns have native fire
+    patterns, damage, magazine, reload, range, penetration, blast radius, noise, recoil, and dedicated ammunition.
+    Authored weapon cases appear along the campaign route; a two-slot weapon rack supports pickup, swapping, and
+    deliberate active-slot replacement without consuming field-pack space.
+  - **Weapon upgrades:** mission drafts, the RPD armory, and Kendo's workbench offer visible, capped upgrade tiers
+    for firepower, capacity, cycling, reload, range, and armor-piercing ammunition. Upgrade cards show exact
+    before/after values, apply across the squad's arsenal, and carry forward to weapons found later in the run.
+  - **Survival systems:** a real six-slot field pack, fixed-capacity 9mm, 12-gauge, 5.56, .44, 40mm, and rocket
+    ammunition economies, manual weapon swaps/reloads, condition damage, infection, herbs, spray, antivirals,
     downed/bleed-out states, co-op revives, reinforcements, and fortifications. Mission compounds have physical,
     key-gated doors that the squad must clear and breach before searching.
   - **Exploration:** nine named districts, fifteen authored landmark compounds, seven optional operations,
@@ -71,8 +80,8 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
   **P** patrol · **X** stop, then guard · **V** hold without chasing · **G** swap weapon · Shift-click queues orders ·
   **1–6** use pack slot · **Shift+1–6** drop stack · WASD / Arrows override orders · **F**, then click = use/rescue ·
   **R** reload · **H** heal · **Tab** case file.
-- **Touch:** left half moves, right half fires, with ability/interact/heal/swap buttons and a six-slot pack strip;
-  tap a slot to use it and hold to drop it.
+- **Touch:** left half moves, right half fires, with ability/interact/heal/swap buttons, a six-slot pack strip, and
+  a dedicated full-screen map/case-file button; tap a slot to use it and hold to drop it.
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling

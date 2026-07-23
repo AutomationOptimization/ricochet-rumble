@@ -38,7 +38,7 @@
   @keyframes fl{0%{opacity:.3}100%{opacity:0}}
 
   #arena{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;
-    pointer-events:none;overflow-y:auto;padding:14px}
+    pointer-events:none;overflow-y:auto;padding:14px;touch-action:pan-y;overscroll-behavior:contain}
   #announce{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
     pointer-events:none;opacity:0;transition:opacity .1s}
   #announce.show{opacity:1}
@@ -57,7 +57,7 @@
   .rsub{margin-top:10px;font-family:var(--mono);color:var(--dim);font-size:clamp(12px,1.6vw,16px)}
 
   .menu{display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.4vh,22px);position:relative;
-    text-align:center;padding:clamp(18px,3vw,34px);pointer-events:auto;max-height:100%;overflow-y:auto;width:min(96vw,900px);
+    text-align:center;padding:clamp(18px,3vw,34px);pointer-events:auto;max-height:100%;overflow-y:auto;width:min(96vw,900px);touch-action:pan-y;overscroll-behavior:contain;
     background:linear-gradient(145deg,rgba(14,19,35,.82),rgba(4,7,14,.9));border:1px solid rgba(125,149,205,.22);
     border-radius:24px;box-shadow:0 32px 110px rgba(0,0,0,.6),inset 0 1px rgba(255,255,255,.06)}
   .menu:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
@@ -88,7 +88,7 @@
   .acctchip span{color:var(--dim)}
 
   /* Outbreak story presentation */
-  .hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;width:100%;max-height:62vh;overflow-y:auto;padding:2px}
+  .hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;width:100%;padding:2px;touch-action:pan-y}
   .hero-card{cursor:pointer;position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(13,18,31,.97),rgba(5,7,13,.97));
     border:1px solid var(--line);border-left:4px solid var(--hero);color:var(--ink);padding:14px;text-align:left;transition:.15s transform,.15s border-color}
   .hero-card:hover,.hero-card.selected{transform:translateY(-2px);border-color:var(--hero)}
@@ -97,6 +97,13 @@
     color:#fff;font:900 italic 22px var(--disp);box-shadow:0 0 18px color-mix(in srgb,var(--hero) 35%,transparent)}
   .hero-card h4{font:900 italic 18px var(--disp);text-transform:uppercase}.hero-class{color:var(--hero);font:700 9px var(--mono);letter-spacing:.16em;margin-top:2px}
   .hero-bio{color:var(--dim);font:500 10px/1.55 var(--mono);margin-top:10px}.hero-perk{color:#eef2ff;font:700 10px/1.45 var(--mono);margin-top:8px}
+  .hero-kit{margin-top:10px;padding:8px 9px;border:1px solid color-mix(in srgb,var(--hero) 38%,#1c2233);background:rgba(0,0,0,.24);font:700 9px/1.5 var(--mono);color:var(--hero)}
+  .hero-kit b{display:block;color:#eef2ff;letter-spacing:.14em;margin-bottom:2px}
+  .hero-select{width:100%;margin:6px 0;padding:9px 10px;background:#070b13;border:1px solid #38445f;color:#eef2ff;font:800 10px var(--mono);touch-action:manipulation}
+  .arsenal-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;width:100%}.arsenal-chip{background:rgba(5,8,15,.88);border:1px solid #252d42;padding:7px 9px;text-align:left;font:700 8px/1.4 var(--mono);color:#8b93a8}.arsenal-chip b{display:block;color:#eef2ff;font-size:9px}
+  .upgrade-build{display:grid;grid-template-columns:minmax(210px,.7fr) 1.3fr;gap:14px}.upgrade-readout{background:rgba(5,8,15,.96);border:1px solid #2b3550;padding:16px;text-align:left}
+  .upgrade-readout h3{font:900 italic 18px var(--disp);color:var(--gold);margin:4px 0 9px}.upgrade-stat{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid rgba(110,125,165,.16);font:700 10px var(--mono);color:var(--dim)}
+  .upgrade-stat b{color:#eef2ff}.upgrade-pips{color:var(--gold);letter-spacing:.12em}.upgrade-card-tag{font:800 8px var(--mono);letter-spacing:.16em;color:#00e5ff;margin-bottom:4px}
   .storycut{position:absolute;inset:0;z-index:20;pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;
     padding:clamp(28px,7vh,72px) clamp(14px,6vw,80px);background:linear-gradient(180deg,rgba(0,0,0,.82) 0 12%,rgba(5,7,12,.2) 30% 66%,rgba(0,0,0,.93) 86%)}
   .storycut:before,.storycut:after{content:"";position:absolute;left:0;right:0;height:8vh;background:#020307;z-index:-1}.storycut:before{top:0}.storycut:after{bottom:0}
@@ -111,10 +118,10 @@
   .storycontrols{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;color:#737d94;font:600 9px var(--mono);letter-spacing:.1em}
   .storycontrols button{pointer-events:auto;cursor:pointer;background:#111827;border:1px solid #343e58;color:#eef2ff;padding:7px 12px;font:800 10px var(--mono)}
   .storycontrols button:hover{border-color:var(--speaker)}
-  @media(max-width:620px){.storyframe{grid-template-columns:76px 1fr}.storyportrait{min-height:190px}.storydialogue{min-height:190px;padding:17px}.hero-grid{grid-template-columns:1fr}}
+  @media(max-width:620px){.storyframe{grid-template-columns:76px 1fr}.storyportrait{min-height:190px}.storydialogue{min-height:190px;padding:17px}.hero-grid{grid-template-columns:1fr;max-height:none;overflow:visible;overscroll-behavior:auto}.upgrade-build{grid-template-columns:1fr}}
 
   /* loadout */
-  .panel{width:min(96vw,880px);pointer-events:auto;display:flex;flex-direction:column;gap:14px}
+  .panel{width:min(96vw,880px);max-height:100%;overflow-y:auto;pointer-events:auto;display:flex;flex-direction:column;gap:14px;touch-action:pan-y;overscroll-behavior:contain}
   .prow{display:flex;gap:14px;flex-wrap:wrap}
   .card{background:linear-gradient(145deg,rgba(17,23,40,.96),rgba(6,9,17,.96));border:1px solid #2b3550;padding:16px;flex:1;min-width:260px;box-shadow:0 14px 35px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.04)}
   .card h3{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--dim);
@@ -545,24 +552,36 @@ let pois = [];                         // persistent field operations / hold poi
 let zombieSerial=0,pickupSerial=0;
 const CHUNK = 1600, HUB = { x: 32000, y: 32000, r: 300 };
 const HUBC = { x: Math.floor(HUB.x/CHUNK), y: Math.floor(HUB.y/CHUNK) };
+// Outbreak owns a survival-horror arsenal instead of silently inheriting the arena gun table.
+// Firearms occupy two dedicated weapon slots; ammunition and medicine occupy the six-slot pack.
+const OUTBREAK_ARSENAL = {
+  service:{name:'SLS-9 SERVICE PISTOL',short:'SLS-9',ic:'●',ammoType:'ammo',pattern:'single',cd:.32,vel:1.05,mag:8,bounce:1,damage:1,range:500,reload:.72,noise:5,recoil:54,desc:'Accurate, efficient RPD sidearm.'},
+  burst:{name:'VP-70 BURST PISTOL',short:'VP-70',ic:'≡',ammoType:'ammo',pattern:'burst',cd:.56,vel:1.02,mag:12,n:3,bounce:1,damage:.78,range:480,reload:.78,noise:7,recoil:60,desc:'Three-round burst; strong focus fire.'},
+  smg:{name:'M5 TACTICAL SMG',short:'M5 SMG',ic:'⋮',ammoType:'ammo',pattern:'burst',cd:.24,vel:1.08,mag:24,n:4,bounce:0,damage:.27,range:440,reload:.86,noise:9,recoil:45,desc:'Ammo-hungry suppression weapon.'},
+  riot:{name:'M37 RIOT GUN',short:'M37',ic:'▰',ammoType:'shells',pattern:'spread',cd:.68,vel:.88,mag:5,n:6,spread:.56,bounce:0,damage:.72,range:310,reload:1.05,noise:14,recoil:115,desc:'Six-pellet close-range crowd stopper.'},
+  rifle:{name:'S.T.A.R.S. MARKSMAN RIFLE',short:'S-RIFLE',ic:'⌁',ammoType:'rifle',pattern:'single',cd:.62,vel:1.55,mag:8,bounce:2,damage:2.15,pierce:1,range:700,reload:1.08,noise:11,recoil:88,big:true,desc:'Long-range precision and penetration.'},
+  magnum:{name:'HAWK .44 MAGNUM',short:'HAWK .44',ic:'◆',ammoType:'magnum',pattern:'single',cd:.82,vel:1.38,mag:6,bounce:1,damage:4,pierce:2,range:570,reload:1.18,noise:18,recoil:135,big:true,desc:'Rare anti-elite hand cannon.'},
+  grenade:{name:'M79 GRENADE LAUNCHER',short:'M79',ic:'◉',ammoType:'grenades',pattern:'single',cd:1.05,vel:.68,mag:4,bounce:0,damage:4.8,blast:105,range:470,reload:1.28,noise:24,recoil:120,big:true,desc:'Impact grenades damage clustered infected.'},
+  rocket:{name:'ATM-4 ROCKET LAUNCHER',short:'ATM-4',ic:'▸',ammoType:'rockets',pattern:'single',cd:1.55,vel:1.0,mag:1,bounce:0,damage:12,blast:175,range:680,reload:1.7,noise:36,recoil:185,big:true,desc:'Single-shot endgame anti-boss launcher.'},
+};
 const OUTBREAK_HEROES = {
-  mara:{name:'Mara Voss',short:'MV',role:'RPD DETECTIVE',color:'#6ab6d6',perk:'Blue Line · +25% reserve ammo and AP sidearm rounds',
-    bio:'Internal Affairs called her obsessive. The dead call her difficult to kill. Mara stayed behind to find the officers erased from RPD dispatch.',reserve:1.25,pierce:1,
+  mara:{name:'Mara Voss',short:'MV',role:'RPD DETECTIVE',color:'#6ab6d6',perk:'Blue Line · +25% reserve ammo and AP sidearm rounds',kit:'service',
+    bio:'Internal Affairs called her obsessive. The dead call her difficult to kill. Mara stayed behind to find the officers erased from RPD dispatch.',reserve:1.25,pierce:1,startPack:{ammo:8},
     lines:{crash:'Danner knew this convoy was bait. I need to know who signed the order.',truth:'I spent three years chasing a dirty badge. The whole city was the crime scene.',tyrant:'That thing has an Umbra serial number. Put it down.'}},
-  ward:{name:'Dr. Elias Ward',short:'EW',role:'VIROLOGIST',color:'#7cff9b',perk:'Field Immunology · 35% less infection; herbs purge extra infection',
-    bio:'A former Umbra researcher who leaked the first T-virus memo. He came back for the patients—and for proof that his warning was buried.',infectResist:.65,healBonus:8,
+  ward:{name:'Dr. Elias Ward',short:'EW',role:'VIROLOGIST',color:'#7cff9b',perk:'Field Immunology · 35% less infection; herbs purge extra infection',kit:'service',
+    bio:'A former Umbra researcher who leaked the first T-virus memo. He came back for the patients—and for proof that his warning was buried.',infectResist:.65,healBonus:8,startPack:{herb:2,spray:1},
     lines:{crash:'The lesions are too uniform. This was seeded, not spread.',truth:'Project Crown used my work. I can still make sure it ends here.',tyrant:'T-103 responds to trauma with accelerated mutation. Do not let it recover.'}},
-  ben:{name:'Ben Ortiz',short:'BO',role:'UTILITY ENGINEER',color:'#ffcf3f',perk:'City Bones · objectives search 30% faster; starts with 2 barricade parts',
-    bio:'Ben knows every service tunnel, breaker room, and forgotten maintenance hatch beneath Raccoon. His sister was on the last failed evacuation bus.',searchSpeed:1.3,parts:2,
+  ben:{name:'Ben Ortiz',short:'BO',role:'UTILITY ENGINEER',color:'#ffcf3f',perk:'City Bones · M5 SMG; objectives 30% faster; starts with 2 parts',kit:'smg',
+    bio:'Ben knows every service tunnel, breaker room, and forgotten maintenance hatch beneath Raccoon. His sister was on the last failed evacuation bus.',searchSpeed:1.3,parts:2,startPack:{tools:2},
     lines:{crash:'These routes were changed after midnight. Somebody wanted the convoy here.',truth:'B-12 was drawing power off my grid for years. No more secrets under my city.',tyrant:'Big target. Bad wiring. I can work with that.'}},
-  lena:{name:'Lena Cross',short:'LC',role:'INVESTIGATIVE REPORTER',color:'#b56bff',perk:'Paper Trail · searches containers 40% faster; recovered files grant supplies',
-    bio:'Lena followed shell companies from Arklay to City Hall. Her editor killed the story; the outbreak gave her one last deadline.',cacheSpeed:1.4,fileSupplies:true,
+  lena:{name:'Lena Cross',short:'LC',role:'INVESTIGATIVE REPORTER',color:'#b56bff',perk:'Paper Trail · marksman rifle; searches 40% faster; files grant supplies',kit:'rifle',
+    bio:'Lena followed shell companies from Arklay to City Hall. Her editor killed the story; the outbreak gave her one last deadline.',cacheSpeed:1.4,fileSupplies:true,startPack:{herb:1},
     lines:{crash:'Convoy 9B disappeared from the official evacuation map yesterday.',truth:'Names, dates, signatures. If we fly out, Umbra burns in daylight.',tyrant:'Smile for the front page, monster.'}},
-  riley:{name:'Riley Knox',short:'RK',role:'S.T.A.R.S. SCOUT',color:'#ff7a3c',perk:'Ghost Step · +12% movement and 40% quieter gunfire',
-    bio:'The youngest S.T.A.R.S. candidate never received a badge. Riley knows the rooftops, the dead zones, and what hunted Bravo Team in Arklay.',speed:1.12,noise:.6,
+  riley:{name:'Riley Knox',short:'RK',role:'S.T.A.R.S. SCOUT',color:'#ff7a3c',perk:'Ghost Step · burst pistol; +12% movement and 40% quieter gunfire',kit:'burst',
+    bio:'The youngest S.T.A.R.S. candidate never received a badge. Riley knows the rooftops, the dead zones, and what hunted Bravo Team in Arklay.',speed:1.12,noise:.6,startPack:{ammo:12},
     lines:{crash:'Same claw marks as Arklay. They followed us into the city.',truth:'This is what Bravo Team died finding. We finish their mission.',tyrant:'I have seen your kind before. You still bleed.'}},
-  marcus:{name:'Marcus Vale',short:'MVL',role:'UMBRELLA SECURITY DEFECTOR',color:'#ff2d55',perk:'Black Operations · 30% faster reloads; +20 maximum condition',
-    bio:'Umbra paid Marcus to contain evidence. He deserted when “evidence” came to mean civilians. The voice behind Project Crown knows his real name.',reload:.7,maxHp:20,
+  marcus:{name:'Marcus Vale',short:'MVL',role:'UMBRELLA SECURITY DEFECTOR',color:'#ff2d55',perk:'Black Operations · riot gun; 30% faster reloads; +20 condition',kit:'riot',
+    bio:'Umbra paid Marcus to contain evidence. He deserted when “evidence” came to mean civilians. The voice behind Project Crown knows his real name.',reload:.7,maxHp:20,startPack:{shells:6},
     lines:{crash:'This is a cleanup formation. I used to lead them.',truth:'Adrian Vale is my brother. Crown was always his monument.',tyrant:'Crown-actual, this is Vale. Your asset is terminated.'}},
 };
 // The city is organized as large, mechanically distinct districts. Nearest-center lookup keeps
@@ -679,6 +698,7 @@ function segmentHitsRect(x0,y0,x1,y1,wl,pad=0){
 function losBlocked(x0,y0,x1,y1){for(const wl of walls)if(segmentHitsRect(x0,y0,x1,y1,wl))return true;return false;}
 
 /* ================= player factory ================= */
+function cloneResolvedLoadout(ld){return{...ld,gadget:ld&&ld.gadget?{...ld.gadget}:null,wbase:ld&&ld.wbase||WEAPONS.pistol};}
 function makePlayer(i, opts){
   const team = gmode === 'teams' ? (i < MAXP/2 ? 0 : 1) : -1;
   const color = gmode === 'teams' ? TEAM_COLORS[team] : FFA_COLORS[i];
@@ -696,24 +716,53 @@ function makePlayer(i, opts){
     bot: opts.bot ? { retarget:0, tx:0, ty:0, dodge:0, dx:0, dy:0, wob:rand(0,9), skill: opts.skill||1, gwait:rand(1,4) } : null,
     ld: opts.ld || resolveLoadout(randBotAlloc(), null, null)
   };
+  p.baseLd=cloneResolvedLoadout(p.ld);
   return p;
 }
 const OUTBREAK_PACK_SIZE=6;
 const OUTBREAK_ITEM_DEF={
-  ammo:{name:'9MM ROUNDS',short:'9MM',ic:'●',c:'#ffcf3f',max:60},
-  shells:{name:'SHOTGUN SHELLS',short:'12G',ic:'▮',c:'#ff7a3c',max:24},
+  ammo:{name:'9MM ROUNDS',short:'9MM',ic:'●',c:'#ffcf3f',max:60,pickup:18,drop:12,ammo:true},
+  shells:{name:'SHOTGUN SHELLS',short:'12G',ic:'▮',c:'#ff7a3c',max:24,pickup:6,drop:4,ammo:true},
+  rifle:{name:'5.56 RIFLE ROUNDS',short:'5.56',ic:'⌁',c:'#6ab6d6',max:32,pickup:10,drop:6,ammo:true},
+  magnum:{name:'.44 MAGNUM ROUNDS',short:'.44',ic:'◆',c:'#ff2d55',max:18,pickup:4,drop:3,ammo:true},
+  grenades:{name:'40MM GRENADES',short:'40MM',ic:'◉',c:'#b56bff',max:10,pickup:2,drop:1,ammo:true},
+  rockets:{name:'ANTI-TANK ROCKET',short:'ATM',ic:'▸',c:'#ff9f1c',max:3,pickup:1,drop:1,ammo:true},
   herb:{name:'GREEN HERB',short:'HERB',ic:'✚',c:'#7cff9b',max:3},
   spray:{name:'FIRST-AID SPRAY',short:'SPRAY',ic:'▣',c:'#00e5ff',max:2},
   tools:{name:'BARRICADE PARTS',short:'PARTS',ic:'◆',c:'#c9d2e6',max:4},
-  shotgun:{name:'M37 RIOT GUN',short:'M37',ic:'▰',c:'#ff9f1c',max:1},
+  weapon_service:{name:'SLS-9 SERVICE PISTOL',short:'SLS-9',ic:'●',c:'#ffcf3f',weapon:'service'},
+  weapon_riot:{name:'M37 RIOT GUN',short:'M37',ic:'▰',c:'#ff9f1c',weapon:'riot'},
+  weapon_burst:{name:'VP-70 BURST PISTOL',short:'VP-70',ic:'≡',c:'#ffcf3f',weapon:'burst'},
+  weapon_smg:{name:'M5 TACTICAL SMG',short:'M5',ic:'⋮',c:'#00e5ff',weapon:'smg'},
+  weapon_rifle:{name:'S.T.A.R.S. MARKSMAN RIFLE',short:'RIFLE',ic:'⌁',c:'#6ab6d6',weapon:'rifle'},
+  weapon_magnum:{name:'HAWK .44 MAGNUM',short:'HAWK',ic:'◆',c:'#ff2d55',weapon:'magnum'},
+  weapon_grenade:{name:'M79 GRENADE LAUNCHER',short:'M79',ic:'◉',c:'#b56bff',weapon:'grenade'},
+  weapon_rocket:{name:'ATM-4 ROCKET LAUNCHER',short:'ATM-4',ic:'▸',c:'#ff9f1c',weapon:'rocket'},
+  shotgun:{name:'M37 RIOT GUN',short:'M37',ic:'▰',c:'#ff9f1c',weapon:'riot'}, // legacy pickup id
 };
+const OUTBREAK_LEGACY_GUN={pistol:'service',burst:'burst',scatter:'riot',rail:'rifle',bouncer:'service'};
+function outbreakGunId(id){return OUTBREAK_ARSENAL[id]?id:(OUTBREAK_LEGACY_GUN[id]||'service');}
+function outbreakGunDef(id){return OUTBREAK_ARSENAL[outbreakGunId(id)];}
+function outbreakMagCap(g){return g.base==='rocket'?2:g.base==='grenade'?8:g.base==='riot'?10:g.base==='magnum'?12:g.base==='rifle'?18:36;}
+function outbreakWeaponPickupType(id){return`weapon_${outbreakGunId(id)}`;}
+function outbreakApplyRunMods(g){
+  if(!g)return g;const want=campaign&&campaign.weaponMods||{},have=g.appliedMods||(g.appliedMods={});
+  const step=(k,fn)=>{const d=Math.max(0,(want[k]||0)-(have[k]||0));if(d){fn(d);have[k]=(have[k]||0)+d;}};
+  step('power',d=>g.damage*=Math.pow(1.22,d));step('mag',d=>{g.maxAmmo=clamp(g.maxAmmo+d*2,1,outbreakMagCap(g));g.ammo=Math.min(g.ammo,g.maxAmmo);});
+  step('rof',d=>g.cdBase=Math.max(.09,g.cdBase*Math.pow(.84,d)));step('reload',d=>g.regenTime=Math.max(.24,g.regenTime*Math.pow(.82,d)));
+  step('range',d=>g.range=Math.min(850,g.range*Math.pow(1.1,d)));step('pierce',d=>g.pierce=(g.pierce||0)+d);
+  g.tier=Object.values(have).reduce((n,v)=>n+(+v||0),0);return g;
+}
+function outbreakMakeGun(id){
+  id=outbreakGunId(id);const d=OUTBREAK_ARSENAL[id],g={base:id,name:d.name,ammoType:d.ammoType,ammo:d.mag,cdBase:d.cd,bulletSpeed:560*d.vel,maxAmmo:d.mag,regenTime:d.reload,range:d.range,damage:d.damage,pierce:d.pierce||0,blast:d.blast||0,noise:d.noise||6,recoil:d.recoil||70,tier:0,appliedMods:{},wbase:d};return outbreakApplyRunMods(g);
+}
 function outbreakPackCount(p,type){return(p.pack||[]).reduce((n,s)=>n+(s&&s.type===type?s.qty||0:0),0);}
 function outbreakSyncPack(p){
   if(!p||!p.pack)return;p.herbs=outbreakPackCount(p,'herb');p.sprays=outbreakPackCount(p,'spray');p.parts=outbreakPackCount(p,'tools');
   const gun=p.guns&&p.guns[p.gunIndex||0];p.reserve=gun?outbreakPackCount(p,gun.ammoType):outbreakPackCount(p,'ammo');
 }
 function outbreakPackAdd(p,type,qty,quiet=false){
-  const def=OUTBREAK_ITEM_DEF[type];if(!p||!def||qty<=0)return qty;p.pack=p.pack||[];let left=Math.floor(qty),start=left;
+  const def=OUTBREAK_ITEM_DEF[type];if(!p||!def||!def.max||qty<=0)return qty;p.pack=p.pack||[];let left=Math.floor(qty),start=left;
   for(const s of p.pack){if(!s||s.type!==type||s.qty>=def.max)continue;const n=Math.min(left,def.max-s.qty);s.qty+=n;left-=n;if(!left)break;}
   while(left>0&&p.pack.length<OUTBREAK_PACK_SIZE){const n=Math.min(left,def.max);p.pack.push({type,qty:n});left-=n;}
   if(left!==start){p.packRev=(p.packRev||0)+1;outbreakSyncPack(p);}if(left&&!quiet&&p.local)pushFeed(`INVENTORY FULL · ${def.name} LEFT ON GROUND`);return left;
@@ -724,16 +773,13 @@ function outbreakPackTake(p,type,qty){
   const took=wanted-need;if(took){p.packRev=(p.packRev||0)+1;outbreakSyncPack(p);}return took;
 }
 function outbreakPackSnapshot(p){return(p.pack||[]).slice(0,OUTBREAK_PACK_SIZE).map(s=>[s.type,s.qty]);}
-function outbreakLoadPack(p,data){p.pack=(Array.isArray(data)?data:[]).slice(0,OUTBREAK_PACK_SIZE).map(s=>({type:s[0],qty:Math.min(OUTBREAK_ITEM_DEF[s[0]]?.max||0,+s[1]||0)})).filter(s=>OUTBREAK_ITEM_DEF[s.type]&&s.qty>0);outbreakSyncPack(p);}
-function outbreakGunSnapshot(p){if(!p)return[];const active=p.guns&&p.guns[p.gunIndex||0];if(active)active.ammo=p.ammo;return(p.guns||[]).map(g=>[g.base,g.ammoType,g.ammo,+g.cdBase.toFixed(3),Math.round(g.bulletSpeed),g.maxAmmo,+g.regenTime.toFixed(3),g.name,g.riot?1:0,g.range||480]);}
+function outbreakLoadPack(p,data){p.pack=(Array.isArray(data)?data:[]).slice(0,OUTBREAK_PACK_SIZE).map(s=>({type:s[0],qty:Math.min(OUTBREAK_ITEM_DEF[s[0]]?.max||0,+s[1]||0)})).filter(s=>OUTBREAK_ITEM_DEF[s.type]?.max&&s.qty>0);outbreakSyncPack(p);}
+function outbreakGunSnapshot(p){if(!p)return[];const active=p.guns&&p.guns[p.gunIndex||0];if(active)active.ammo=p.ammo;return(p.guns||[]).map(g=>({v:2,id:g.base,ammo:g.ammo,cd:+(g.cdBase||.3).toFixed(4),speed:Math.round(g.bulletSpeed||560),mag:g.maxAmmo||1,reload:+(g.regenTime||.72).toFixed(4),range:Math.round(g.range||480),damage:+(g.damage||1).toFixed(3),pierce:g.pierce||0,blast:g.blast||0,noise:g.noise||6,recoil:g.recoil||70,tier:g.tier||0,mods:{...(g.appliedMods||{})}}));}
 function outbreakLoadGuns(p,data,index=0){
-  if(!p||!Array.isArray(data)||!data.length)return;p.guns=data.map(a=>{const base=a[0]&&WEAPONS[a[0]]?a[0]:'pistol',wb=WEAPONS[base];return{base,ammoType:a[1]||'ammo',ammo:+a[2]||0,cdBase:+a[3]||wb.cd,bulletSpeed:+a[4]||560*wb.vel,maxAmmo:+a[5]||wb.mag,regenTime:+a[6]||.72,name:a[7]||wb.name.toUpperCase(),riot:!!a[8],range:+a[9]||(base==='scatter'?310:480),wbase:wb};});
-  p.gunIndex=clamp(+index||0,0,p.guns.length-1);const g=p.guns[p.gunIndex];p.ld=p.ld||{};p.ld.wbase=g.wbase;p.ld.cdBase=g.cdBase;p.ld.bulletSpeed=g.bulletSpeed;p.ld.maxAmmo=g.maxAmmo;p.ld.regenTime=g.regenTime;p.ammo=g.ammo;outbreakSyncPack(p);
+  if(!p||!Array.isArray(data)||!data.length)return;p.guns=data.slice(0,2).map(a=>{if(!Array.isArray(a)){const g=outbreakMakeGun(a.id);g.ammo=clamp(Number.isFinite(+a.ammo)?+a.ammo:g.ammo,0,+a.mag||g.maxAmmo);g.cdBase=+a.cd||g.cdBase;g.bulletSpeed=+a.speed||g.bulletSpeed;g.maxAmmo=clamp(+a.mag||g.maxAmmo,1,outbreakMagCap(g));g.regenTime=+a.reload||g.regenTime;g.range=+a.range||g.range;g.damage=+a.damage||g.damage;g.pierce=+a.pierce||0;g.blast=+a.blast||0;g.noise=+a.noise||g.noise;g.recoil=+a.recoil||g.recoil;g.tier=+a.tier||0;g.appliedMods={...(a.mods||{})};return g;}const id=outbreakGunId(a[0]),g=outbreakMakeGun(id);g.ammo=clamp(Number.isFinite(+a[2])?+a[2]:g.ammo,0,+a[5]||g.maxAmmo);g.cdBase=+a[3]||g.cdBase;g.bulletSpeed=+a[4]||g.bulletSpeed;g.maxAmmo=clamp(+a[5]||g.maxAmmo,1,outbreakMagCap(g));g.regenTime=+a[6]||g.regenTime;g.name=a[7]||g.name;g.range=+a[9]||g.range;return g;});
+  p.gunIndex=clamp(Math.floor(+index||0),0,p.guns.length-1);outbreakRefreshActiveGun(p);
 }
-function outbreakCaptureGun(p){
-  const wb=p.ld.wbase||WEAPONS.pistol,base=(Object.keys(WEAPONS).find(k=>WEAPONS[k]===wb)||'pistol');
-  return{base,name:(WEAPONS[base]||wb).name.toUpperCase(),ammoType:'ammo',range:base==='scatter'?310:480,wbase:WEAPONS[base]||wb,cdBase:p.ld.cdBase,bulletSpeed:p.ld.bulletSpeed,maxAmmo:p.ld.maxAmmo,regenTime:p.ld.regenTime,ammo:p.ammo};
-}
+function outbreakCaptureGun(){return outbreakMakeGun('service');}
 function outbreakApplyGun(p,index,quiet=false){
   if(!p||!p.guns||!p.guns[index])return false;const changed=index!==(p.gunIndex||0),old=p.guns[p.gunIndex||0];if(old){old.ammo=p.ammo;old.cdBase=p.ld.cdBase;old.bulletSpeed=p.ld.bulletSpeed;old.maxAmmo=p.ld.maxAmmo;old.regenTime=p.ld.regenTime;}if(changed){p.reloadT=0;p.burst=0;p.burstT=0;}
   const g=p.guns[index];p.gunIndex=index;p.ld.wbase=g.wbase;p.ld.cdBase=g.cdBase;p.ld.bulletSpeed=g.bulletSpeed;p.ld.maxAmmo=g.maxAmmo;p.ld.regenTime=g.regenTime;p.ammo=clamp(g.ammo||0,0,g.maxAmmo);outbreakSyncPack(p);if(!quiet&&p.local)pushFeed(`${g.name} EQUIPPED · ${p.ammo}/${p.reserve}`);return true;
@@ -744,24 +790,27 @@ function outbreakModifyGuns(p,fn){
   else fn(p.ld);
 }
 function outbreakTopUp(p,type,want){const have=outbreakPackCount(p,type);return outbreakPackAdd(p,type,Math.max(0,want-have),true);}
-function outbreakUnlockShotgun(p){
-  if(!p)return false;const existing=(p.guns||[]).findIndex(g=>g.riot);if(existing>=0){outbreakPackAdd(p,'shells',6);return true;}
-  if(outbreakPackAdd(p,'shotgun',1,true)>0){if(p.local)pushFeed('INVENTORY FULL · LEAVE A SLOT FOR THE RIOT GUN');return false;}
-  const primary=(p.guns&&p.guns[0])||outbreakCaptureGun(p),wb=WEAPONS.scatter,rof=Math.max(.55,primary.wbase.cd/primary.cdBase),vel=Math.max(.7,primary.bulletSpeed/(560*primary.wbase.vel)),mag=Math.max(1,primary.maxAmmo/primary.wbase.mag);
-  p.guns=p.guns||[];p.guns.push({base:'scatter',name:'M37 RIOT GUN',ammoType:'shells',riot:true,range:290,wbase:wb,cdBase:wb.cd/rof,bulletSpeed:560*vel*wb.vel,maxAmmo:clamp(Math.round(wb.mag*mag),2,6),regenTime:primary.regenTime*1.25,ammo:2});outbreakPackAdd(p,'shells',8,true);outbreakSyncPack(p);if(p.local)pushFeed('M37 RIOT GUN ACQUIRED · G TO SWAP');return true;
+function outbreakRelevantAmmo(p){const guns=p&&p.guns||[],types=[...new Set(guns.map(g=>g.ammoType).filter(t=>OUTBREAK_ITEM_DEF[t]?.ammo))];return types.length?pick(types):'ammo';}
+function outbreakGrantWeapon(p,id,replace=false,source=null){
+  if(!p)return false;id=outbreakGunId(id);p.guns=p.guns||[];const existing=p.guns.findIndex(g=>g.base===id),d=OUTBREAK_ARSENAL[id],ammoDef=OUTBREAK_ITEM_DEF[d.ammoType],dropped=source&&source.gunState;
+  const bonus=dropped?clamp(Math.floor(dropped.ammo||0),0,dropped.maxAmmo||0):(source&&!source.bonusAmmo?0:ammoDef.pickup);
+  if(existing>=0){if(!bonus)return false;const left=outbreakPackAdd(p,d.ammoType,bonus,true);if(left===bonus)return false;if(p.local)pushFeed(`${d.short} AMMUNITION RECOVERED · +${bonus-left}`);return true;}
+  const g=dropped?{...dropped,base:id,name:d.name,ammoType:d.ammoType,wbase:d,appliedMods:{...(dropped.appliedMods||{})}}:outbreakMakeGun(id);
+  g.ammo=clamp(g.ammo||0,0,g.maxAmmo);if(p.guns.length<2){p.guns.push(g);outbreakApplyGun(p,p.guns.length-1,true);}else{if(!replace)return false;const slot=p.gunIndex||0,old=p.guns[slot];old.ammo=p.ammo;p.guns[slot]=g;p.reloadT=0;p.burst=0;p.burstT=0;p.gunIndex=slot;outbreakRefreshActiveGun(p);if(source){const drop=makeOutbreakPickup(source.x+28,source.y,outbreakWeaponPickupType(old.base),120);drop.gunState={...old,wbase:outbreakGunDef(old.base),appliedMods:{...(old.appliedMods||{})}};drop.bonusAmmo=false;drop.rejectUntil=tnow()+1200;pickups.push(drop);}if(p.local)pushFeed(`${old.name} REPLACED`);}
+  if(!dropped&&bonus)outbreakPackAdd(p,d.ammoType,bonus,true);outbreakRefreshActiveGun(p);if(p.local)pushFeed(`${d.name} ACQUIRED · G CYCLES WEAPONS`);return true;
 }
+function outbreakUnlockShotgun(p){return outbreakGrantWeapon(p,'riot');}
 function outbreakInitRunLoadout(p){
-  p.pack=[];p.packRev=0;p.guns=[outbreakCaptureGun(p)];p.gunIndex=0;outbreakPackAdd(p,'ammo',p.outbreakStartReserve||p.ld.maxAmmo*4,true);outbreakPackAdd(p,'herb',1,true);if(p.outbreakStartParts)outbreakPackAdd(p,'tools',p.outbreakStartParts,true);outbreakApplyGun(p,0,true);
+  const h=OUTBREAK_HEROES[p.hero]||OUTBREAK_HEROES.mara,g=outbreakMakeGun(h.kit||'service');p.pack=[];p.packRev=0;p.guns=[g];p.gunIndex=0;outbreakRefreshActiveGun(p);outbreakPackAdd(p,g.ammoType,Math.ceil(g.maxAmmo*3*(h.reserve||1)),true);outbreakPackAdd(p,'herb',1,true);for(const [type,qty] of Object.entries(h.startPack||{}))outbreakPackAdd(p,type,qty,true);outbreakRefreshActiveGun(p);
 }
 function makeOutbreakPickup(x,y,type,life=70,qty=null){return{uid:'pk'+(++pickupSerial),x,y,r:9,type,qty:qty==null?null:qty,alive:true,life,wob:0};}
 function outbreakUsePackSlot(p,index){
   const s=p&&p.pack&&p.pack[index];if(!s)return false;if(s.type==='herb'||s.type==='spray')return useOutbreakHeal(p,s.type);
-  if(s.type==='shotgun'){const i=p.guns.findIndex(g=>g.riot);return i>=0&&outbreakApplyGun(p,i);}
-  if(s.type==='ammo'||s.type==='shells'){const i=p.guns.findIndex(g=>g.ammoType===s.type);if(i>=0&&i!==p.gunIndex)outbreakApplyGun(p,i);beginReload(p);return true;}
+  const def=OUTBREAK_ITEM_DEF[s.type];if(def&&def.ammo){const active=p.guns[p.gunIndex||0],i=active&&active.ammoType===s.type?(p.gunIndex||0):p.guns.findIndex(g=>g.ammoType===s.type);if(i>=0&&i!==p.gunIndex)outbreakApplyGun(p,i);if(i>=0)beginReload(p);return i>=0;}
   if(s.type==='tools'){if(p.local)pushFeed('PARTS · USED TO FORTIFY THE HUB AND FIELD POSITIONS');return false;}return false;
 }
 function outbreakDropPackSlot(p,index){
-  const s=p&&p.pack&&p.pack[index];if(!s||s.type==='shotgun')return false;const ammoGun=(p.guns||[]).find(g=>g.ammoType===s.type),qty=s.type==='ammo'?Math.min(s.qty,(ammoGun?ammoGun.maxAmmo:p.ld.maxAmmo)*2):s.type==='shells'?Math.min(s.qty,4):1,took=outbreakPackTake(p,s.type,qty);if(!took)return false;
+  const s=p&&p.pack&&p.pack[index],def=s&&OUTBREAK_ITEM_DEF[s.type];if(!s||!def)return false;const qty=Math.min(s.qty,def.drop||1),took=outbreakPackTake(p,s.type,qty);if(!took)return false;
   pickups.push(makeOutbreakPickup(p.x+Math.cos(p.aim)*34,p.y+Math.sin(p.aim)*34,s.type,75,took));if(p.local)pushFeed(`DROPPED ${took} ${OUTBREAK_ITEM_DEF[s.type].name}`);return true;
 }
 function randBotAlloc(){ const a={spd:0,rof:0,vel:0,mag:0,rld:0,vit:0}, ks=Object.keys(a);
@@ -1073,21 +1122,30 @@ function waveTypes(w){
   if(w>=7) add('regenerator', (w-6)*0.22);
   return t;
 }
-// roguelite between-wave picks. each(p) hits every defender's live loadout; once() fires a single global effect
+function outbreakUpgradeLevel(k){return campaign&&campaign.upgradeCounts&&campaign.upgradeCounts[k]||0;}
+function outbreakUpgradeArsenal(k){
+  if(!campaign)return;if(!campaign.open){for(const p of players.filter(Boolean)){if(k==='mag')p.ld.maxAmmo=clamp(p.ld.maxAmmo+2,1,14);else if(k==='rof')p.ld.cdBase*=.8;else if(k==='reload')p.ld.regenTime*=.77;else if(k==='pierce')p.pierce=(p.pierce||0)+1;}return;}
+  campaign.weaponMods=campaign.weaponMods||{};campaign.weaponMods[k]=(campaign.weaponMods[k]||0)+1;for(const p of players.filter(Boolean))outbreakModifyGuns(p,g=>outbreakApplyRunMods(g));
+}
+function outbreakUpgradePreview(u,g){
+  if(!u.weapon||!g)return u.desc;const f=n=>Number(n).toFixed(n<2?2:1);if(u.weapon==='power')return`DAMAGE ${f(g.damage)} → ${f(g.damage*1.22)}`;if(u.weapon==='mag')return`MAGAZINE ${g.maxAmmo} → ${Math.min(outbreakMagCap(g),g.maxAmmo+2)}`;if(u.weapon==='rof')return`ATTACK ${g.cdBase.toFixed(2)}s → ${Math.max(.09,g.cdBase*.84).toFixed(2)}s`;if(u.weapon==='reload')return`RELOAD ${g.regenTime.toFixed(2)}s → ${Math.max(.24,g.regenTime*.82).toFixed(2)}s`;if(u.weapon==='range')return`RANGE ${Math.round(g.range)} → ${Math.min(850,Math.round(g.range*1.1))}`;if(u.weapon==='pierce')return`PENETRATION ${g.pierce||0} → ${(g.pierce||0)+1}`;return u.desc;
+}
+// Main objectives award a WC3-style squad draft. Weapon mods are capped, visible, and also apply to guns found later.
 const ZUPGRADES = [
-  { k:'mag',    ic:'🔫', name:'Extended Mags',   desc:'+2 max ammo',          each:p=>outbreakModifyGuns(p,g=>{g.maxAmmo=clamp(g.maxAmmo+2,1,g.base==='scatter'?8:14);}) },
-  { k:'rof',    ic:'⚡', name:'Trigger Job',      desc:'+25% fire rate',       each:p=>outbreakModifyGuns(p,g=>{g.cdBase*=0.8;}) },
-  { k:'rld',    ic:'🔋', name:'Fast Hands',       desc:'+30% reload speed',    each:p=>outbreakModifyGuns(p,g=>{g.regenTime*=0.77;}) },
-  { k:'spd',    ic:'💨', name:'Adrenaline',       desc:'+15% move speed',      each:p=>{ p.ld.accel *= 1.15; p.ld.maxV *= 1.15; } },
-  { k:'pierce', ic:'🎯', name:'Piercing Rounds',  desc:'shots pierce +1 enemy',each:p=>{ p.pierce = (p.pierce||0)+1; } },
-  { k:'cdr',    ic:'⏱️', name:'Capacitor',        desc:'-25% gadget cooldown', each:p=>{ if(p.ld.gadget) p.ld.gadget.cd *= 0.75; } },
-  { k:'vel',    ic:'📡', name:'Hot Loads',        desc:'+20% muzzle velocity', each:p=>outbreakModifyGuns(p,g=>{g.bulletSpeed*=1.2;}) },
-  { k:'life',   ic:'❤️', name:'Reinforcements',   desc:'+2 reinforcement lives', once:()=>{ campaign.lives += 2; } },
-  { k:'heal',   ic:'🚑', name:'Rescue Op',        desc:'call in 3 survivors', once:()=>{
+  { k:'power',  ic:'◆', name:'Firepower',       desc:'+22% weapon damage',weapon:'power',max:3,outbreakOnly:true,once:()=>outbreakUpgradeArsenal('power') },
+  { k:'mag',    ic:'▤', name:'Capacity',        desc:'+2 magazine capacity',weapon:'mag',max:3,once:()=>outbreakUpgradeArsenal('mag') },
+  { k:'rof',    ic:'⚡', name:'Cycling',         desc:'-16% attack interval',weapon:'rof',max:3,once:()=>outbreakUpgradeArsenal('rof') },
+  { k:'reload', ic:'↻', name:'Reload',          desc:'-18% reload time',weapon:'reload',max:3,once:()=>outbreakUpgradeArsenal('reload') },
+  { k:'range',  ic:'⌁', name:'Long Barrel',     desc:'+10% attack range',weapon:'range',max:3,outbreakOnly:true,once:()=>outbreakUpgradeArsenal('range') },
+  { k:'pierce', ic:'◎', name:'AP Ammunition',   desc:'shots pierce +1 infected',weapon:'pierce',max:2,once:()=>outbreakUpgradeArsenal('pierce') },
+  { k:'spd',    ic:'»', name:'Adrenaline',       desc:'+15% move speed',max:2,each:p=>{p.ld.accel*=1.15;p.ld.maxV*=1.15;} },
+  { k:'cdr',    ic:'◇', name:'Capacitor',        desc:'-25% gadget cooldown',max:2,each:p=>{if(p.ld.gadget)p.ld.gadget.cd*=.75;} },
+  { k:'life',   ic:'✚', name:'Reinforcements',   desc:'+2 reinforcement lives',max:2,once:()=>{campaign.lives+=2;} },
+  { k:'heal',   ic:'⚕', name:'Rescue Op',        desc:'call in 3 survivors',max:2,once:()=>{
       const live = players.filter(p=>p&&p.alive), a = live.length?pick(live):{x:HUB.x,y:HUB.y};
       for(let i=0;i<3;i++){ const c=spawnCitizen(); c.x=a.x+rand(-60,60); c.y=a.y+rand(-60,60);
         if(campaign.open && a.i!=null) c.following=a.i; citizens.push(c); } } },
-  { k:'wall',   ic:'🧱', name:'Barricades',       desc:'drop cover around town', once:()=>{ addBarricades(); } },
+  { k:'wall',   ic:'▦', name:'Barricades',       desc:'drop cover around the squad',max:2,once:()=>{addBarricades();} },
 ];
 function addBarricades(){
   // arena: ring the town center; open world: deployable cover around a live defender
@@ -1107,10 +1165,11 @@ function renderOutbreakBriefing(){
   state='briefing'; netCloseAll(true); lobbyCleanup(); const selected=OUTBREAK_HEROES[save.outbreakHero]?save.outbreakHero:'mara',touchOnly=isTouch&&!hasFinePointer;
   $('#arena').innerHTML=`<div class="menu" style="width:min(96vw,1040px)"><div class="tag">RACCOON OUTBREAK · SELECT YOUR PROTAGONIST</div>
     <div class="gtitle" style="font-size:clamp(30px,6vw,62px);color:var(--gold)">Who goes back in?</div>
-    <div class="note" style="color:var(--dim)">SIX PLAYABLE SURVIVORS · ${touchOnly?'TWIN-STICK SURVIVAL CONTROL':'POINT-AND-CLICK TACTICAL CONTROL'} · FOCUS FIRE · SIX-SLOT FIELD PACK · TWO WEAPONS · BREACHABLE COMPOUNDS · LINE-OF-SIGHT FOG · 64K CITY</div>
+    <div class="note" style="color:var(--dim)">SIX CLASS LOADOUTS · EIGHT-WEAPON ARSENAL · TWO DEDICATED WEAPON SLOTS · SIX-SLOT FIELD PACK · CAPPED ARMORY UPGRADES · ${touchOnly?'TWIN-STICK CONTROL':'WC3 TACTICAL CONTROL'} · 64K CITY</div>
     <div class="hero-grid">${Object.entries(OUTBREAK_HEROES).map(([k,h])=>`<button class="hero-card ${k===selected?'selected':''}" data-hero="${k}" style="--hero:${h.color}">
       <div class="hero-head"><div class="hero-portrait">${esc(h.short)}</div><div><h4>${esc(h.name)}</h4><div class="hero-class">${esc(h.role)}</div></div></div>
-      <div class="hero-bio">${esc(h.bio)}</div><div class="hero-perk">◆ ${esc(h.perk)}</div></button>`).join('')}</div>
+      <div class="hero-bio">${esc(h.bio)}</div><div class="hero-perk">◆ ${esc(h.perk)}</div><div class="hero-kit"><b>STARTING LOADOUT</b>${esc(OUTBREAK_ARSENAL[h.kit||'service'].name)} · ${OUTBREAK_ARSENAL[h.kit||'service'].mag} ROUND MAG · ${esc(OUTBREAK_ITEM_DEF[OUTBREAK_ARSENAL[h.kit||'service'].ammoType].short)}</div></button>`).join('')}</div>
+    <div class="arsenal-strip">${Object.values(OUTBREAK_ARSENAL).map(g=>`<div class="arsenal-chip"><b>${esc(g.ic)} ${esc(g.name)}</b>${esc(g.desc)} · ${esc(OUTBREAK_ITEM_DEF[g.ammoType].short)}</div>`).join('')}</div>
     <div class="modes"><button class="mbtn bg" id="briefDeploy"><b>ENTER</b> BEGIN THE STORY<span>${touchOnly?'move · fire · use · scavenge, equip, breach':'select · smart-order · auto-attack · scavenge, equip, breach'}</span></button><button class="mbtn sm" id="briefBack"><b>ESC</b> BACK</button></div></div>`;
   let pickKey=selected; const choose=k=>{pickKey=k;save.outbreakHero=k;persist();document.querySelectorAll('.hero-card').forEach(b=>b.classList.toggle('selected',b.dataset.hero===k));};
   document.querySelectorAll('.hero-card').forEach(b=>b.onclick=()=>choose(b.dataset.hero));
@@ -1130,6 +1189,7 @@ function applyOutbreakHero(p){
 }
 function beginCampaign(){                 // shared solo + co-op; assumes `players` already built
   gmode='zombies'; clearTimers(); endStandings=null; state='play'; roundLive=false; freezeT=0;
+  touch.caseFile=false;
   resetOutbreakCommand();
   bullets=[]; parts=[]; feed=[]; citizens=[]; zombies=[]; zshots=[]; pickups=[]; teamScore=[0,0];
   const list = players.filter(Boolean), np = list.length, open = openWorld;
@@ -1140,19 +1200,19 @@ function beginCampaign(){                 // shared solo + co-op; assumes `playe
     campaign = { open:true, wave:1, lives:2+np, goal:12, rescued:0, escorting:0, np, waveTimer:62, waveClearedT:0,
       phase:0, cutters:false,vehicle:false,keycard:false, serum:false, subway:false,transit:false,fuse:false, power:false, radio:false, fuel:false, armory:false,
       pharmacy:false,gunshop:false,firestation:false,church:false,motel:false,terminal:false,optionalDone:0,
-      truth:false, alert:0, alertName:'', noise:0, eventTimer:32, blackout:0, files:0, caches:0, searched:[],rescuedNames:[],
+      truth:false, alert:0, alertName:'', noise:0, eventTimer:32, blackout:0, files:0, caches:0, searched:[],rescuedNames:[],weaponMods:{},upgradeCounts:{},upgradeLog:[],
       districts:[],district:'CIVIC CENTER',ops:0,distance:0,lastPX:HUB.x,lastPY:HUB.y,
       siegeStarted:false, siegeTimer:60, finaleStage:0, combo:0, comboT:0, best:0, upgrading:false,cinematic:false,endingPlayed:false };
     WORLD.w = 64000; WORLD.h = 64000;
     resetMissionSites();
     spawns = []; for(let i=0;i<6;i++){ const a=i/6*TAU; spawns.push({x:HUB.x+Math.cos(a)*90, y:HUB.y+Math.sin(a)*90}); }  // respawn ring INSIDE the hub (not stale arena points)
     ensureChunks([HUB]);                                     // hub + immediate ring
-    list.forEach((p,i)=>{ const a=i/Math.max(1,np)*TAU;
+    list.forEach((p,i)=>{ const a=i/Math.max(1,np)*TAU;p.ld=cloneResolvedLoadout(p.baseLd||p.ld);p.heroBuildApplied=false;
       p.x=HUB.x+Math.cos(a)*(np>1?70:0); p.y=HUB.y+70+Math.sin(a)*(np>1?40:0);
-      p.vx=p.vy=0; p.alive=true; p.shield=2.6; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.gcd=0; p.ocT=0; p.phaseT=0;
+      p.vx=p.vy=0; p.alive=true; p.shield=2.6; p.ammo=p.ld.maxAmmo; p.cd=0; p.regen=0; p.burst=0;p.burstT=0;p.gcd=0; p.ocT=0; p.phaseT=0;
       p.maxHp=clamp(100+Math.round(((p.ld.spawnShield||0.9)-0.9)*22),100,140); p.hp=p.maxHp; p.infection=0; p.hurtCd=0;
       p.reserve=0; p.reloadT=0; p.herbs=0; p.sprays=0; p.parts=0; p.downed=false; p.bleedout=0; p.reviveProg=0; p.revives=0;
-      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; p.interactLatch=false; p.healLatch=false; applyOutbreakHero(p);outbreakInitRunLoadout(p); });
+      p.kills=0; p.matchExp=0; p.deaths=0; p.pierce=0; p.interactLatch=false;p.useLatch=false;p.dropLatch=false;p.abLatch=false; p.healLatch=false; applyOutbreakHero(p);outbreakInitRunLoadout(p); });
     ensureChunks(list.map(p=>({x:p.x,y:p.y})));
   } else {
     campaign = { wave:0, maxWave:8, lives:2+np, citizensStart:14, goal:6, waveClearedT:0, np,
@@ -1220,7 +1280,7 @@ function missionObjective(){
   if(campaign.phase===6) return {case:'ACT VII', text:`PREPARE EVAC · ${campaign.rescued}/${campaign.goal}`, sub:campaign.files>=OUTBREAK_FILES.length&&!campaign.truth?'secret coordinates decrypted · investigate Lab B-12':campaign.fuel?'aviation fuel secured · extract survivors':'raid the north freight depot for aviation fuel'};
   if(!campaign.siegeStarted) return campaign.finalReady==null
     ? {case:'FINAL CASE',text:'RETURN TO THE HUB',sub:'evacuation is inbound'}
-    : {case:'FINAL CASE',text:`FORTIFY THE HUB · ${Math.max(0,Math.ceil(campaign.finalReady))}s`,sub:campaign.barricaded?'barricades deployed · prepare for contact':'hold F with 2 parts to deploy barricades'};
+    : {case:'FINAL CASE',text:`FORTIFY THE HUB · ${Math.max(0,Math.ceil(campaign.finalReady))}s`,sub:campaign.barricaded?'barricades deployed · prepare for contact':`${isTouch&&!hasFinePointer?'hold USE':'right-click the hub'} with 2 parts to deploy barricades`};
   return {case:'FINAL CASE', text:`HOLD THE HUB · ${Math.max(0,Math.ceil(campaign.siegeTimer))}s`, sub:zombies.some(z=>z.boss)?'eliminate the Tyrant':'keep the landing zone clear'};
 }
 function spawnNearPoint(pt, level, ti, hpBonus, minD=380, maxD=620){
@@ -1238,6 +1298,7 @@ function spawnSiteSurvivors(s,n,forcedRole,forcedName){
     c.x=s.x+Math.cos(a)*rand(56,90); c.y=s.y+Math.sin(a)*rand(56,90); if(forcedRole&&i===0)c.role=forcedRole;if(forcedName&&i===0)c.name=forcedName; citizens.push(c); }
 }
 function sitePickup(s,type,dx,life=40,qty=null){ pickups.push(makeOutbreakPickup(s.x+dx,s.y+58,type,life,qty)); }
+function siteWeaponCases(s,id){const squad=players.filter(Boolean),n=Math.max(1,squad.length);for(let i=0;i<n;i++){const pk=makeOutbreakPickup(s.x+(i-(n-1)/2)*34,s.y+58,outbreakWeaponPickupType(id),150);pk.claim=squad[i]&&squad[i].i;pk.bonusAmmo=true;pickups.push(pk);}}
 function activateSiteDefense(s){
   if(s.awake)return;s.awake=true;const ti=ZI[s.elite]??ZI.walker,n=s.guards||8,level=save.level+Math.max(1,campaign.wave)+Math.max(0,s.main||0);
   for(let i=0;i<n;i++){const roster=waveTypes(Math.max(2,campaign.wave+(s.main||0))),zti=i===0?ti:roster[irand(0,roster.length-1)];spawnNearPoint(s,level,zti,zti===ti?3:0,170,380);}
@@ -1248,22 +1309,21 @@ function completeMissionSite(s){
   s.captured=true; s.prog=1; s.contested=false; sfxUpgrade(); flashScreen('#ffcf3f');let storyKey=null;
   if(s.optional&&!s.secret){campaign.optionalDone=(campaign.optionalDone||0)+1;players.filter(Boolean).forEach(p=>p.matchExp+=55);}
   if(s.k==='crash'){
-    campaign.cutters=true;campaign.vehicle=true; campaign.phase=1; spawnSiteSurvivors(s,1,'cop','Officer Eli Danner'); sitePickup(s,'ammo',-34,90);sitePickup(s,'shotgun',0,120);sitePickup(s,'shells',34,120,8);sitePickup(s,'tools',62,90);
+    campaign.cutters=true;campaign.vehicle=true; campaign.phase=1; spawnSiteSurvivors(s,1,'cop','Officer Eli Danner'); sitePickup(s,'ammo',-34,90);siteWeaponCases(s,'riot');sitePickup(s,'shells',34,120,8);sitePickup(s,'tools',62,90);
     objectiveHorde(s,5,'CONVOY TRANSPONDER'); pushFeed('KEY ITEM — BOLT CUTTERS · RIOT GUN FOUND IN THE WRECK');
     storyKey='crash';
   } else if(s.k==='clinic'){
     campaign.keycard=true; campaign.serum=true; campaign.phase=2; spawnSiteSurvivors(s,2,'medic','Dr. Aya Bell');
-    sitePickup(s,'herb',-24,70); sitePickup(s,'spray',0,70); sitePickup(s,'ammo',24,70);
-    objectiveHorde(s,8,'CLINIC ALARM'); pushFeed('KEY ITEMS — CITY KEYCARD · ANTIVIRAL PROTOCOL');
+    sitePickup(s,'herb',-38,70); sitePickup(s,'spray',-14,70); sitePickup(s,'ammo',14,70);siteWeaponCases(s,'burst');
+    objectiveHorde(s,8,'CLINIC ALARM'); pushFeed('KEY ITEMS — CITY KEYCARD · ANTIVIRAL PROTOCOL · VP-70 CASE');
     storyKey='clinic';
   } else if(s.k==='station'){
-    campaign.subway=true;campaign.transit=true;campaign.phase=3;spawnSiteSurvivors(s,3,'engineer','Raul Mendez');sitePickup(s,'tools',-24,80);sitePickup(s,'ammo',0,80);sitePickup(s,'herb',24,80);
-    objectiveHorde(s,13,'CENTRAL STATION SIREN');for(let i=0;i<3;i++)spawnNearPoint(s,save.level+4,ZI.hound,1,240,430);pushFeed('SERVICE TRUCK ONLINE — major roads grant high-speed travel');storyKey='station';
+    campaign.subway=true;campaign.transit=true;campaign.phase=3;spawnSiteSurvivors(s,3,'engineer','Raul Mendez');sitePickup(s,'tools',-36,80);sitePickup(s,'rifle',0,80);sitePickup(s,'herb',36,80);siteWeaponCases(s,'rifle');
+    objectiveHorde(s,13,'CENTRAL STATION SIREN');for(let i=0;i<3;i++)spawnNearPoint(s,save.level+4,ZI.hound,1,240,430);pushFeed('SERVICE TRUCK ONLINE · S.T.A.R.S. RIFLE CASE SECURED');storyKey='station';
   } else if(s.k==='armory'){
-    campaign.armory=true; for(const p of players){ if(!p) continue; p.pierce=(p.pierce||0)+1;outbreakModifyGuns(p,g=>{g.maxAmmo=clamp(g.maxAmmo+2,1,g.base==='scatter'?8:14);g.ammo=g.maxAmmo;});p.ammo=p.ld.maxAmmo; }
-    sitePickup(s,'ammo',-28,75); sitePickup(s,'ammo',0,75); sitePickup(s,'spray',28,75); objectiveHorde(s,11,'RPD SECURITY ALARM');
-    pushFeed('RPD ARMORY — AP rounds and magazines secured');
-    showAnnounce('<div class="eyebrow">OPTIONAL CASE COMPLETE</div><div class="gtitle" style="color:#00e5ff">RPD Armory</div><div class="gtip">Squad magazines +2 · shots pierce +1 target · AP rounds damage the Tyrant twice</div>',2200);
+    campaign.armory=true;sitePickup(s,'magnum',-32,90,6);siteWeaponCases(s,'magnum');sitePickup(s,'spray',32,75);objectiveHorde(s,11,'RPD SECURITY ALARM');
+    pushFeed('RPD ARMORY — HAWK .44 CASE AND FREE BENCH MOD SECURED');
+    showAnnounce('<div class="eyebrow">OPTIONAL CASE COMPLETE</div><div class="gtitle" style="color:#00e5ff">RPD Armory</div><div class="gtip">Hawk .44 weapon cases · rare ammunition · choose one visible armory upgrade</div>',1800);after(1850,()=>{if(state==='play'&&!campaign.upgrading)offerUpgrade('armory');});
   } else if(s.k==='sewer'){
     campaign.fuse=true; campaign.phase=4; spawnSiteSurvivors(s,1,'engineer','Kenji Sato'); sitePickup(s,'antidote',-18,65); sitePickup(s,'tools',18,65);
     objectiveHorde(s,11,'SEWER FLOODGATE'); for(let i=0;i<3;i++)spawnNearPoint(s,save.level+3,ZI.spitter,1,300,480);
@@ -1278,14 +1338,14 @@ function completeMissionSite(s){
     objectiveHorde(s,16,'EVAC SIGNAL'); pushFeed('EVAC CALLED — fuel the helicopter and rescue survivors');
     storyKey='radio';
   } else if(s.k==='depot'){
-    campaign.fuel=true;spawnSiteSurvivors(s,1,'engineer','June Hale'); sitePickup(s,'ammo',-25,75); sitePickup(s,'spray',0,75); sitePickup(s,'tools',25,75);
+    campaign.fuel=true;spawnSiteSurvivors(s,1,'engineer','June Hale'); sitePickup(s,'grenades',-25,90,3); sitePickup(s,'spray',0,75); sitePickup(s,'tools',25,75);siteWeaponCases(s,'grenade');
     objectiveHorde(s,15,'DEPOT FIRE ALARM'); for(let i=0;i<3;i++)spawnNearPoint(s,save.level+5,ZI.bloater,1,300,520);
-    pushFeed('KEY ITEM — AVIATION FUEL');
+    pushFeed('KEY ITEM — AVIATION FUEL · M79 CASE SECURED');
     storyKey='depot';
   } else if(s.k==='pharmacy'){
     campaign.pharmacy=true;for(const p of players){if(!p)continue;outbreakPackAdd(p,'herb',2,true);outbreakPackAdd(p,'spray',1,true);p.infection=Math.max(0,p.infection-25);}sitePickup(s,'antidote',-22,90);sitePickup(s,'herb',22,90);pushFeed('FOX PARK PHARMACY — squad medical stock secured');
   } else if(s.k==='gunshop'){
-    campaign.gunshop=true;for(const p of players){if(!p)continue;outbreakModifyGuns(p,g=>{g.maxAmmo=clamp(g.maxAmmo+1,1,g.base==='scatter'?8:14);g.cdBase*=.9;});outbreakPackAdd(p,'ammo',p.guns[0].maxAmmo*4,true);if(p.guns.some(g=>g.ammoType==='shells'))outbreakPackAdd(p,'shells',8,true);}sitePickup(s,'ammo',-20,90);sitePickup(s,'ammo',20,90);pushFeed('KENDO GUN SHOP — tuned weapons and ammunition secured');
+    campaign.gunshop=true;siteWeaponCases(s,'smg');sitePickup(s,'ammo',-34,90,24);sitePickup(s,'ammo',34,90,24);pushFeed('KENDO GUN SHOP — M5 CASES AND FREE BENCH MOD SECURED');after(2250,()=>{if(state==='play'&&!campaign.upgrading)offerUpgrade('kendo');});
   } else if(s.k==='firestation'){
     campaign.firestation=true;campaign.lives+=2;for(const p of players){if(p)outbreakPackAdd(p,'tools',3,true);}addBarricades();pushFeed('FIRE STATION — rescue gear and 2 reinforcements secured');
   } else if(s.k==='church'){
@@ -1293,14 +1353,14 @@ function completeMissionSite(s){
   } else if(s.k==='motel'){
     campaign.motel=true;for(const dx of [-42,-14,14,42])sitePickup(s,dx<0?'ammo':'herb',dx,95);spawnSiteSurvivors(s,3,'civilian','Nora Price');pushFeed('GARDEN MOTEL — hidden survivor cache recovered');
   } else if(s.k==='terminal'){
-    campaign.terminal=true;campaign.transit=true;for(const p of players){if(!p)continue;outbreakPackAdd(p,'ammo',p.guns[0].maxAmmo*2,true);outbreakPackAdd(p,'tools',1,true);}pushFeed('EAST TRANSIT LINE — road repeaters expanded citywide');
+    campaign.terminal=true;campaign.transit=true;for(const p of players){if(!p)continue;const type=outbreakRelevantAmmo(p);outbreakPackAdd(p,type,(OUTBREAK_ITEM_DEF[type].pickup||1)*2,true);outbreakPackAdd(p,'tools',1,true);}pushFeed('EAST TRANSIT LINE — road repeaters expanded citywide');
   } else if(s.k==='bunker'){
-    campaign.truth=true;campaign.armory=true;for(const p of players){if(!p)continue;p.pierce=(p.pierce||0)+1;p.maxHp+=10;p.hp=Math.min(p.maxHp,p.hp+35);outbreakPackAdd(p,'ammo',p.guns[0].maxAmmo*2,true);}
-    sitePickup(s,'antidote',-28,90);sitePickup(s,'ammo',0,90);sitePickup(s,'spray',28,90);objectiveHorde(s,18,'CROWN PURGE PROTOCOL');
-    for(let i=0;i<3;i++)spawnNearPoint(s,save.level+7,ZI.screamer,2,260,480);pushFeed('PROJECT CROWN LEDGER SECURED — TRUE ENDING UNLOCKED');storyKey='bunker';
+    campaign.truth=true;campaign.armory=true;for(const p of players){if(!p)continue;p.pierce=(p.pierce||0)+1;p.maxHp+=10;p.hp=Math.min(p.maxHp,p.hp+35);const type=outbreakRelevantAmmo(p);outbreakPackAdd(p,type,(OUTBREAK_ITEM_DEF[type].pickup||1)*2,true);}
+    sitePickup(s,'antidote',-42,90);sitePickup(s,'rockets',-14,120,2);sitePickup(s,'spray',42,90);siteWeaponCases(s,'rocket');objectiveHorde(s,18,'CROWN PURGE PROTOCOL');
+    for(let i=0;i<3;i++)spawnNearPoint(s,save.level+7,ZI.screamer,2,260,480);pushFeed('PROJECT CROWN LEDGER · ATM-4 LAUNCHER · TRUE ENDING UNLOCKED');storyKey='bunker';
   }
   if(s.optional&&!s.secret&&s.k!=='armory'){
-    const reward={pharmacy:'medical stock · infection treatment',gunshop:'weapon tuning · magazines and reserve ammo',firestation:'two reinforcements · parts and barricades',church:'five survivors · refuge safe room',motel:'three survivors · hidden supplies',terminal:'citywide road repeaters · convoy supplies'}[s.k]||'supplies and district intelligence';
+    const reward={pharmacy:'medical stock · infection treatment',gunshop:'M5 weapon cases · free Kendo bench upgrade',firestation:'two reinforcements · parts and barricades',church:'five survivors · refuge safe room',motel:'three survivors · hidden supplies',terminal:'citywide road repeaters · convoy supplies'}[s.k]||'supplies and district intelligence';
     showAnnounce(`<div class="eyebrow">OPTIONAL CASE COMPLETE · ${campaign.optionalDone}/7</div><div class="gtitle" style="color:#00e5ff">${s.name}</div><div class="gtip">${reward}</div>`,2200);
   }
   if(storyKey)playStoryScene(storyKey,()=>{if(s.main!=null&&state==='play')offerUpgrade();});
@@ -1319,12 +1379,12 @@ function updateMissionSites(dt){
 function cacheLoot(c,searcher){
   c.searched=true; c.prog=1; campaign.caches=(campaign.caches||0)+1; campaign.searched.push(c.id); searcher.matchExp+=12;
   const add=(type,dx=0,qty=null)=>pickups.push(makeOutbreakPickup(c.x+dx,c.y,type,70,qty));
-  if(c.type==='ammo'){ add('ammo'); if(Math.random()<0.28)add('ammo',18); pushFeed('CACHE — ammunition'); }
+  if(c.type==='ammo'){ const type=outbreakRelevantAmmo(searcher);add(type); if(Math.random()<0.28)add(type,18); pushFeed(`CACHE — ${OUTBREAK_ITEM_DEF[type].name.toLowerCase()}`); }
   else if(c.type==='medical'){ add(Math.random()<0.24?'spray':'herb'); if(Math.random()<0.18)add('antidote',18); pushFeed('CACHE — medical supplies'); }
-  else if(c.type==='tools'){ add('tools'); if(Math.random()<0.35)add('ammo',18); pushFeed('CACHE — barricade parts'); }
+  else if(c.type==='tools'){ add('tools'); if(Math.random()<0.35)add(outbreakRelevantAmmo(searcher),18); pushFeed('CACHE — barricade parts'); }
   else if(campaign.files<OUTBREAK_FILES.length){ const n=campaign.files; campaign.files++; players.filter(Boolean).forEach(p=>p.matchExp+=18);
-    pushFeed(`FILE ${campaign.files}/${OUTBREAK_FILES.length} — ${OUTBREAK_FILES[n]}`); if(searcher.fileSupplies){add('ammo',-18);add('herb',18);} if(campaign.files===OUTBREAK_FILES.length){players.filter(Boolean).forEach(p=>p.matchExp+=80);showAnnounce('<div class="eyebrow">SEVEN-FILE CIPHER DECRYPTED</div><div class="gtitle" style="color:#b56bff">LAB B-12 LOCATED</div><div class="gtip">A secret Umbra laboratory has appeared in the case file.</div>',2300);} if(Math.random()<0.55)add('herb'); }
-  else {add(Math.random()<0.5?'ammo':'herb');pushFeed('ARCHIVE CACHE — emergency supplies');}
+    pushFeed(`FILE ${campaign.files}/${OUTBREAK_FILES.length} — ${OUTBREAK_FILES[n]}`); if(searcher.fileSupplies){add(outbreakRelevantAmmo(searcher),-18);add('herb',18);} if(campaign.files===OUTBREAK_FILES.length){players.filter(Boolean).forEach(p=>p.matchExp+=80);showAnnounce('<div class="eyebrow">SEVEN-FILE CIPHER DECRYPTED</div><div class="gtitle" style="color:#b56bff">LAB B-12 LOCATED</div><div class="gtip">A secret Umbra laboratory has appeared in the case file.</div>',2300);} if(Math.random()<0.55)add('herb'); }
+  else {add(Math.random()<0.5?outbreakRelevantAmmo(searcher):'herb');pushFeed('ARCHIVE CACHE — emergency supplies');}
   sfxPickup(); spark(c.x,c.y,c.type==='file'?'#b56bff':'#ffcf3f',18);
 }
 function updateSearchables(dt){
@@ -1342,13 +1402,15 @@ function updateSafeRoom(dt){
 }
 function outbreakInteractionStatus(p){
   if(!p||!p.alive||!campaign||!campaign.open)return null;
-  const down=players.find(q=>q&&q.downed&&Math.hypot(q.x-p.x,q.y-p.y)<70);if(down)return{label:`HOLD F · REVIVE ${down.name.toUpperCase()} · ${Math.ceil(down.bleedout)}s`,progress:down.reviveProg||0,color:'#7cff9b'};
-  const door=missionDoors.find(d=>!d.open&&Math.hypot(d.x+d.w/2-p.x,d.y+d.h/2-p.y)<84);if(door)return doorRequirementMet(door)?{label:`HOLD F · ${door.contested?'CLEAR THE ENTRY':'BREACH '+((missionSite(door.site)||{}).short||'DOOR')}`,progress:door.prog||0,color:door.contested?'#ff2d55':'#ffcf3f'}:{label:`LOCKED · REQUIRES ${doorRequirementLabel(door)}`,progress:0,color:'#ff2d55'};
-  const site=missionSites.find(s=>siteAvailable(s)&&Math.hypot(s.x-p.x,s.y-p.y)<110);if(site)return{label:`HOLD F · ${site.contested?'CLEAR THE AREA':'SEARCH '+site.name}`,progress:site.prog||0,color:site.contested?'#ff2d55':'#ffcf3f'};
-  const op=pois.find(b=>!b.captured&&Math.hypot(b.x-p.x,b.y-p.y)<92);if(op){const m=FIELD_OP_META[op.type]||FIELD_OP_META.relay;return{label:`HOLD F · ${op.contested?'CLEAR INFECTED FROM':'SECURE'} ${m.name}`,progress:op.prog||0,color:op.contested?'#ff2d55':m.c};}
-  const cache=searchables.find(c=>!c.searched&&Math.hypot(c.x-p.x,c.y-p.y)<72);if(cache)return{label:'HOLD F · SEARCH CONTAINER',progress:cache.prog||0,color:'#ffcf3f'};
-  const survivor=citizens.find(c=>c.alive&&c.following==null&&Math.hypot(c.x-p.x,c.y-p.y)<80);if(survivor)return{label:`HOLD F · RECRUIT ${(survivor.name||'SURVIVOR').toUpperCase()} · ${(CITIZEN_ROLES[survivor.role]||CITIZEN_ROLES.civilian).name.toUpperCase()}`,progress:0,color:'#7cff9b'};
-  if(campaign.phase===7&&!campaign.siegeStarted&&p.parts>=2&&Math.hypot(p.x-HUB.x,p.y-HUB.y)<HUB.r)return{label:'HOLD F · SPEND 2 PARTS TO FORTIFY HUB',progress:0,color:'#ffcf3f'};
+  const use=isTouch&&!hasFinePointer?'HOLD USE':'RIGHT-CLICK';
+  const down=players.find(q=>q&&q.downed&&Math.hypot(q.x-p.x,q.y-p.y)<70);if(down)return{label:`${use} · REVIVE ${down.name.toUpperCase()} · ${Math.ceil(down.bleedout)}s`,progress:down.reviveProg||0,color:'#7cff9b'};
+  const door=missionDoors.find(d=>!d.open&&Math.hypot(d.x+d.w/2-p.x,d.y+d.h/2-p.y)<84);if(door)return doorRequirementMet(door)?{label:`${use} · ${door.contested?'CLEAR THE ENTRY':'BREACH '+((missionSite(door.site)||{}).short||'DOOR')}`,progress:door.prog||0,color:door.contested?'#ff2d55':'#ffcf3f'}:{label:`LOCKED · REQUIRES ${doorRequirementLabel(door)}`,progress:0,color:'#ff2d55'};
+  const weapon=pickups.find(q=>q.alive&&(q.claim==null||q.claim===p.i)&&OUTBREAK_ITEM_DEF[q.type]?.weapon&&Math.hypot(q.x-p.x,q.y-p.y)<72);if(weapon){const d=OUTBREAK_ITEM_DEF[weapon.type],owned=(p.guns||[]).some(g=>g.base===d.weapon);return{label:owned?`WEAPON FOUND · ${d.name} · AMMO RESTOCK`:(p.guns||[]).length>=2?`${use} · REPLACE ACTIVE WITH ${d.name}`:`WEAPON FOUND · ${d.name}`,progress:0,color:d.c};}
+  const site=missionSites.find(s=>siteAvailable(s)&&Math.hypot(s.x-p.x,s.y-p.y)<110);if(site)return{label:`${use} · ${site.contested?'CLEAR THE AREA':'SEARCH '+site.name}`,progress:site.prog||0,color:site.contested?'#ff2d55':'#ffcf3f'};
+  const op=pois.find(b=>!b.captured&&Math.hypot(b.x-p.x,b.y-p.y)<92);if(op){const m=FIELD_OP_META[op.type]||FIELD_OP_META.relay;return{label:`${use} · ${op.contested?'CLEAR INFECTED FROM':'SECURE'} ${m.name}`,progress:op.prog||0,color:op.contested?'#ff2d55':m.c};}
+  const cache=searchables.find(c=>!c.searched&&Math.hypot(c.x-p.x,c.y-p.y)<72);if(cache)return{label:`${use} · SEARCH CONTAINER`,progress:cache.prog||0,color:'#ffcf3f'};
+  const survivor=citizens.find(c=>c.alive&&c.following==null&&Math.hypot(c.x-p.x,c.y-p.y)<80);if(survivor)return{label:`${use} · RECRUIT ${(survivor.name||'SURVIVOR').toUpperCase()} · ${(CITIZEN_ROLES[survivor.role]||CITIZEN_ROLES.civilian).name.toUpperCase()}`,progress:0,color:'#7cff9b'};
+  if(campaign.phase===7&&!campaign.siegeStarted&&p.parts>=2&&Math.hypot(p.x-HUB.x,p.y-HUB.y)<HUB.r)return{label:`${use} · SPEND 2 PARTS TO FORTIFY HUB`,progress:0,color:'#ffcf3f'};
   return null;
 }
 function interactionPrompt(p){const s=outbreakInteractionStatus(p);return s?s.label:'';}
@@ -1374,10 +1436,10 @@ function updateBeacons(dt){
 }
 function captureBeacon(b,operator){
   sfxUpgrade();campaign.ops=(campaign.ops||0)+1;const add=(type,dx,qty=null)=>pickups.push(makeOutbreakPickup(b.x+dx,b.y,type,80,qty));
-  if(b.type==='nest'){campaign.noise=Math.max(0,campaign.noise-35);operator.matchExp+=45;add('ammo',-18);add('tools',18);pushFeed(`NEST DESTROYED — district pressure reduced · operations ${campaign.ops}`);}
-  else if(b.type==='rescue'){for(let i=0;i<4;i++){const c=spawnCitizen();c.x=b.x+rand(-70,70);c.y=b.y+rand(-70,70);citizens.push(c);}add('herb',-18);add('ammo',18);pushFeed(`HOLDOUT SECURED — four survivors located · operations ${campaign.ops}`);}
-  else if(b.type==='cache'){add('ammo',-28);add('spray',0);add('tools',28);operator.matchExp+=30;pushFeed(`ARMORED CACHE OPENED · operations ${campaign.ops}`);}
-  else {for(let i=0;i<2;i++){const c=spawnCitizen();c.x=b.x+rand(-70,70);c.y=b.y+rand(-70,70);citizens.push(c);}add('ammo',-18);add('herb',18);campaign.eventTimer+=12;pushFeed(`RELAY SECURED — district intel online · operations ${campaign.ops}`);}
+  const ammo=outbreakRelevantAmmo(operator);if(b.type==='nest'){campaign.noise=Math.max(0,campaign.noise-35);operator.matchExp+=45;add(ammo,-18);add('tools',18);pushFeed(`NEST DESTROYED — district pressure reduced · operations ${campaign.ops}`);}
+  else if(b.type==='rescue'){for(let i=0;i<4;i++){const c=spawnCitizen();c.x=b.x+rand(-70,70);c.y=b.y+rand(-70,70);citizens.push(c);}add('herb',-18);add(ammo,18);pushFeed(`HOLDOUT SECURED — four survivors located · operations ${campaign.ops}`);}
+  else if(b.type==='cache'){add(ammo,-28);add('spray',0);add('tools',28);operator.matchExp+=30;pushFeed(`ARMORED CACHE OPENED · operations ${campaign.ops}`);}
+  else {for(let i=0;i<2;i++){const c=spawnCitizen();c.x=b.x+rand(-70,70);c.y=b.y+rand(-70,70);citizens.push(c);}add(ammo,-18);add('herb',18);campaign.eventTimer+=12;pushFeed(`RELAY SECURED — district intel online · operations ${campaign.ops}`);}
   const meta=FIELD_OP_META[b.type]||FIELD_OP_META.relay;showAnnounce(`<div class="eyebrow">FIELD OPERATION COMPLETE · ${campaign.ops}</div><div class="gtitle" style="color:${meta.c}">${meta.name}</div><div class="gtip">District resources secured · threat response incoming</div>`,1350);
   for(let i=0;i<3;i++){const roster=waveTypes(Math.max(2,campaign.wave));spawnFrontier(save.level+campaign.wave,roster[irand(0,roster.length-1)],Math.floor(campaign.wave/3));}
 }
@@ -1476,23 +1538,27 @@ function waveCleared(){
   if(mode==='guest'){ return; }                                        // guests wait for host's next wave
   offerUpgrade();
 }
-function offerUpgrade(){
+function offerUpgrade(source='field'){
   campaign.upgrading = true; roundLive = false;
-  const picks = ZUPGRADES.slice().sort(()=>Math.random()-0.5).slice(0,3);
+  campaign.upgradeCounts=campaign.upgradeCounts||{};const available=ZUPGRADES.filter(u=>(campaign.open||!u.outbreakOnly)&&outbreakUpgradeLevel(u.k)<(u.max||99)),weapon=available.filter(u=>u.weapon),support=available.filter(u=>!u.weapon);let pool=source==='armory'?weapon.filter(u=>['power','mag','pierce'].includes(u.k)):source==='kendo'?weapon.filter(u=>['rof','reload','range'].includes(u.k)):null;
+  let picks=pool&&pool.length?pool.sort(()=>Math.random()-.5).slice(0,3):campaign.open?[...weapon.sort(()=>Math.random()-.5).slice(0,2),...support.sort(()=>Math.random()-.5).slice(0,1)]:available.sort(()=>Math.random()-.5).slice(0,3);if(picks.length<3)picks.push(...available.filter(u=>!picks.includes(u)).sort(()=>Math.random()-.5).slice(0,3-picks.length));
   campaign._picks = picks;
+  campaign._upgradeSource=source;
   if(mode==='host') netBroadcast({ t:'zpause', wave:campaign.wave });
-  const open = campaign.open;
-  const head = open ? `THREAT LEVEL ${campaign.wave}` : `WAVE ${campaign.wave} CLEARED`;
+  const open = campaign.open,you=players[me]||players[0],gun=you&&you.guns&&you.guns[you.gunIndex||0];
+  const head = source==='armory'?'RPD ARMORY':source==='kendo'?'KENDO WORKBENCH':open?`THREAT LEVEL ${campaign.wave}`:`WAVE ${campaign.wave} CLEARED`;
   const foot = open ? `SURVIVORS EXTRACTED: ${campaign.rescued} / ${campaign.goal}` : `NEXT: WAVE ${campaign.wave+1} / ${campaign.maxWave}`;
   $('#arena').innerHTML = `<div class="panel">
     <div style="text-align:center"><div class="rtitle" style="color:var(--gold);font-size:clamp(22px,4.6vw,40px)">${head}</div>
-      <div class="rsub">choose a field upgrade — it lasts the rest of the run${campaign.np>1?' (whole squad)':''}</div></div>
-    <div class="prow" id="upgrades">
+      <div class="rsub">choose one capped run upgrade${campaign.np>1?' · applies to the whole squad':''} · newly found guns inherit weapon mods</div></div>
+    <div class="upgrade-build">${open&&gun?`<div class="upgrade-readout"><div class="upgrade-card-tag">CURRENT ACTIVE WEAPON</div><h3>${esc(gun.name)} · MK ${1+(gun.tier||0)}</h3>
+      <div class="upgrade-stat"><span>DAMAGE</span><b>${gun.damage.toFixed(2)}</b></div><div class="upgrade-stat"><span>ATTACK</span><b>${gun.cdBase.toFixed(2)}s</b></div><div class="upgrade-stat"><span>MAGAZINE</span><b>${gun.maxAmmo} ${esc(OUTBREAK_ITEM_DEF[gun.ammoType].short)}</b></div><div class="upgrade-stat"><span>RELOAD</span><b>${gun.regenTime.toFixed(2)}s</b></div><div class="upgrade-stat"><span>RANGE</span><b>${Math.round(gun.range)}</b></div><div class="upgrade-stat"><span>PIERCE</span><b>${gun.pierce||0}</b></div>
+      <div class="upgrade-stat"><span>RUN MODS</span><b class="upgrade-pips">${campaign.upgradeLog.length?campaign.upgradeLog.slice(-4).join(' · '):'NONE'}</b></div></div>`:''}<div class="prow" id="upgrades">
       ${picks.map((u,i)=>`<button class="card" data-i="${i}" style="cursor:pointer;text-align:center;border-color:var(--line);transition:border-color .15s,transform .12s">
-        <div style="font-size:34px">${u.ic}</div>
+        <div class="upgrade-card-tag">${u.weapon?'WEAPON MOD':'SQUAD SUPPORT'} · LV ${outbreakUpgradeLevel(u.k)} / ${u.max||'∞'}</div><div style="font-size:34px">${u.ic}</div>
         <div class="nm2" style="font-weight:900;font-style:italic;font-size:18px;margin:6px 0 4px;color:var(--gold)">${u.name}</div>
-        <div class="mods" style="font-size:12px">${u.desc}</div></button>`).join('')}
-    </div>
+        <div class="mods" style="font-size:12px">${outbreakUpgradePreview(u,gun)}</div></button>`).join('')}
+    </div></div>
     <div class="note" style="text-align:center">${foot}</div>
   </div>`;
   $('#upgrades').querySelectorAll('button').forEach(b=>{ b.onmouseenter=()=>{ b.style.borderColor='var(--gold)'; b.style.transform='translateY(-3px)'; };
@@ -1504,9 +1570,11 @@ function chooseUpgrade(i){
   const u = campaign._picks[i]; if(!u) return;
   if(u.each) players.filter(Boolean).forEach(p=> u.each(p));
   if(u.once) u.once();
+  campaign.upgradeCounts=campaign.upgradeCounts||{};campaign.upgradeCounts[u.k]=(campaign.upgradeCounts[u.k]||0)+1;campaign.upgradeLog=campaign.upgradeLog||[];campaign.upgradeLog.push(`${u.name} ${campaign.upgradeCounts[u.k]}`);
   sfxUpgrade(); flashScreen('var(--gold)');
   campaign.upgrading = false; $('#arena').innerHTML=''; roundLive = true;
-  pushFeed(`FIELD UPGRADE — ${u.name}`);
+  pushFeed(`${campaign._upgradeSource==='field'?'FIELD':campaign._upgradeSource==='armory'?'RPD ARMORY':'KENDO'} UPGRADE — ${u.name} LV ${campaign.upgradeCounts[u.k]}`);
+  if(mode==='host')netBroadcast({t:'zresume',name:u.name,level:campaign.upgradeCounts[u.k]});
   if(mode==='host') showAnnounce(`<div class="eyebrow">FIELD UPGRADE</div><div class="gtitle" style="color:var(--gold);font-size:clamp(20px,4vw,34px)">${u.ic} ${u.name}</div>`, 1200);
   if(!campaign.open) nextWave();   // arena advances a scripted wave; open world keeps its rolling director
 }
@@ -1520,7 +1588,7 @@ function respawnZ(p){
   for(const s of [{x:WORLD.w/2,y:WORLD.h/2}, ...spawns]){ let d=1e9;
     for(const z of zombies){ if(!z.alive) continue; d=Math.min(d, Math.hypot(z.x-s.x,z.y-s.y)); } if(d>bd){ bd=d; best=s; } }
   p.x=best.x; p.y=best.y; p.vx=p.vy=0; p.alive=true; p.downed=false; p.bleedout=0; p.reviveProg=0;
-  p.shield=(p.ld.spawnShield||1)+1.5;p.ammo=p.ld.maxAmmo;const gun=p.guns&&p.guns[p.gunIndex||0];if(gun){gun.ammo=p.ammo;outbreakTopUp(p,gun.ammoType,p.ld.maxAmmo*2);}
+  p.shield=(p.ld.spawnShield||1)+1.5;p.ammo=p.ld.maxAmmo;const gun=p.guns&&p.guns[p.gunIndex||0];if(gun){gun.ammo=p.ammo;outbreakTopUp(p,gun.ammoType,(OUTBREAK_ITEM_DEF[gun.ammoType].pickup||1)*2);}
   p.hp=campaign.open?Math.ceil(p.maxHp*0.62):p.maxHp; p.infection=campaign.open?Math.max(18,p.infection||0):0;
   p.cd=0; p.regen=0; p.reloadT=0; p.burst=0;
   sfxSpawn(); spark(p.x,p.y,p.color,14);
@@ -1534,7 +1602,7 @@ function playerDieZ(p){
   if(!p.alive) return; p.alive=false; p.deaths=(p.deaths||0)+1; p.hp=0;if(p.local&&campaign&&campaign.open)resetOutbreakCommand();
   burst(p.x,p.y,p.color,42); sfxDie(); if(p.local){ shake(); flashScreen(p.color); }
   if(campaign.open&&players.some(q=>q&&q!==p&&q.alive)){ p.downed=true; p.bleedout=18; p.reviveProg=0; p.respT=0;
-    pushFeed(`${p.name} is DOWN — hold F to revive`); }
+    pushFeed(`${p.name} is DOWN — ${isTouch&&!hasFinePointer?'hold USE nearby':'right-click to revive'}`); }
   else queueReinforcement(p);
   // A wipe only ends the run when nobody is alive or queued to consume a reinforcement.
   if(!players.some(q=>q&&q.alive) && !players.some(q=>q&&(q.respT>0||q.downed)) ) campaignEnd(false);
@@ -1554,7 +1622,7 @@ function useOutbreakHeal(p,requested=null){
 }
 function beginReload(p){
   outbreakSyncPack(p);if(!campaign.open||p.reloadT>0||p.ammo>=p.ld.maxAmmo||p.reserve<=0) return;
-  p.reloadT=Math.max(0.4,p.ld.regenTime*2.1*(p.reloadMod||1)); p.wantShoot=false;
+  p.burst=0;p.burstT=0;p.reloadT=Math.max(0.4,p.ld.regenTime*2.1*(p.reloadMod||1)); p.wantShoot=false;
 }
 function finishReload(p){const g=p.guns&&p.guns[p.gunIndex||0],type=g?g.ammoType:'ammo',n=Math.min(p.ld.maxAmmo-p.ammo,outbreakPackCount(p,type)),used=outbreakPackTake(p,type,n);p.ammo+=used;if(g)g.ammo=p.ammo;p.reloadT=0;sfxPick();}
 function updateDownedPlayer(p,dt){
@@ -1580,8 +1648,7 @@ function stepPlayerZ(p, dt){
   else if(p.inX||p.inY){ const want=Math.atan2(p.inY,p.inX); p.aim += clamp(angDiff(p.aim,want), -16*dt, 16*dt); }
   gadgetInput(p, !!inp.a); tickGadget(p, dt);
   const roadK=campaign.open&&campaign.vehicle&&onMajorRoad(p)?(campaign.transit?1.85:1.52):1,spK=(p.phaseT>0?1.55:1)*roadK, ocK = p.ocT>0?0.5:1;
-  if(p.burst>0){ p.burstT-=dt; if(p.burstT<=0){ p.burstT=0.06; p.burst--; const spd=p.ld.bulletSpeed;
-    bullets.push({x:p.x+Math.cos(p.aim)*(p.r+9),y:p.y+Math.sin(p.aim)*(p.r+9),px:0,py:0,vx:Math.cos(p.aim)*spd,vy:Math.sin(p.aim)*spd,r:4.5,owner:p.i,team:-1,b:0,maxB:p.ld.wbase.bounce,life:2.6,c:p.color,pierce:p.pierce||0}); sfxShoot(); } }
+  if(p.burst>0&&p.reloadT<=0){if(campaign.open&&p.ammo<1)p.burst=0;else{p.burstT-=dt;if(p.burstT<=0){p.burstT=.06;p.burst--;if(campaign.open){p.ammo--;const g=p.guns&&p.guns[p.gunIndex||0];if(g)g.ammo=p.ammo;}emitPlayerBullet(p,p.aim);sfxShoot();}}}
   if(p.rtsHold||p.rtsStop){p.inX=0;p.inY=0;p.vx=0;p.vy=0;}
   const il=Math.hypot(p.inX,p.inY)||1; p.vx+=(p.inX/il)*p.ld.accel*spK*dt; p.vy+=(p.inY/il)*p.ld.accel*spK*dt;
   const mv=p.ld.maxV*spK, sp=Math.hypot(p.vx,p.vy); if(sp>mv){ const k=mv/sp; p.vx*=k; p.vy*=k; }
@@ -1595,15 +1662,15 @@ function stepPlayerZ(p, dt){
     c.following = p.i; sfxPick(); if(p.local){const role=CITIZEN_ROLES[c.role]||CITIZEN_ROLES.civilian;pushFeed(`${c.name||role.name}: “${role.bark}”`);} } } }
   p.cd-=dt; p.shield-=dt;
   if(campaign.open){
-    if(p.wantReload||(p.wantShoot&&p.ammo<1))beginReload(p);
+    if(p.wantReload||(p.wantShoot&&p.ammo<1&&p.burst<=0))beginReload(p);
     if(p.reloadT>0){ p.reloadT-=dt; if(p.reloadT<=0)finishReload(p); }
   } else if(p.ammo<p.ld.maxAmmo){ p.regen+=dt; if(p.regen>=p.ld.regenTime*ocK){ p.ammo++; p.regen=0; } }
   if(p.wantShoot) fire(p);
 }
 function collectPickup(p, pk){
-  if(campaign.open&&OUTBREAK_ITEM_DEF[pk.type]){if(pk.type==='shotgun'){if(tnow()<(pk.rejectUntil||0))return;if(!outbreakUnlockShotgun(p)){pk.rejectUntil=tnow()+1000;return;}pk.alive=false;}
-    else{const ammoGun=(p.guns||[]).find(g=>g.ammoType==='ammo'),amount=pk.qty!=null?pk.qty:pk.type==='ammo'?(ammoGun?ammoGun.maxAmmo:p.ld.maxAmmo)*2:pk.type==='shells'?4:1,left=outbreakPackAdd(p,pk.type,amount,true),taken=amount-left;if(!taken){if(p.local&&tnow()>(pk.rejectUntil||0)){pushFeed(`INVENTORY FULL · ${OUTBREAK_ITEM_DEF[pk.type].name}`);pk.rejectUntil=tnow()+1200;}return;}pk.qty=left;pk.alive=left>0;if(p.local)pushFeed(`${OUTBREAK_ITEM_DEF[pk.type].name} ACQUIRED${taken>1?' ×'+taken:''}`);}
-    sfxPickup();spark(pk.x,pk.y,OUTBREAK_ITEM_DEF[pk.type].c,14);return;}
+  if(campaign.open&&OUTBREAK_ITEM_DEF[pk.type]){const def=OUTBREAK_ITEM_DEF[pk.type];if(def.weapon){if(pk.claim!=null&&pk.claim!==p.i)return;if(tnow()<(pk.rejectUntil||0))return;const owned=(p.guns||[]).some(g=>g.base===def.weapon),replace=!owned&&(p.guns||[]).length>=2&&p.wantInteract;if(!outbreakGrantWeapon(p,def.weapon,replace,pk)){if(p.local){pushFeed((p.guns||[]).length>=2?'TWO-WEAPON LIMIT · ISSUE A USE ORDER TO REPLACE ACTIVE':'NO SPACE FOR WEAPON AMMUNITION');pk.rejectUntil=tnow()+1200;}return;}pk.alive=false;}
+    else{const amount=pk.qty!=null?pk.qty:(def.pickup||1),left=outbreakPackAdd(p,pk.type,amount,true),taken=amount-left;if(!taken){if(p.local&&tnow()>(pk.rejectUntil||0)){pushFeed(`INVENTORY FULL · ${def.name}`);pk.rejectUntil=tnow()+1200;}return;}pk.qty=left;pk.alive=left>0;if(p.local)pushFeed(`${def.name} ACQUIRED${taken>1?' ×'+taken:''}`);}
+    sfxPickup();spark(pk.x,pk.y,def.c,14);return;}
   pk.alive=false;sfxPickup();
   if(pk.type==='ammo'){p.ammo=p.ld.maxAmmo;p.regen=0;spark(pk.x,pk.y,'#ffcf3f',12);if(p.local)pushFeed('ammo restocked');}
   else if(pk.type==='herb'){p.herbs=(p.herbs||0)+1;spark(pk.x,pk.y,'#7cff9b',14);if(p.local)pushFeed('green herb acquired · H to use');}
@@ -1616,9 +1683,9 @@ function dropPickup(x,y,boss){
   const r = Math.random();
   const chance=campaign&&campaign.open?0.055:0.14;
   if(!boss && r>chance) return;                     // Outbreak rewards searching caches, not farming the horde
-  const type = campaign&&campaign.open?(Math.random()<0.76?'ammo':'herb'):(Math.random()<0.5?'ammo':'shield');
+  const near=nearestPlayerTo(x,y).p,type=campaign&&campaign.open?(Math.random()<0.76?outbreakRelevantAmmo(near):'herb'):(Math.random()<0.5?'ammo':'shield');
   const pk=makeOutbreakPickup(x,y,type,14);pk.wob=rand(0,TAU);pickups.push(pk);
-  if(boss){const bp=makeOutbreakPickup(x+rand(-30,30),y+rand(-30,30),campaign&&campaign.open?'spray':(type==='ammo'?'shield':'ammo'),20);bp.wob=rand(0,TAU);pickups.push(bp); }
+  if(boss){const bp=makeOutbreakPickup(x+rand(-30,30),y+rand(-30,30),campaign&&campaign.open?(Math.random()<.5?'spray':outbreakRelevantAmmo(near)):(type==='ammo'?'shield':'ammo'),20);bp.wob=rand(0,TAU);pickups.push(bp); }
 }
 function bumpCombo(p){
   if(!campaign) return;
@@ -1644,6 +1711,13 @@ function enrageTyrant(z){
   if(!z.tyrant||z.enraged||z.hp>z.maxhp*0.5)return; z.enraged=true; z.speed*=1.42; z.sumCd=0.2;
   for(let i=0;i<6;i++)spawnNearPoint(z,z.level,ZI.crawler,0,100,220); shake(); flashScreen('#ff2d55');
   showAnnounce('<div class="eyebrow">TYRANT · PHASE II</div><div class="gtitle" style="color:#ff2d55">Mutation surge</div><div class="gtip">It is faster. Keep moving.</div>',1700);
+}
+function outbreakDamageZombie(z,damage,owner,x=z.x,y=z.y){
+  if(!z||!z.alive)return false;const dmg=Math.max(.05,+damage||1);if(z.hp>dmg){z.hp-=dmg;enrageTyrant(z);spark(x,y,'#ff6b6b',Math.min(14,5+Math.ceil(dmg)));return false;}zombieDown(z,owner);return true;
+}
+function outbreakDetonate(bl,owner){
+  if(!bl||bl.detonated||!bl.blast)return;bl.detonated=true;const R=bl.blast;ringFx(bl.x,bl.y,bl.weaponId==='rocket'?'#ff9f1c':'#b56bff',R);burst(bl.x,bl.y,bl.weaponId==='rocket'?'#ff9f1c':'#b56bff',bl.weaponId==='rocket'?56:34);if(bl.weaponId==='rocket')shake();
+  for(const z of zombies){if(!z.alive)continue;const d=Math.hypot(z.x-bl.x,z.y-bl.y);if(d>R+z.r||losBlocked(bl.x,bl.y,z.x,z.y))continue;const fall=clamp(1-d/Math.max(1,R),.45,1);outbreakDamageZombie(z,(bl.damage||1)*fall,owner,z.x,z.y);}
 }
 function nearestPlayerTo(x, y){ let pn=null, pd=1e9; for(const p of players){ if(!p||!p.alive) continue;
   const d=Math.hypot(p.x-x,p.y-y); if(d<pd){ pd=d; pn=p; } } return { p:pn, d:pd }; }
@@ -1738,23 +1812,20 @@ function updateZombies(dt){
     }
     zshots = zshots.filter(s=>s.life>0);
     // ---- bullets (all players) vs walls + zombies ----
-    for(const bl of bullets){ bl.px=bl.x; bl.py=bl.y;
-      for(let s=0;s<2 && bl.life>0;s++){ const h=dt/2; bl.x+=bl.vx*h; bl.y+=bl.vy*h;
+    for(const bl of bullets){ bl.px=bl.x; bl.py=bl.y;const speed=Math.hypot(bl.vx,bl.vy),steps=clamp(Math.ceil(speed*dt/Math.max(4,bl.r)),2,24);
+      for(let s=0;s<steps && bl.life>0;s++){ const h=dt/steps; bl.x+=bl.vx*h; bl.y+=bl.vy*h;
         if(bl.x<bl.r){bl.x=bl.r;bl.vx=Math.abs(bl.vx);bl.b++;sfxBounce();} else if(bl.x>WORLD.w-bl.r){bl.x=WORLD.w-bl.r;bl.vx=-Math.abs(bl.vx);bl.b++;sfxBounce();}
         if(bl.y<bl.r){bl.y=bl.r;bl.vy=Math.abs(bl.vy);bl.b++;sfxBounce();} else if(bl.y>WORLD.h-bl.r){bl.y=WORLD.h-bl.r;bl.vy=-Math.abs(bl.vy);bl.b++;sfxBounce();}
         for(const wl of walls){ const p=circleRectPush(bl.x,bl.y,bl.r,wl); if(p){ bl.x+=p.x; bl.y+=p.y; if(Math.abs(p.x)>Math.abs(p.y))bl.vx=-bl.vx; else bl.vy=-bl.vy; bl.b++; sfxBounce(); } }
-        if(bl.b>bl.maxB){ bl.life=0; spark(bl.x,bl.y,bl.c,5); }
+        if(bl.b>bl.maxB){if(bl.blast)outbreakDetonate(bl,players[bl.owner]);bl.life=0;spark(bl.x,bl.y,bl.c,5);}
         for(const z of zombies){ if(!z.alive||bl.life<=0) continue;
           if(Math.hypot(z.x-bl.x,z.y-bl.y) < z.r+bl.r){
             if(bl.hit && bl.hit.has(z)) continue;            // a piercing bullet only strikes each enemy once
-            const ow = players[bl.owner];
-            const dmg=campaign.open&&campaign.armory&&z.boss?2:1;
-            if(z.hp>dmg){ z.hp-=dmg; enrageTyrant(z); spark(bl.x,bl.y,'#ff6b6b',7); }
-            else { zombieDown(z, ow); }
-            if(bl.pierce>0){ bl.pierce--; (bl.hit || (bl.hit=new Set())).add(z); }   // pass through, remember this one
-            else { bl.life=0; } } }
+            const ow=players[bl.owner];if(bl.blast){outbreakDetonate(bl,ow);bl.life=0;break;}outbreakDamageZombie(z,bl.damage||1,ow,bl.x,bl.y);
+            if(bl.pierce>0){bl.pierce--; (bl.hit||(bl.hit=new Set())).add(z);}else bl.life=0;} }
+        if(bl.life>0&&Number.isFinite(bl.rangeLeft)){bl.rangeLeft-=speed*h;if(bl.rangeLeft<=0){if(bl.blast)outbreakDetonate(bl,players[bl.owner]);bl.life=0;}}
       }
-      bl.life-=dt;
+      bl.life-=dt;if(bl.life<=0&&bl.blast)outbreakDetonate(bl,players[bl.owner]);
     }
     bullets = bullets.filter(b=>b.life>0);
     pickups = pickups.filter(p=>p.alive);
@@ -1768,7 +1839,7 @@ function updateZombies(dt){
           campaign.rescuedNames.push(c.name||'Unknown survivor');
           const ow = c.following!=null ? players[c.following] : null; if(ow){ ow.matchExp += 40; }
           if(ow&&c.role==='medic')outbreakPackAdd(ow,'herb',1,true);
-          if(ow&&c.role==='cop')outbreakPackAdd(ow,(ow.guns[ow.gunIndex||0]||{}).ammoType||'ammo',ow.ld.maxAmmo*2,true);
+          if(ow&&c.role==='cop'){const type=(ow.guns[ow.gunIndex||0]||{}).ammoType||'ammo';outbreakPackAdd(ow,type,OUTBREAK_ITEM_DEF[type].pickup||1,true);}
           if(ow&&c.role==='engineer')outbreakPackAdd(ow,'tools',1,true);
           spark(c.x,c.y,'#3ddc84',18); sfxPickup(); pushFeed(`${c.name||'survivor'} extracted — ${campaign.rescued}/${campaign.goal}`); } }
       citizens = citizens.filter(c=>c.alive);
@@ -1970,22 +2041,21 @@ function botThink(p, dt){
 }
 
 /* ================= combat ================= */
+function emitPlayerBullet(p,ang,spdOverride=null){
+  const open=campaign&&campaign.open,g=open&&p.guns&&p.guns[p.gunIndex||0],wb=g?g.wbase:p.ld.wbase,spd=spdOverride||p.ld.bulletSpeed,big=!!wb.big,pierce=(p.pierce||0)+(g&&g.pierce||0);bullets.push({x:p.x+Math.cos(ang)*(p.r+9),y:p.y+Math.sin(ang)*(p.r+9),px:p.x,py:p.y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,r:big?9:4.5,owner:p.i,team:p.team,b:0,maxB:wb.bounce||0,life:2.6,rangeLeft:g?g.range:null,c:p.color,pierce,damage:g?g.damage:1,blast:g?g.blast||0:0,weaponId:g?g.base:null});
+}
 function fire(p){
-  if(p.cd > 0 || p.ammo < 1 || !p.alive || (campaign&&campaign.open&&p.reloadT>0)) return;
-  const wb = p.ld.wbase;
+  if(p.cd > 0 || p.ammo < 1 || !p.alive || p.burst>0 || (campaign&&campaign.open&&p.reloadT>0)) return;
+  const gun=campaign&&campaign.open&&p.guns&&p.guns[p.gunIndex||0],wb=gun?gun.wbase:p.ld.wbase;
   p.ammo--;if(campaign&&campaign.open&&p.guns&&p.guns[p.gunIndex||0])p.guns[p.gunIndex||0].ammo=p.ammo;p.cd = p.ld.cdBase * (p.ocT > 0 ? 0.5 : 1);
-  const spd = p.ld.bulletSpeed, big = !!wb.big, bmax = wb.bounce, pierce = p.pierce||0;
-  const mk = (ang, sp) => bullets.push({
-    x: p.x + Math.cos(ang)*(p.r+9), y: p.y + Math.sin(ang)*(p.r+9),
-    px:0, py:0, vx: Math.cos(ang)*(sp||spd), vy: Math.sin(ang)*(sp||spd),
-    r: big?9:4.5, owner: p.i, team: p.team, b:0, maxB: bmax, life: 2.6, c: p.color, pierce });
+  const mk=(ang,sp)=>emitPlayerBullet(p,ang,sp);
   if(wb.pattern === 'spread'){ const n = wb.n, sp = wb.spread;
     for(let i=0;i<n;i++) mk(p.aim - sp/2 + sp*i/(n-1)); }
   else if(wb.pattern === 'burst'){ mk(p.aim); p.burst = (wb.n||3)-1; p.burstT = 0.06; }
   else mk(p.aim);
-  p.vx -= Math.cos(p.aim)*(big?110:70); p.vy -= Math.sin(p.aim)*(big?110:70);
+  const recoil=gun?gun.recoil:(wb.big?110:70);p.vx-=Math.cos(p.aim)*recoil;p.vy-=Math.sin(p.aim)*recoil;
   spark(p.x + Math.cos(p.aim)*(p.r+11), p.y + Math.sin(p.aim)*(p.r+11), '#fff', 4);
-  if(campaign&&campaign.open){ campaign.noise=clamp((campaign.noise||0)+(big?12:6)*(p.noiseMod||1),0,100); campaign.lastNoise={x:p.x,y:p.y}; }
+  if(campaign&&campaign.open){campaign.noise=clamp((campaign.noise||0)+(gun?gun.noise:6)*(p.noiseMod||1),0,100);campaign.lastNoise={x:p.x,y:p.y};}
   sfxShoot();
 }
 
@@ -2058,7 +2128,7 @@ const ABILITY = ['ShiftLeft','KeyE','KeyQ'];
 const INTERACT = ['KeyF'];
 const RELOAD_KEY = ['KeyR'];
 const HEAL_KEY = ['KeyH'];
-const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set(), abilityId:null, interactId:null, healId:null, lookId:null, lookX:0,packId:null,packSlot:-1,packDownAt:0,packX:0,packY:0,packCancel:false };
+const touch = { stick:null, ox:0, oy:0, vx:0, vy:0, fires:new Set(), abilityId:null, interactId:null, healId:null, lookId:null, lookX:0,packId:null,packSlot:-1,packDownAt:0,packX:0,packY:0,packCancel:false,caseFile:false };
 const OUTBREAK_COMMANDS = [
   {k:'move',       key:'M', label:'MOVE',        icon:'➜', arm:true},
   {k:'attack',     key:'B', label:'FOCUS FIRE',  icon:'⌖', arm:true},
@@ -2088,9 +2158,10 @@ function outbreakHudLayout(){
   OUTBREAK_COMMANDS.forEach((d,i)=>buttons.push({...d,x:command.x+(i%3)*(bw+gap),y:command.y+Math.floor(i/3)*(bh+gap),w:bw,h:bh}));
   const actions=[],aw=54,ah=27,ag=4;[{k:'reload',key:'R',label:'RELOAD'},{k:'ability',key:'E',label:'GADGET'}]
     .forEach((d,i)=>actions.push({...d,x:info.x+info.w-(2-i)*(aw+ag)+ag,y:info.y,w:aw,h:ah}));
+  const weapons=[],healthW=Math.min(170,info.w*.32),weaponGap=4,weaponX=info.x+healthW+10,weaponW=Math.max(74,(info.x+info.w-weaponX-weaponGap)/2);for(let i=0;i<2;i++)weapons.push({i,x:weaponX+i*(weaponW+weaponGap),y:info.y+31,w:weaponW,h:29});
   const items=[],itemGap=4,itemY=y+h-54,itemH=44,itemW=Math.min(56,(info.w-itemGap*5)/6);for(let i=0;i<6;i++)items.push({i,x:info.x+i*(itemW+itemGap),y:itemY,w:itemW,h:itemH});
   const target={x:command.x,y:Math.max(72,y-62),w:command.w,h:52},progress={x:W/2-140,y:y-49,w:280,h:36};
-  return{desktop,h,y,map,command,portrait,info,buttons,actions,items,target,progress};
+  return{desktop,h,y,map,command,portrait,info,buttons,actions,weapons,items,target,progress};
 }
 function outbreakPointBlocked(x,y,pad=22,list=walls){
   if(x<pad||y<pad||x>WORLD.w-pad||y>WORLD.h-pad)return true;
@@ -2129,10 +2200,10 @@ function buildOutbreakPath(p,tx,ty){
 function outbreakClearCombat(clearFocus=false){
   outbreakCommand.combatId=null;outbreakCommand.combatMode=null;outbreakCommand.combatAnchor=null;outbreakCommand.combatLastSeen=null;outbreakCommand.combatLastSnapshot=null;outbreakCommand.combatLostAt=0;outbreakCommand.combatBlockedAt=0;outbreakCommand.combatPath=[];outbreakCommand.combatPathIndex=0;outbreakCommand.combatGoal=null;outbreakCommand.combatRepathAt=0;outbreakCommand.combatRejectId=null;outbreakCommand.combatRejectUntil=0;outbreakCommand.orderResumeAnchor=null;outbreakCommand.target=null;outbreakCommand.engagement='IDLE';if(clearFocus)outbreakCommand.focusId=null;
 }
-const OUTBREAK_ACQUIRE_RANGE=520,OUTBREAK_CHASE_LEASH=650,OUTBREAK_COMBAT_REPATH=250,OUTBREAK_HOLD_PAD=35;
+const OUTBREAK_ACQUIRE_RANGE=700,OUTBREAK_CHASE_LEASH=850,OUTBREAK_COMBAT_REPATH=250,OUTBREAK_HOLD_PAD=35;
 function outbreakSetGuardAnchor(p){if(p)outbreakCommand.guardAnchor={x:p.x,y:p.y};}
 function outbreakAttackRange(p){const gun=p&&p.guns&&p.guns[p.gunIndex||0];return(gun&&gun.range)||480;}
-function outbreakPointVisible(p,x,y,range=OUTBREAK_ACQUIRE_RANGE+40){return!!p&&Math.hypot(x-p.x,y-p.y)<=range&&!losBlocked(p.x,p.y,x,y);}
+function outbreakPointVisible(p,x,y,range=Math.max(OUTBREAK_ACQUIRE_RANGE+40,outbreakAttackRange(p)+40)){return!!p&&Math.hypot(x-p.x,y-p.y)<=range&&!losBlocked(p.x,p.y,x,y);}
 function outbreakTargetVisible(p,z){return!!(z&&z.alive&&outbreakPointVisible(p,z.x,z.y));}
 function outbreakSetIssued(kind){outbreakCommand.issuedKind=kind||'idle';outbreakCommand.stance=kind==='hold'?'HOLD':kind==='move'||kind==='interact'?'PASSIVE':kind==='attackmove'||kind==='patrol'||kind==='attack'?'AGGRESSIVE':'GUARD';}
 function setOutbreakOrder(kind,x,y,append=false){
@@ -2177,7 +2248,7 @@ function outbreakOrderVector(p){
   let guard=0;while(guard++<3){const q=outbreakCommand.path[outbreakCommand.pathIndex];if(!q){if(outbreakCommand.kind==='attack'||outbreakCommand.kind==='interact')return{x:0,y:0};finishOutbreakOrder(p);if(outbreakCommand.kind==='attack'||outbreakCommand.kind==='interact')return{x:0,y:0};continue;}const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);if(d<Math.max(24,p.r+10)){outbreakCommand.pathIndex++;continue;}return{x:dx/d,y:dy/d};}return{x:0,y:0};
 }
 function outbreakVisibleZombies(p){
-  const now=tnow(),range=OUTBREAK_ACQUIRE_RANGE+40;if(now<outbreakCommand.visibleEvalAt)return outbreakCommand.visibleEnemies;
+  const now=tnow();if(now<outbreakCommand.visibleEvalAt)return outbreakCommand.visibleEnemies;
   outbreakCommand.visibleEvalAt=now+120;outbreakCommand.visibleEnemies=zombies.filter(z=>outbreakTargetVisible(p,z));return outbreakCommand.visibleEnemies;
 }
 function outbreakCombatMode(){
@@ -2187,7 +2258,7 @@ function outbreakBeginCombat(p,z,mode){
   outbreakCommand.combatId=z.uid;outbreakCommand.combatMode=mode;outbreakCommand.combatAnchor=mode==='guard'&&outbreakCommand.guardAnchor?{...outbreakCommand.guardAnchor}:{x:p.x,y:p.y};outbreakCommand.combatLastSeen={x:z.x,y:z.y};outbreakCommand.combatLastSnapshot=outbreakTargetSnapshot(z,mode==='direct');outbreakCommand.combatLostAt=0;outbreakCommand.combatBlockedAt=0;outbreakCommand.combatPath=[];outbreakCommand.combatPathIndex=0;outbreakCommand.combatGoal=null;outbreakCommand.combatRepathAt=0;
 }
 function outbreakAcquireTarget(p,mode){
-  const range=mode==='hold'?outbreakAttackRange(p):OUTBREAK_ACQUIRE_RANGE,anchor=mode==='guard'?(outbreakCommand.guardAnchor||{x:p.x,y:p.y}):null,candidates=[];
+  const range=mode==='hold'?outbreakAttackRange(p):Math.max(OUTBREAK_ACQUIRE_RANGE,outbreakAttackRange(p)),anchor=mode==='guard'?(outbreakCommand.guardAnchor||{x:p.x,y:p.y}):null,candidates=[];
   for(const z of outbreakVisibleZombies(p)){if(!z.alive||(z.uid===outbreakCommand.combatRejectId&&tnow()<outbreakCommand.combatRejectUntil))continue;const d=Math.hypot(z.x-p.x,z.y-p.y);if(d>range)continue;if(anchor&&Math.hypot(z.x-anchor.x,z.y-anchor.y)>OUTBREAK_CHASE_LEASH)continue;candidates.push({z,d});}
   candidates.sort((a,b)=>a.d-b.d);if(!candidates.length)return null;outbreakBeginCombat(p,candidates[0].z,mode);return candidates[0].z;
 }
@@ -2215,6 +2286,7 @@ function outbreakEngageTarget(base,p,z,mode){
 }
 function outbreakRTSInput(base){
   if(!outbreakCommandActive())return base;
+  if(campaign&&campaign.upgrading)return{x:0,y:0,s:false,a:false,e:false,r:false,h:false,q:null,o:2,w:null,u:null,d:null,xa:0,xe:0,xr:0,xh:0};
   const p=players[me];if(!p||!p.alive)return base;
   if(outbreakCommand.actionAbility){base.a=true;base.xa=1;outbreakCommand.actionAbility=false;}if(outbreakCommand.actionInteract){base.e=true;base.xe=1;outbreakCommand.actionInteract=false;}if(outbreakCommand.actionHeal){base.h=true;base.xh=1;outbreakCommand.actionHeal=false;}if(outbreakCommand.actionReload){base.r=true;base.xr=1;outbreakCommand.actionReload=false;}
   if(Number.isInteger(outbreakCommand.actionWeapon)){base.w=outbreakCommand.actionWeapon;outbreakCommand.actionWeapon=null;}if(Number.isInteger(outbreakCommand.actionUseSlot)){base.u=outbreakCommand.actionUseSlot;outbreakCommand.actionUseSlot=null;}if(Number.isInteger(outbreakCommand.actionDropSlot)){base.d=outbreakCommand.actionDropSlot;outbreakCommand.actionDropSlot=null;}
@@ -2224,7 +2296,7 @@ function outbreakRTSInput(base){
   if(tnow()<(outbreakCommand.haltUntil||0)){base.x=0;base.y=0;base.o=2;outbreakCommand.engagement='STOPPED';return base;}
   if(!outbreakCommand.guardAnchor)outbreakSetGuardAnchor(p);
   if(outbreakCommand.focusId){let z=outbreakZombieById(outbreakCommand.focusId);if(!z){outbreakResumeAfterCombat(p,'direct');}else{if(outbreakCommand.combatId!==z.uid||outbreakCommand.combatMode!=='direct')outbreakBeginCombat(p,z,'direct');if(outbreakEngageTarget(base,p,z,'direct'))return base;}}
-  if(outbreakCommand.context){const c=outbreakCommand.context,o=outbreakContextObject(c);if(outbreakContextDone(c,o)){const next=c.next,no=next&&outbreakContextObject(next);if(no){const tail=[...outbreakCommand.queue];setOutbreakContextOrder(next.type,no);outbreakCommand.queue=tail;}else finishOutbreakOrder(p);}else{const x=o.x+(c.type==='door'?o.w/2:0),y=o.y+(c.type==='door'?o.h/2:0),visible=c.type==='door'||outbreakPointVisible(p,x,y),last=visible?{x,y}:(outbreakCommand.goal||{x,y}),d=Math.hypot(last.x-p.x,last.y-p.y),range=outbreakContextRange(c,o),now=tnow();if(visible){c.lostAt=0;outbreakRepathDynamic(p,o,c);}else if(!c.lostAt)c.lostAt=now;if(visible&&d<=range){base.x=0;base.y=0;base.o=1;outbreakCommand.engagement='USING';outbreakCommand.progressAt=now;outbreakCommand.lastX=p.x;outbreakCommand.lastY=p.y;if(c.type!=='pickup')base.e=true;}else if(!visible&&now-c.lostAt>450&&(outbreakCommand.pathIndex>=outbreakCommand.path.length||d<Math.max(36,p.r+14))){outbreakCommand.invalidFx={x:last.x,y:last.y,t:now,label:'TARGET LOST'};pushFeed(`${c.label||'USE'} TARGET LOST`);finishOutbreakOrder(p);base.x=0;base.y=0;base.o=1;}else{const mv=outbreakOrderVector(p);base.x=mv.x;base.y=mv.y;base.o=Math.hypot(mv.x,mv.y)>.01?0:1;outbreakCommand.engagement=visible?'APPROACHING':'SEARCHING LAST SIGHTING';}return base;}}
+  if(outbreakCommand.context){const c=outbreakCommand.context,o=outbreakContextObject(c);if(outbreakContextDone(c,o)){const next=c.next,no=next&&outbreakContextObject(next);if(no){const tail=[...outbreakCommand.queue];setOutbreakContextOrder(next.type,no);outbreakCommand.queue=tail;}else finishOutbreakOrder(p);}else{const x=o.x+(c.type==='door'?o.w/2:0),y=o.y+(c.type==='door'?o.h/2:0),visible=c.type==='door'||outbreakPointVisible(p,x,y),last=visible?{x,y}:(outbreakCommand.goal||{x,y}),d=Math.hypot(last.x-p.x,last.y-p.y),range=outbreakContextRange(c,o),now=tnow();if(visible){c.lostAt=0;outbreakRepathDynamic(p,o,c);}else if(!c.lostAt)c.lostAt=now;if(visible&&d<=range){base.x=0;base.y=0;base.o=1;outbreakCommand.engagement='USING';outbreakCommand.progressAt=now;outbreakCommand.lastX=p.x;outbreakCommand.lastY=p.y;if(c.type!=='pickup'||OUTBREAK_ITEM_DEF[o.type]?.weapon)base.e=true;}else if(!visible&&now-c.lostAt>450&&(outbreakCommand.pathIndex>=outbreakCommand.path.length||d<Math.max(36,p.r+14))){outbreakCommand.invalidFx={x:last.x,y:last.y,t:now,label:'TARGET LOST'};pushFeed(`${c.label||'USE'} TARGET LOST`);finishOutbreakOrder(p);base.x=0;base.y=0;base.o=1;}else{const mv=outbreakOrderVector(p);base.x=mv.x;base.y=mv.y;base.o=Math.hypot(mv.x,mv.y)>.01?0:1;outbreakCommand.engagement=visible?'APPROACHING':'SEARCHING LAST SIGHTING';}return base;}}
   let mode=outbreakCombatMode(),z=outbreakZombieById(outbreakCommand.combatId);
   if(outbreakCommand.combatId&&!outbreakCombatValid(p,z,outbreakCommand.combatMode)){const oldMode=outbreakCommand.combatMode,reason=oldMode==='order'&&z?'leash':'lost';outbreakResumeAfterCombat(p,oldMode,reason);mode=outbreakCombatMode();z=null;}
   if(outbreakCommand.orderResumeAnchor){const a=outbreakCommand.orderResumeAnchor;if(Math.hypot(a.x-p.x,a.y-p.y)<=Math.max(30,p.r+12)){outbreakCommand.orderResumeAnchor=null;if(outbreakCommand.goal){outbreakCommand.path=buildOutbreakPath(p,outbreakCommand.goal.x,outbreakCommand.goal.y);outbreakCommand.pathIndex=0;}}else mode=null;}
@@ -2247,10 +2319,11 @@ function localInput(){
   if(touch.healId !== null) h = true;
   return outbreakRTSInput({ x, y, s, a, e, r, h, q:null, o:0,w:null,u:null,d:null,xa:0,xe:0,xr:0,xh:0 });
 }
-function abilityBtn(){ const r = clamp(Math.min(W,H)*0.07, 34, 52); return { x: W/2, y: H - r - 18, r }; }
-function interactBtn(){ const r=clamp(Math.min(W,H)*0.052,28,40); return {x:W*0.67,y:H-r-20,r}; }
-function healBtn(){ const r=clamp(Math.min(W,H)*0.044,25,34); return {x:W*0.80,y:H-r-22,r}; }
-function touchSwapBtn(){const r=clamp(Math.min(W,H)*.038,22,29);return{x:W*.84,y:H-r-150,r};}
+function abilityBtn(){ let r=clamp(Math.min(W,H)*0.07,34,52);if(W<420)r=Math.min(r,28);return{x:W<420?W*.48:W/2,y:H-r-18,r}; }
+function interactBtn(){ let r=clamp(Math.min(W,H)*0.052,28,40);if(W<420)r=Math.min(r,24);return{x:W<420?W*.69:W*.67,y:H-r-20,r}; }
+function healBtn(){ let r=clamp(Math.min(W,H)*0.044,25,34);if(W<420)r=Math.min(r,22);return{x:W<420?W*.88:W*.80,y:H-r-22,r}; }
+function touchSwapBtn(){const r=clamp(Math.min(W,H)*.038,22,29);return{x:W-r-8,y:H-r-150,r};}
+function touchMapBtn(){const r=clamp(Math.min(W,H)*.034,20,27);return{x:r+8,y:H-r-150,r};}
 function touchPackLayout(){const w=clamp(W*.078,30,42),h=38,gap=3,total=w*6+gap*5,x=(W-total)/2,y=H-154;return Array.from({length:6},(_,i)=>({i,x:x+i*(w+gap),y,w,h}));}
 
 /* ================= update ================= */
@@ -2618,7 +2691,7 @@ function outbreakFogSeen(x,y){return fogExplored.has(outbreakFogKey(x,y));}
 function outbreakFogIsVisible(x,y){return fogVisible.has(outbreakFogKey(x,y));}
 function drawFogOfWar(){
   const p=players[me];fogVisible.clear();if(!p||(!p.alive&&!p.downed)||!fogCtx)return;
-  const radius=OUTBREAK_ACQUIRE_RANGE+40,rays=LOW_RENDER?48:72,near=[];
+  const radius=Math.max(OUTBREAK_ACQUIRE_RANGE+40,outbreakAttackRange(p)+40),rays=LOW_RENDER?48:72,near=[];
   for(const w of walls){const nx=clamp(p.x,w.x,w.x+w.w),ny=clamp(p.y,w.y,w.y+w.h);if(Math.hypot(p.x-nx,p.y-ny)<radius+30)near.push(w);}
   const poly=[];for(let i=0;i<rays;i++){const a=i/rays*TAU,dx=Math.cos(a),dy=Math.sin(a);let d=radius;for(const w of near)d=Math.min(d,fogRayRect(p.x,p.y,dx,dy,w,radius));d=Math.max(16,d<radius?Math.min(radius,d+8):d);poly.push({x:p.x+dx*d,y:p.y+dy*d});}
   const c0x=Math.floor((p.x-radius)/FOG_CELL),c1x=Math.floor((p.x+radius)/FOG_CELL),c0y=Math.floor((p.y-radius)/FOG_CELL),c1y=Math.floor((p.y+radius)/FOG_CELL);
@@ -2701,9 +2774,10 @@ function drawOutbreakCommandDock(layout,you){
   ctx.strokeStyle=hexA(hro.color,.65);ctx.lineWidth=2;rrect(ctx,layout.portrait.x,layout.portrait.y,layout.portrait.w,layout.portrait.h,4);ctx.fillStyle='rgba(9,14,22,.96)';ctx.fill();ctx.stroke();const pg=ctx.createRadialGradient(layout.portrait.x+layout.portrait.w*.42,layout.portrait.y+layout.portrait.h*.3,2,layout.portrait.x+layout.portrait.w/2,layout.portrait.y+layout.portrait.h/2,layout.portrait.w*.7);pg.addColorStop(0,hexA(hro.color,.7));pg.addColorStop(1,'rgba(4,7,12,.9)');ctx.fillStyle=pg;ctx.fill();ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font=`900 italic ${Math.round(layout.portrait.w*.34)}px system-ui`;ctx.fillText(hro.short,layout.portrait.x+layout.portrait.w/2,layout.portrait.y+layout.portrait.h*.61);
   ctx.textAlign='left';ctx.fillStyle=hro.color;ctx.font='900 italic 13px system-ui';ctx.fillText(hro.name.toUpperCase().slice(0,16),layout.info.x,layout.info.y+12);ctx.fillStyle='#8b93a8';ctx.font='700 7px ui-monospace,monospace';ctx.fillText(`${hro.role} · LV ${you.level||1}`.slice(0,24),layout.info.x,layout.info.y+24);
   for(const a of layout.actions){const on=(a.k==='ability'&&!!you.ld.gadget&&you.gcd<=0)||(a.k==='reload'&&you.reserve>0&&you.ammo<you.ld.maxAmmo);ctx.fillStyle=on?'rgba(24,36,48,.96)':'rgba(10,14,21,.9)';ctx.strokeStyle=on?'rgba(146,166,200,.42)':'rgba(80,90,110,.28)';rrect(ctx,a.x,a.y,a.w,a.h,3);ctx.fill();ctx.stroke();ctx.textAlign='center';ctx.fillStyle=on?'#eef2ff':'#596078';ctx.font='900 9px ui-monospace,monospace';ctx.fillText(a.key,a.x+10,a.y+12);ctx.font='700 6px ui-monospace,monospace';ctx.fillStyle=on?'#8b93a8':'#4a5164';ctx.fillText(a.k==='ability'&&you.ld.gadget?(you.gcd>0?`${you.gcd.toFixed(1)}S`:you.ld.gadget.name.toUpperCase().slice(0,8)):a.label,a.x+a.w/2,a.y+22);}
-  const bw=layout.info.w,by=layout.info.y+31;ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(layout.info.x,by,bw,8);ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillRect(layout.info.x,by,bw*hp,8);ctx.fillStyle='#eef2ff';ctx.font='800 7px ui-monospace,monospace';ctx.fillText(`CONDITION ${Math.ceil(you.hp)} / ${you.maxHp}`,layout.info.x+4,by+7);ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(layout.info.x,by+12,bw,5);ctx.fillStyle='#b56bff';ctx.fillRect(layout.info.x,by+12,bw*inf,5);
-  ctx.fillStyle='#c9d2e6';ctx.font='800 8px ui-monospace,monospace';ctx.fillText(`${(gun&&gun.name)||'SIDEARM'} · ${you.ammo}/${you.reserve||0} · R RELOAD`,layout.info.x,by+28);ctx.fillStyle=outbreakCommand.pending?'#ffcf3f':'#8b93a8';ctx.fillText(`ORDER: ${order}${outbreakCommand.queue.length?` · ${outbreakCommand.queue.length} QUEUED`:''}`.slice(0,48),layout.info.x,by+40);ctx.fillStyle=outbreakCommand.combatId?'#ff5c5c':'#596078';ctx.font='700 7px ui-monospace,monospace';ctx.fillText(`STANCE: ${stance} · ${outbreakCommand.engagement||'IDLE'}`.slice(0,52),layout.info.x,by+50);
-  for(const box of layout.items){const s=you.pack&&you.pack[box.i],def=s&&OUTBREAK_ITEM_DEF[s.type],active=!!(s&&gun&&((s.type==='shotgun'&&gun.riot)||s.type===gun.ammoType));ctx.fillStyle=active?'rgba(255,207,63,.13)':'rgba(8,12,19,.96)';ctx.strokeStyle=active?'#ffcf3f':def?hexA(def.c,.55):'rgba(88,101,128,.34)';rrect(ctx,box.x,box.y,box.w,box.h,3);ctx.fill();ctx.stroke();ctx.textAlign='left';ctx.fillStyle=active?'#ffcf3f':'#596078';ctx.font='800 7px ui-monospace,monospace';ctx.fillText(String(box.i+1),box.x+4,box.y+9);if(def){ctx.textAlign='center';ctx.fillStyle=def.c;ctx.font='900 14px system-ui';ctx.fillText(def.ic,box.x+box.w/2,box.y+20);ctx.font='700 6px ui-monospace,monospace';ctx.fillText(def.short,box.x+box.w/2,box.y+36);ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 8px ui-monospace,monospace';ctx.fillText(String(s.qty),box.x+box.w-3,box.y+10);}else{ctx.textAlign='center';ctx.fillStyle='#343b4d';ctx.font='700 12px ui-monospace,monospace';ctx.fillText('—',box.x+box.w/2,box.y+26);}}
+  const bw=Math.min(170,layout.info.w*.32),by=layout.info.y+31;ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(layout.info.x,by,bw,8);ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillRect(layout.info.x,by,bw*hp,8);ctx.fillStyle='#eef2ff';ctx.font='800 7px ui-monospace,monospace';ctx.fillText(`CONDITION ${Math.ceil(you.hp)} / ${you.maxHp}`,layout.info.x+4,by+7);ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(layout.info.x,by+12,bw,5);ctx.fillStyle='#b56bff';ctx.fillRect(layout.info.x,by+12,bw*inf,5);
+  for(const box of layout.weapons){const g=you.guns&&you.guns[box.i],active=box.i===(you.gunIndex||0),ammo=g?(active?you.ammo:g.ammo):0,reserve=g?outbreakPackCount(you,g.ammoType):0;ctx.fillStyle=active?'rgba(255,207,63,.15)':'rgba(8,12,19,.96)';ctx.strokeStyle=active?'#ffcf3f':g?'rgba(111,128,160,.48)':'rgba(70,80,100,.3)';rrect(ctx,box.x,box.y,box.w,box.h,3);ctx.fill();ctx.stroke();ctx.textAlign='left';ctx.fillStyle=active?'#ffcf3f':'#8b93a8';ctx.font='800 6px ui-monospace,monospace';ctx.fillText(g?`W${box.i+1} · ${g.wbase.short} · MK ${1+(g.tier||0)}`:`W${box.i+1} · FIELD WEAPON`,box.x+5,box.y+10);ctx.fillStyle=g?'#eef2ff':'#4a5164';ctx.font='900 9px ui-monospace,monospace';ctx.fillText(g?`${ammo}/${reserve} ${OUTBREAK_ITEM_DEF[g.ammoType].short}`:'EMPTY',box.x+5,box.y+23);}
+  ctx.fillStyle=outbreakCommand.pending?'#ffcf3f':'#8b93a8';ctx.font='800 8px ui-monospace,monospace';ctx.fillText(`ORDER: ${order}${outbreakCommand.queue.length?` · ${outbreakCommand.queue.length} QUEUED`:''}`.slice(0,48),layout.info.x,by+40);ctx.fillStyle=outbreakCommand.combatId?'#ff5c5c':'#596078';ctx.font='700 7px ui-monospace,monospace';ctx.fillText(`STANCE: ${stance} · ${outbreakCommand.engagement||'IDLE'}`.slice(0,52),layout.info.x,by+50);
+  for(const box of layout.items){const s=you.pack&&you.pack[box.i],def=s&&OUTBREAK_ITEM_DEF[s.type],active=!!(s&&gun&&s.type===gun.ammoType);ctx.fillStyle=active?'rgba(255,207,63,.13)':'rgba(8,12,19,.96)';ctx.strokeStyle=active?'#ffcf3f':def?hexA(def.c,.55):'rgba(88,101,128,.34)';rrect(ctx,box.x,box.y,box.w,box.h,3);ctx.fill();ctx.stroke();ctx.textAlign='left';ctx.fillStyle=active?'#ffcf3f':'#596078';ctx.font='800 7px ui-monospace,monospace';ctx.fillText(String(box.i+1),box.x+4,box.y+9);if(def){ctx.textAlign='center';ctx.fillStyle=def.c;ctx.font='900 14px system-ui';ctx.fillText(def.ic,box.x+box.w/2,box.y+20);ctx.font='700 6px ui-monospace,monospace';ctx.fillText(def.short,box.x+box.w/2,box.y+36);ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 8px ui-monospace,monospace';ctx.fillText(String(s.qty),box.x+box.w-3,box.y+10);}else{ctx.textAlign='center';ctx.fillStyle='#343b4d';ctx.font='700 12px ui-monospace,monospace';ctx.fillText('—',box.x+box.w/2,box.y+26);}}
   for(const b of layout.buttons){const active=outbreakCommand.pending===b.k||outbreakCommand.kind===b.k||(b.k==='interact'&&!!outbreakCommand.context)||(b.k==='stop'&&tnow()<(outbreakCommand.haltUntil||0)),accent=b.k==='attack'||b.k==='attackmove'?'#ff5c5c':b.k==='patrol'?'#00e5ff':b.k==='interact'?'#ffcf3f':'#7cff9b';ctx.fillStyle=active?hexA(accent,.18):'rgba(10,14,22,.94)';ctx.strokeStyle=active?accent:'rgba(111,128,160,.32)';rrect(ctx,b.x,b.y,b.w,b.h,4);ctx.fill();ctx.stroke();ctx.textAlign='center';ctx.fillStyle=active?accent:'#c9d2e6';ctx.font='900 14px system-ui';ctx.fillText(b.icon,b.x+b.w/2,b.y+b.h*.43);ctx.font='800 6px ui-monospace,monospace';ctx.fillText(b.label,b.x+b.w/2,b.y+b.h-6);ctx.fillStyle=active?accent:'#596078';ctx.font='800 7px ui-monospace,monospace';ctx.fillText(b.key,b.x+b.w-7,b.y+9);}
   ctx.fillStyle='#4f586d';ctx.textAlign='left';ctx.font='600 6px ui-monospace,monospace';ctx.fillText('1–6 USE · SHIFT+1–6 DROP',layout.info.x,layout.y+layout.h-2);ctx.restore();
 }
@@ -2731,7 +2805,7 @@ function drawZombieEntities(){
       ctx.fillText(s.captured?'✓':locked?'×':s.ic,s.x,s.y+1); ctx.textBaseline='alphabetic';
       ctx.font='800 11px ui-monospace,monospace'; ctx.fillText(s.short,s.x,s.y-s.r-14);
       if(active){ ctx.font='700 9px ui-monospace,monospace'; ctx.fillStyle=s.contested?'#ff5c5c':'rgba(238,242,255,.72)';
-        ctx.fillText(s.contested?'CLEAR THE AREA':'HOLD F TO SEARCH',s.x,s.y+s.r+22); }
+        ctx.fillText(s.contested?'CLEAR THE AREA':isTouch&&!hasFinePointer?'HOLD USE TO SEARCH':'RIGHT-CLICK TO SEARCH',s.x,s.y+s.r+22); }
       else if(s.safe&&s.captured){ctx.font='700 9px ui-monospace,monospace';ctx.fillStyle='#7cff9b';ctx.fillText('SAFE ROOM · HEAL + TREAT',s.x,s.y+s.r+22);}
       ctx.restore();
     }
@@ -2797,9 +2871,9 @@ function drawTacticalMap(x,y,w,h){
   ctx.restore();ctx.globalAlpha=1;
 }
 function drawCaseFile(){
-  if(!held.Tab)return;const c=campaign,you=players[me],pw=Math.min(1180,W-20),ph=Math.min(760,H-20),x=(W-pw)/2,y=(H-ph)/2,wide=pw>=760,split=wide||(ph<560&&pw>=560);
+  if(!held.Tab&&!touch.caseFile)return;const c=campaign,you=players[me],pw=Math.min(1180,W-20),ph=Math.min(760,H-20),x=(W-pw)/2,y=(H-ph)/2,wide=pw>=760,split=wide||(ph<560&&pw>=560);
   ctx.save();ctx.fillStyle='rgba(3,5,10,.975)';ctx.fillRect(x,y,pw,ph);ctx.strokeStyle='#8b93a8';ctx.strokeRect(x,y,pw,ph);ctx.textAlign='left';
-  ctx.fillStyle='#ffcf3f';ctx.font=`900 italic ${wide?24:16}px system-ui`;ctx.fillText(wide?'RACCOON OUTBREAK · CITY OPERATIONS MAP':'RACCOON OUTBREAK · CITY MAP',x+20,y+34);ctx.font=`700 ${wide?9:7}px ui-monospace,monospace`;ctx.fillStyle='#8b93a8';ctx.fillText(wide?'64,000 × 64,000 OPERATION THEATER · RELEASE TAB TO CLOSE':'64K OPERATION THEATER · RELEASE TAB TO CLOSE',x+20,y+51);
+  ctx.fillStyle='#ffcf3f';ctx.font=`900 italic ${wide?24:16}px system-ui`;ctx.fillText(wide?'RACCOON OUTBREAK · CITY OPERATIONS MAP':'RACCOON OUTBREAK · CITY MAP',x+20,y+34);ctx.font=`700 ${wide?9:7}px ui-monospace,monospace`;ctx.fillStyle='#8b93a8';ctx.fillText(wide?`64,000 × 64,000 OPERATION THEATER · ${touch.caseFile?'TAP TO CLOSE':'RELEASE TAB TO CLOSE'}`:`64K OPERATION THEATER · ${touch.caseFile?'TAP TO CLOSE':'RELEASE TAB TO CLOSE'}`,x+20,y+51);
   const mapX=x+16,mapY=y+64,mapW=split?pw*(wide?.61:.58):pw-32,mapH=split?ph-94:Math.max(150,ph-382);drawTacticalMap(mapX,mapY,mapW,mapH);
   const dx=split?mapX+mapW+(wide?18:12):x+18,dy=split?mapY:mapY+mapH+14,dw=split?pw-mapW-(wide?54:44):pw-36,hro=OUTBREAK_HEROES[(you&&you.hero)||save.outbreakHero]||OUTBREAK_HEROES.mara;
   ctx.fillStyle=hro.color;ctx.font='900 italic 16px system-ui';ctx.fillText(hro.name.toUpperCase(),dx,dy+14);ctx.fillStyle='#8b93a8';ctx.font='600 8px ui-monospace,monospace';ctx.fillText((hro.role+' · '+hro.perk).slice(0,wide?52:42),dx,dy+29);
@@ -2811,20 +2885,24 @@ function drawCaseFile(){
   const stats=[`DISTRICT    ${wide?(c.district||'CIVIC CENTER'):(c.district||'CIVIC CENTER').slice(0,14)}`,`DISCOVERED  ${(c.districts||[]).length}/${OUTBREAK_DISTRICTS.length}`,`TRAVELED    ${Math.floor(c.distance||0)}m`,`FIELD OPS   ${c.ops||0}`,`SURVIVORS   ${c.rescued}/${c.goal}`,`FILES       ${c.files}/${OUTBREAK_FILES.length}`,`CACHES      ${c.caches||0}`,`KILLS       ${(you&&you.kills)||0}`];
   if(wide){for(const t of stats){ctx.fillText(t,dx,yy);yy+=16;}}
   else {ctx.font='700 8px ui-monospace,monospace';for(let i=0;i<stats.length;i++){ctx.fillText(stats[i],dx+(i>=4?dw*.54:0),yy+(i%4)*15);}yy+=64;}
+  if(wide&&you){ctx.fillStyle='#eef2ff';ctx.font='900 italic 12px system-ui';ctx.fillText('ARMORY BUILD',dx,yy+4);ctx.font='700 8px ui-monospace,monospace';yy+=21;for(let i=0;i<2;i++){const g=you.guns&&you.guns[i];ctx.fillStyle=i===(you.gunIndex||0)?'#ffcf3f':g?'#c9d2e6':'#4a5164';ctx.fillText(g?`${i+1} · ${g.wbase.short} MK ${1+(g.tier||0)} · DMG ${g.damage.toFixed(2)} · MAG ${g.maxAmmo} · ${OUTBREAK_ITEM_DEF[g.ammoType].short}`:`${i+1} · EMPTY FIELD SLOT`,dx,yy);yy+=14;}ctx.fillStyle='#8b93a8';ctx.fillText(`MODS · ${(c.upgradeLog||[]).slice(-4).join(' · ')||'NONE'}`,dx,yy);yy+=18;}
   if(wide){ctx.fillStyle='#eef2ff';ctx.font='900 italic 12px system-ui';ctx.fillText('KEY ITEMS',dx,yy+4);ctx.font='700 8px ui-monospace,monospace';yy+=21;const items=[['CUTTERS',c.cutters],['PATROL TRUCK',c.vehicle],['KEYCARD',c.keycard],['ROAD NETWORK',c.transit],['GRID FUSE',c.fuse],['POWER',c.power],['RADIO',c.radio],['FUEL',c.fuel],['CROWN LEDGER',c.truth]];for(const it of items){ctx.fillStyle=it[1]?'#ffcf3f':'#4a5164';ctx.fillText(`${it[1]?'■':'□'} ${it[0]}`,dx,yy);yy+=14;}}
   ctx.fillStyle='#8b93a8';ctx.font='600 9px ui-monospace,monospace';ctx.fillText('GOLD MAIN · CYAN OPTIONAL · RED FIELD OP · GREEN SECURED',mapX+10,mapY+mapH-10);ctx.restore();
 }
 function drawOutbreakHUD(){
   const c=campaign,obj=missionObjective(),boss=zombies.some(z=>z.boss),you=players[me],layout=outbreakHudLayout(),playH=layout.desktop?layout.y:H;
-  const objW=Math.min(620,Math.max(280,W-340));glassPanel(W/2-objW/2,5,objW,58,boss?'#ff2d55':'#ffcf3f',.68);
+  const compact=W<=700&&!layout.desktop,shortTouch=compact&&isTouch&&H<420,objY=shortTouch?48:compact?118:5,objW=compact?Math.max(280,W-20):Math.min(620,Math.max(280,W-340));glassPanel(W/2-objW/2,objY,objW,58,boss?'#ff2d55':'#ffcf3f',.68);
   if(W>700){if(!layout.desktop)glassPanel(9,7,145,c.safeActive?112:96,you&&you.hp/you.maxHp<.3?'#ff2d55':'#7cff9b',.7);glassPanel(W-153,7,144,113,'#00e5ff',.7);}
   ctx.textAlign='center';ctx.font='700 10px ui-monospace,monospace';ctx.fillStyle=c.alert>0?'#ff7a3c':'#8b93a8';
-  ctx.fillText(`${c.district||'CIVIC CENTER'} · THREAT ${c.wave}${boss?' · TYRANT':''}${c.vehicle&&you&&onMajorRoad(you)?(c.transit?' · SERVICE TRUCK':' · PATROL TRUCK'):c.blackout>0?' · BLACKOUT':c.alert>0?' · HORDE ALERT':''}`,W/2,18);
-  ctx.font='900 italic 15px system-ui,sans-serif';ctx.fillStyle='#eef2ff';ctx.fillText(`${obj.case} · ${obj.text}`,W/2,39);
-  ctx.font='600 10px ui-monospace,monospace';ctx.fillStyle='#8b93a8';ctx.fillText(obj.sub,W/2,55);
-  if(c.phase===6){const bw=190,bx=W/2-bw/2,frac=clamp(c.rescued/c.goal,0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(bx,63,bw,6);ctx.fillStyle='#3ddc84';ctx.fillRect(bx,63,bw*frac,6);}
+  const threat=`${c.district||'CIVIC CENTER'} · THREAT ${c.wave}${boss?' · TYRANT':''}${c.vehicle&&you&&onMajorRoad(you)?(c.transit?' · SERVICE TRUCK':' · PATROL TRUCK'):c.blackout>0?' · BLACKOUT':c.alert>0?' · HORDE ALERT':''}`;
+  ctx.fillText(compact?threat.slice(0,44):threat,W/2,objY+13);
+  ctx.font='900 italic 15px system-ui,sans-serif';ctx.fillStyle='#eef2ff';const objective=`${obj.case} · ${obj.text}`;ctx.fillText(compact?objective.slice(0,39):objective,W/2,objY+34);
+  ctx.font='600 10px ui-monospace,monospace';ctx.fillStyle='#8b93a8';ctx.fillText(compact?obj.sub.slice(0,46):obj.sub,W/2,objY+50);
+  if(c.phase===6){const bw=190,bx=W/2-bw/2,frac=clamp(c.rescued/c.goal,0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(bx,objY+58,bw,6);ctx.fillStyle='#3ddc84';ctx.fillRect(bx,objY+58,bw*frac,6);}
   // condition monitor
   if(you&&!layout.desktop){const hp=clamp(you.hp/you.maxHp,0,1),inf=clamp(you.infection/100,0,1),bw=128;
+    if(shortTouch){const gun=you.guns&&you.guns[you.gunIndex||0];ctx.textAlign='left';ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.font='800 9px ui-monospace,monospace';ctx.fillText(`HP ${Math.ceil(you.hp)}/${you.maxHp} · INF ${Math.ceil(you.infection)}% · ❤ ${Math.max(0,c.lives+1)}`,12,18);ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 italic 16px system-ui';ctx.fillText(`${you.ammo}/${you.reserve||0}`,W-12,18);ctx.fillStyle='#8b93a8';ctx.font='700 8px ui-monospace,monospace';ctx.fillText(you.reloadT>0?'RELOADING…':`${gun?gun.wbase.short:'SIDEARM'} · ${gun?OUTBREAK_ITEM_DEF[gun.ammoType].short:'AMMO'}`,W-12,33);}
+    else{
     ctx.textAlign='left';ctx.font='800 10px ui-monospace,monospace';ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillText(`CONDITION ${Math.ceil(you.hp)}/${you.maxHp}`,16,18);
     ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(16,24,bw,6);ctx.fillStyle=hp>.55?'#7cff9b':hp>.28?'#ffcf3f':'#ff2d55';ctx.fillRect(16,24,bw*hp,6);
     ctx.fillStyle='#b56bff';ctx.fillText(`INFECTION ${Math.ceil(you.infection)}%`,16,46);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(16,51,bw,5);ctx.fillStyle='#b56bff';ctx.fillRect(16,51,bw*inf,5);
@@ -2832,21 +2910,21 @@ function drawOutbreakHUD(){
     ctx.fillStyle='#c9d2e6';ctx.fillText(`✚ ${you.herbs||0}  ▣ ${you.sprays||0}  ◆ ${you.parts||0}`,16,93);
     const safe=missionSites.find(s=>s.safe&&s.captured&&Math.hypot(you.x-s.x,you.y-s.y)<135);if(c.safeActive||safe){ctx.fillStyle='#7cff9b';ctx.fillText('SAFE ROOM · RECOVERING',16,111);}
     // weapon monitor
-    ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';ctx.fillText(`${you.ammo} / ${you.reserve||0}`,W-16,54);
-    ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(you.reloadT>0?'RELOADING…':'MAGAZINE / RESERVE · R',W-16,68);
-    if(you.reloadT>0){const f=1-clamp(you.reloadT/Math.max(.4,you.ld.regenTime*2.1*(you.reloadMod||1)),0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-144,73,128,5);ctx.fillStyle='#ffcf3f';ctx.fillRect(W-144,73,128*f,5);}
+    const gun=you.guns&&you.guns[you.gunIndex||0];ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';ctx.fillText(`${you.ammo} / ${you.reserve||0}`,W-16,54);
+    ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(you.reloadT>0?'RELOADING…':`${gun?gun.wbase.short:'SIDEARM'} · MK ${1+(gun&&gun.tier||0)} · ${gun?OUTBREAK_ITEM_DEF[gun.ammoType].short:'AMMO'}`,W-16,68);
+    if(you.reloadT>0){const f=1-clamp(you.reloadT/Math.max(.4,you.ld.regenTime*2.1*(you.reloadMod||1)),0,1);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-144,73,128,5);ctx.fillStyle='#ffcf3f';ctx.fillRect(W-144,73,128*f,5);}}
   }
-  ctx.textAlign='right';ctx.font='900 italic 14px system-ui';ctx.fillStyle='#ff2d55';ctx.fillText('❤'.repeat(Math.max(0,c.lives+1))||'—',W-16,20);
-  ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(`FILES ${c.files}/${OUTBREAK_FILES.length} · TAB CASE FILE`,W-16,92);
-  ctx.fillText(`NOISE ${Math.ceil(c.noise||0)}%`,W-16,108);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-116,113,100,4);ctx.fillStyle=(c.noise||0)>55?'#ff7a3c':'#596078';ctx.fillRect(W-116,113,(c.noise||0),4);
+  if(!shortTouch){ctx.textAlign='right';ctx.font='900 italic 14px system-ui';ctx.fillStyle='#ff2d55';ctx.fillText('❤'.repeat(Math.max(0,c.lives+1))||'—',W-16,20);
+    const metaY=compact?objY+73:92;ctx.fillStyle='#8b93a8';ctx.font='700 9px ui-monospace,monospace';ctx.fillText(`FILES ${c.files}/${OUTBREAK_FILES.length} · ${isTouch&&!hasFinePointer?'MAP BUTTON':'TAB CASE FILE'}`,W-16,metaY);
+    ctx.fillText(`NOISE ${Math.ceil(c.noise||0)}%`,W-16,metaY+16);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(W-116,metaY+21,100,4);ctx.fillStyle=(c.noise||0)>55?'#ff7a3c':'#596078';ctx.fillRect(W-116,metaY+21,(c.noise||0),4);}
   // Objective compass
   const target=currentMissionTarget();if(you&&target){const dx=target.x-you.x,dy=target.y-you.y,dist=Math.hypot(dx,dy);if(dist>90){const a=Math.atan2(dy,dx),cx=W/2,cy=playH/2,rad=Math.min(W,playH)*.32,rel=angDiff(you.aim,a),persp=perspectiveActive(),ax=persp?clamp(cx+rel/.72*(W*.42),46,W-46):cx+Math.cos(a)*rad,ay=persp?Math.max(122,playH*.20):cy+Math.sin(a)*rad,rot=persp?(Math.abs(rel)<.72?-Math.PI/2:rel>0?0:Math.PI):a;
     ctx.save();ctx.translate(ax,ay);ctx.rotate(rot);ctx.fillStyle=c.phase>=6?'#3ddc84':'#ffcf3f';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-8,-7);ctx.lineTo(-8,7);ctx.closePath();ctx.fill();ctx.restore();
     const label=target===HUB?'HUB':target.short||(target.following!=null?'ESCORT':'SURVIVOR');ctx.fillStyle=c.phase>=6?'#7cff9b':'#ffcf3f';ctx.textAlign='center';ctx.font='700 10px ui-monospace,monospace';ctx.fillText(`${label} ${Math.max(1,dist/100|0)}m`,ax,ay+22);}}
-  const prompt=interactionPrompt(you);if(prompt&&!layout.desktop){ctx.textAlign='center';ctx.font='900 12px ui-monospace,monospace';ctx.fillStyle='#ffcf3f';ctx.fillText(prompt,W/2,H-(isTouch?174:64));}
-  ctx.textAlign='left';ctx.font='600 12px ui-monospace,monospace';let fy=layout.desktop?layout.y-58:H-16-(isTouch?82:0);for(let i=feed.length-1;i>=0;i--){const f=feed[i],a=clamp(3.5-f.t,0,1);if(a<=0)continue;ctx.globalAlpha=a;ctx.fillStyle='#c9d2e6';ctx.fillText(f.txt,16,fy);fy-=18;}ctx.globalAlpha=1;
+  const prompt=interactionPrompt(you);if(shortTouch){const latest=[...feed].reverse().find(f=>f.t<3.5),msg=prompt||(latest&&latest.txt);if(msg){ctx.textAlign='center';ctx.font='900 9px ui-monospace,monospace';ctx.fillStyle=prompt?'#ffcf3f':'#c9d2e6';ctx.fillText(String(msg).slice(0,72),W/2,objY+70);}}
+  else{if(prompt&&!layout.desktop){ctx.textAlign='center';ctx.font='900 12px ui-monospace,monospace';ctx.fillStyle='#ffcf3f';ctx.fillText(prompt,W/2,H-(isTouch?174:64));}ctx.textAlign='left';ctx.font='600 12px ui-monospace,monospace';let fy=layout.desktop?layout.y-58:H-16-(isTouch?82:0);for(let i=feed.length-1;i>=0;i--){const f=feed[i],a=clamp(3.5-f.t,0,1);if(a<=0)continue;ctx.globalAlpha=a;ctx.fillStyle='#c9d2e6';ctx.fillText(f.txt,16,fy);fy-=18;}ctx.globalAlpha=1;}
   drawOutbreakCommandDock(layout,you);drawOutbreakTargetPanel(layout,you);drawOutbreakProgressLane(layout,you);
-  if(you&&!you.alive&&state==='play'){ctx.textAlign='center';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';ctx.fillText(you.downed?`DOWN · ${Math.ceil(you.bleedout)}s · ALLY HOLD F TO REVIVE`:c.lives>0?'REINFORCEMENT INBOUND…':'LOST — ALLIES STILL FIGHTING',W/2,playH/2+60);}
+  if(you&&!you.alive&&state==='play'){ctx.textAlign='center';ctx.fillStyle='#eef2ff';ctx.font='900 italic 22px system-ui';const revive=isTouch&&!hasFinePointer?'ALLY HOLD USE TO REVIVE':'ALLY RIGHT-CLICK TO REVIVE';ctx.fillText(you.downed?`DOWN · ${Math.ceil(you.bleedout)}s · ${revive}`:c.lives>0?'REINFORCEMENT INBOUND…':'LOST — ALLIES STILL FIGHTING',W/2,playH/2+60);}
 }
 function drawHUD(){
   ctx.textAlign = 'left';
@@ -2924,6 +3002,7 @@ function drawHUD(){
 function drawMinimap(){
   const open = gmode==='zombies' && campaign && campaign.open;
   const layout=outbreakHudLayout(),compactTouch=!layout.desktop&&open&&isTouch&&H<520,mw = layout.desktop?layout.map.w:compactTouch?clamp(H*.25,92,112):clamp(W*0.21,170,280), mh = layout.desktop?layout.map.h:(open ? mw : mw * WORLD.h/WORLD.w);
+  if(open&&isTouch&&!layout.desktop&&W<=700)return; // phones use the dedicated full-screen MAP control
   const mx = layout.desktop?layout.map.x:W-mw-14, my = layout.desktop?layout.map.y:(open&&(perspectiveActive()||isTouch)?128:H-mh-14);
   ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=24;ctx.fillStyle='rgba(5,8,15,.92)';ctx.fillRect(mx-5,my-5,mw+10,mh+10);ctx.restore();
   ctx.globalAlpha = 0.9; ctx.fillStyle = 'rgba(6,10,18,.9)'; ctx.fillRect(mx,my,mw,mh);
@@ -2966,13 +3045,13 @@ function drawTouch(){
   if(isTouch && state==='play'&&!outbreakHudLayout().desktop){ ctx.fillStyle='rgba(139,147,168,.4)'; ctx.font='700 11px ui-monospace,monospace';
     ctx.textAlign='center'; ctx.fillText('◈ MOVE', W*0.25, H-24); ctx.fillText('✛ FIRE', W*0.90, H-24);
     if(gmode==='zombies'&&campaign&&campaign.open){for(const b of [{...interactBtn(),t:'USE',c:'#ffcf3f'},{...healBtn(),t:'HEAL',c:'#7cff9b'}]){ctx.fillStyle='rgba(6,8,15,.72)';ctx.strokeStyle=b.c;ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=b.c;ctx.font='900 9px ui-monospace,monospace';ctx.fillText(b.t,b.x,b.y+3);}}
-    if(gmode==='zombies'&&campaign&&campaign.open){const p=players[me],gun=p&&p.guns&&p.guns[p.gunIndex||0],sb=touchSwapBtn();ctx.fillStyle=p&&p.guns&&p.guns.length>1?'rgba(0,229,255,.16)':'rgba(6,8,15,.72)';ctx.strokeStyle=p&&p.guns&&p.guns.length>1?'#00e5ff':'#596078';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sb.x,sb.y,sb.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=p&&p.guns&&p.guns.length>1?'#00e5ff':'#596078';ctx.font='900 8px ui-monospace,monospace';ctx.fillText('SWAP',sb.x,sb.y+3);for(const box of touchPackLayout()){const s=p&&p.pack&&p.pack[box.i],def=s&&OUTBREAK_ITEM_DEF[s.type],active=!!(s&&gun&&((s.type==='shotgun'&&gun.riot)||s.type===gun.ammoType));ctx.fillStyle=active?'rgba(255,207,63,.18)':'rgba(5,8,14,.82)';ctx.strokeStyle=active?'#ffcf3f':def?hexA(def.c,.65):'rgba(90,103,130,.42)';rrect(ctx,box.x,box.y,box.w,box.h,3);ctx.fill();ctx.stroke();ctx.fillStyle='#596078';ctx.textAlign='left';ctx.font='700 6px ui-monospace,monospace';ctx.fillText(String(box.i+1),box.x+3,box.y+8);if(def){ctx.textAlign='center';ctx.fillStyle=def.c;ctx.font='900 12px system-ui';ctx.fillText(def.ic,box.x+box.w/2,box.y+18);ctx.font='700 6px ui-monospace,monospace';ctx.fillText(def.short,box.x+box.w/2,box.y+33);ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.fillText(String(s.qty),box.x+box.w-3,box.y+8);}if(touch.packId!=null&&touch.packSlot===box.i){const f=clamp((tnow()-touch.packDownAt)/550,0,1);ctx.fillStyle='rgba(255,45,85,.55)';ctx.fillRect(box.x,box.y+box.h-3,box.w*f,3);}}ctx.textAlign='center';ctx.fillStyle='#8b93a8';ctx.font='600 7px ui-monospace,monospace';ctx.fillText('TAP USE · HOLD DROP',W/2,H-160);}
+    if(gmode==='zombies'&&campaign&&campaign.open){const p=players[me],gun=p&&p.guns&&p.guns[p.gunIndex||0],sb=touchSwapBtn(),mb=touchMapBtn();ctx.fillStyle=p&&p.guns&&p.guns.length>1?'rgba(0,229,255,.16)':'rgba(6,8,15,.72)';ctx.strokeStyle=p&&p.guns&&p.guns.length>1?'#00e5ff':'#596078';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sb.x,sb.y,sb.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle=p&&p.guns&&p.guns.length>1?'#00e5ff':'#596078';ctx.font='900 8px ui-monospace,monospace';ctx.fillText('SWAP',sb.x,sb.y+3);ctx.fillStyle='rgba(255,207,63,.12)';ctx.strokeStyle='#ffcf3f';ctx.beginPath();ctx.arc(mb.x,mb.y,mb.r,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle='#ffcf3f';ctx.fillText('MAP',mb.x,mb.y+3);for(const box of touchPackLayout()){const s=p&&p.pack&&p.pack[box.i],def=s&&OUTBREAK_ITEM_DEF[s.type],active=!!(s&&gun&&s.type===gun.ammoType);ctx.fillStyle=active?'rgba(255,207,63,.18)':'rgba(5,8,14,.82)';ctx.strokeStyle=active?'#ffcf3f':def?hexA(def.c,.65):'rgba(90,103,130,.42)';rrect(ctx,box.x,box.y,box.w,box.h,3);ctx.fill();ctx.stroke();ctx.fillStyle='#596078';ctx.textAlign='left';ctx.font='700 6px ui-monospace,monospace';ctx.fillText(String(box.i+1),box.x+3,box.y+8);if(def){ctx.textAlign='center';ctx.fillStyle=def.c;ctx.font='900 12px system-ui';ctx.fillText(def.ic,box.x+box.w/2,box.y+18);ctx.font='700 6px ui-monospace,monospace';ctx.fillText(def.short,box.x+box.w/2,box.y+33);ctx.textAlign='right';ctx.fillStyle='#eef2ff';ctx.fillText(String(s.qty),box.x+box.w-3,box.y+8);}if(touch.packId!=null&&touch.packSlot===box.i){const f=clamp((tnow()-touch.packDownAt)/550,0,1);ctx.fillStyle='rgba(255,45,85,.55)';ctx.fillRect(box.x,box.y+box.h-3,box.w*f,3);}}ctx.textAlign='center';ctx.fillStyle='#8b93a8';ctx.font='600 7px ui-monospace,monospace';ctx.fillText('TAP USE · HOLD DROP',W/2,H-160);}
   }
 }
 
 /* ================= menus ================= */
 function toMenu(){
-  state = 'menu'; mode = null; roundLive = false; clearTimers();clearTimeout(storyTimer);storySceneState=null; parts = []; bullets = []; rankedMode = false; duelMode = false;resetOutbreakCommand();if(document.pointerLockElement)document.exitPointerLock();
+  state = 'menu'; mode = null; roundLive = false; clearTimers();clearTimeout(storyTimer);storySceneState=null;touch.caseFile=false; parts = []; bullets = []; rankedMode = false; duelMode = false;resetOutbreakCommand();if(document.pointerLockElement)document.exitPointerLock();
   netCloseAll(true); lobbyCleanup();
   $('#announce').classList.remove('show');
   const p = save; const xi = expInfo(p.exp);
@@ -3522,6 +3601,9 @@ function newPC(){ return new RTCPeerConnection({ iceServers:[
     username:'openrelayproject', credential:'openrelayproject' } ]}); }
 
 /* ----- lobby UI ----- */
+function outbreakOnlineHeroSummary(k){const h=OUTBREAK_HEROES[k]||OUTBREAK_HEROES.mara,g=OUTBREAK_ARSENAL[h.kit||'service'];return`${h.role} · ${g.name} · ${h.perk}`;}
+function outbreakOnlineHeroMarkup(){const chosen=OUTBREAK_HEROES[save.outbreakHero]?save.outbreakHero:'mara';return`<div class="hero-kit" style="--hero:${OUTBREAK_HEROES[chosen].color};text-align:left;width:100%;margin:0"><b>OUTBREAK OPERATOR · SENT WITH YOUR ONLINE LOADOUT</b><select class="hero-select" id="onlineHeroPick">${Object.entries(OUTBREAK_HEROES).map(([k,h])=>`<option value="${k}" ${k===chosen?'selected':''}>${esc(h.name)} — ${esc(OUTBREAK_ARSENAL[h.kit||'service'].short)}</option>`).join('')}</select><span id="onlineHeroSummary">${esc(outbreakOnlineHeroSummary(chosen))}</span></div>`;}
+function wireOutbreakOnlineHeroPicker(){const sel=$('#onlineHeroPick'),summary=$('#onlineHeroSummary');if(!sel)return;sel.onchange=()=>{if(!OUTBREAK_HEROES[sel.value])return;save.outbreakHero=sel.value;persist();sel.parentElement.style.setProperty('--hero',OUTBREAK_HEROES[sel.value].color);if(summary)summary.textContent=outbreakOnlineHeroSummary(sel.value);};}
 async function renderLobby(){
   netCloseAll(true); lobbyCleanup(); clearTimers(); mode = null; endStandings = null;
   state = 'lobby';
@@ -3536,7 +3618,7 @@ async function renderLobby(){
         <button data-m="ffa" data-open="0" class="${gmode==='ffa'?'on':''}">FFA</button>
         <button data-m="teams" data-open="0" class="${gmode==='teams'?'on':''}">TEAMS</button>
         <button data-m="zombies" data-open="0" class="${gmode==='zombies'&&!openWorld?'on':''}">CO-OP</button>
-        <button data-m="zombies" data-open="1" class="${gmode==='zombies'&&openWorld?'on':''}">OUTBREAK</button></div></div>`}
+        <button data-m="zombies" data-open="1" class="${gmode==='zombies'&&openWorld?'on':''}">OUTBREAK</button></div></div>${outbreakOnlineHeroMarkup()}`}
       <div class="netlbl">${rankedMode?'RANKED ROOMS — CLICK TO JOIN':'OPEN ROOMS — CLICK TO JOIN'}</div>
       <div id="roomList" class="roomlist"><div class="netstat">connecting to Azure lobby…</div></div>
       <div class="netstat" id="netStat"></div>
@@ -3544,6 +3626,7 @@ async function renderLobby(){
     </div></div>`;
   $('#btnBack').onclick = () => { lobbyCleanup(); toMenu(); };
   $('#btnMake').onclick = createRoom;
+  wireOutbreakOnlineHeroPicker();
   const seg = $('#segGM');
   if(seg) seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; openWorld = b.dataset.open==='1';
     seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.m===gmode && (x.dataset.open==='1')===openWorld)); });
@@ -3636,6 +3719,7 @@ function renderRoom(){
         <button data-m="zombies" data-open="0" class="${gmode==='zombies'&&!openWorld?'on':''}">CO-OP</button>
         <button data-m="zombies" data-open="1" class="${gmode==='zombies'&&openWorld?'on':''}">OUTBREAK</button></div></div>`}
       <div class="netlbl">${coop?'DEFENDERS':'SEATS'} (${1+lobby.seats.length} ${humanLabel}${lobby.seats.length?'s':''}${coop?'':' · rest are bots'})</div>
+      ${coop&&openWorld?outbreakOnlineHeroMarkup():''}
       <div class="roomlist">${seatList.map((s,i)=>`<div class="roomrow" style="cursor:default">
         <span style="color:${gmode==='teams'?TEAM_COLORS[i<4?0:1]:FFA_COLORS[i]}">${esc(s)}</span>
         <span style="color:var(--dim)">SEAT ${i+1}${gmode==='teams'?(i<4?' · A':' · B'):''}</span></div>`).join('')}</div>
@@ -3646,6 +3730,7 @@ function renderRoom(){
       </div>
     </div></div>`;
   { const s2=$('#segGM2'); if(s2) s2.querySelectorAll('button').forEach(b=>b.onclick=()=>{ gmode=b.dataset.m; openWorld=b.dataset.open==='1'; announceRoom(); renderRoom(); }); }
+  wireOutbreakOnlineHeroPicker();
   $('#btnCancel').onclick = () => { lobbyCleanup(); renderLobby(); };
   $('#btnStart').onclick = hostStart;
 }
@@ -3818,7 +3903,8 @@ function guestRecv(m){
       break;
     case 'zwalls': walls = m.walls.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})); break;
     case 'zbar': { const segs = m.segs.map(a=>({x:a[0],y:a[1],w:a[2],h:a[3]})); extraWalls.push(...segs); walls.push(...segs); break; }
-    case 'zpause': if(campaign){ campaign.wave=m.wave; } break;   // host is drafting an upgrade; hold position
+    case 'zpause': if(campaign){campaign.wave=m.wave;campaign.upgrading=true;roundLive=false;$('#arena').innerHTML='<div class="panel"><div style="text-align:center"><div class="rtitle" style="color:var(--gold)">Squad armory</div><div class="rsub">host is choosing the shared run upgrade…</div></div></div>';} break;
+    case 'zresume': if(campaign){campaign.upgrading=false;roundLive=true;$('#arena').innerHTML='';if(m.name)pushFeed(`SQUAD UPGRADE — ${m.name} LV ${m.level||1}`);} break;
     case 'zs':
       if(campaign){ campaign.wave=m.w; campaign.lives=m.lv; campaign.citizensAlive=m.ca; campaign.combo=m.cb||0; campaign.comboT=campaign.combo>1?2.4:0;
         if(campaign.open){ campaign.rescued=m.rs||0; campaign.escorting=m.es||0; campaign.phase=m.ph||0; campaign.cutters=!!m.ct; campaign.keycard=!!m.kc;
@@ -3837,7 +3923,7 @@ function guestRecv(m){
       citizens = m.c.map(a=>({x:a[0],y:a[1],alive:true,converting:a[2],following:(a[3]!=null&&a[3]>=0)?a[3]:null,role:a[4]||'civilian',name:a[5]||'Survivor',uid:a[6]||'',r:11,wob:0}));
       zombies = m.z.map(a=>{ const T=ZTYPES[a[2]]||ZTYPES[0]; return {x:a[0],y:a[1],ti:a[2],boss:!!T.boss,tough:!!T.tough,hp:a[3],maxhp:a[4],elite:!!a[5],eliteName:a[6]||'',uid:a[7]||'',alive:true,r:T.r*(a[5]?1.12:1)}; });outbreakCommand.visibleEvalAt=0;
       zshots = (m.k||[]).map(a=>({x:a[0],y:a[1],r:7,life:1}));
-      pickups = (m.pk||[]).map(a=>({x:a[0],y:a[1],r:9,type:a[2]||'ammo',uid:a[3]||'',qty:a[4]==null?null:a[4],alive:true,life:a[5]||10,wob:0}));
+      pickups = (m.pk||[]).map(a=>({x:a[0],y:a[1],r:9,type:a[2]||'ammo',uid:a[3]||'',qty:a[4]==null?null:a[4],alive:true,life:a[5]||10,claim:a[6]==null?null:a[6],wob:0}));
       bullets = m.b.map(a=>({x:a[0],y:a[1],vx:a[2],vy:a[3],r:a[4],owner:a[5],px:a[0]-a[2]*0.02,py:a[1]-a[3]*0.02,c:(players[a[5]]&&players[a[5]].color)||'#eef2ff',life:1}));
       break;
     case 'zend': {
@@ -3879,7 +3965,7 @@ function outbreakPointerHit(p,x,y,hitR){
   const rectDist=o=>{const nx=clamp(x,o.x,o.x+o.w),ny=clamp(y,o.y,o.y+o.h);return Math.hypot(x-nx,y-ny);};let context=null;
   const door=missionDoors.find(d=>!d.open&&selectableDoor(d)&&rectDist(d)<hitR);if(door)context={type:'door',o:door};
   if(!context){const ally=players.find(q=>q&&q!==p&&q.downed&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(ally)context={type:'ally',o:ally};}
-  if(!context){const pk=pickups.find(q=>q.alive&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(pk)context={type:'pickup',o:pk};}
+  if(!context){const pk=pickups.find(q=>q.alive&&(q.claim==null||q.claim===p.i)&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(pk)context={type:'pickup',o:pk};}
   if(!context){const cache=searchables.find(q=>!q.searched&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(cache)context={type:'cache',o:cache};}
   if(!context){const survivor=citizens.find(q=>q.alive&&q.following==null&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(survivor)context={type:'survivor',o:survivor};}
   if(!context){const op=pois.find(q=>!q.captured&&selectable(q.x,q.y)&&Math.hypot(q.x-x,q.y-y)<hitR+q.r);if(op)context={type:'op',o:op};}
@@ -3894,6 +3980,7 @@ function outbreakPointerCommand(e){
   if(layout.desktop){
     const b=layout.buttons.find(q=>pointInRect(sx,sy,q));if(b){if(e.button===0)outbreakCommandAction(b.k);return true;}
     const a=layout.actions.find(q=>pointInRect(sx,sy,q));if(a){if(e.button===0&&!(a.k==='ability'&&!p.ld.gadget)){if(a.k==='interact')touch.interactId=e.pointerId;else outbreakCommand['action'+a.k[0].toUpperCase()+a.k.slice(1)]=true;}return true;}
+    const weapon=layout.weapons&&layout.weapons.find(q=>pointInRect(sx,sy,q));if(weapon){if(e.button===0&&p.guns&&p.guns[weapon.i])outbreakCommand.actionWeapon=weapon.i;return true;}
     const item=layout.items&&layout.items.find(q=>pointInRect(sx,sy,q));if(item){if(e.button===2||e.shiftKey)outbreakCommand.actionDropSlot=item.i;else if(e.button===0)outbreakCommand.actionUseSlot=item.i;return true;}
     if(pointInRect(sx,sy,layout.map)){const span=9000,ox=p.x-span/2,oy=p.y-span/2,x=clamp(ox+(sx-layout.map.x)/layout.map.w*span,0,WORLD.w),y=clamp(oy+(sy-layout.map.y)/layout.map.h*span,0,WORLD.h),pending=outbreakCommand.pending;if(e.button===2)setOutbreakOrder('move',x,y,e.shiftKey);else if(['move','attackmove','patrol'].includes(pending))setOutbreakOrder(pending,x,y,e.shiftKey);else if(pending){outbreakCommand.invalidFx={x,y,t:tnow(),label:'SELECT TARGET'};pushFeed(`${pending.toUpperCase()} REQUIRES A WORLD TARGET`);}outbreakCommand.pending=null;return true;}
     if(sy>=layout.y)return true;
@@ -3912,6 +3999,7 @@ addEventListener('keydown', e => {
   audioInit();
   held[e.code] = true;
   if(e.repeat) return;
+  if(state==='play'&&campaign&&campaign.upgrading){if(e.code==='Escape')return;return;}
   if(state==='play'&&outbreakCommandActive()&&outbreakCommand.pending&&e.code==='Escape'){outbreakCommand.pending=null;return;}
   if(e.code==='Escape'&&document.pointerLockElement){document.exitPointerLock();return;}
   if(storySceneState&&mode!=='guest'&&e.code==='Escape'){finishStoryScene(true);return;}
@@ -3948,27 +4036,28 @@ addEventListener('pointerdown', e => {
   audioInit();
   if(state!=='play') return;
   if(e.target.closest && e.target.closest('button,textarea,input,.mbtn')) return;
-  if(storySceneState)return;
+  if(storySceneState||(campaign&&(campaign.cinematic||campaign.upgrading)))return;
+  if(e.pointerType==='touch'&&touch.caseFile){touch.caseFile=false;return;}
   if(e.pointerType==='touch'){const lay=outbreakHudLayout(),r=cv.getBoundingClientRect(),py=(e.clientY-r.top)*H/Math.max(1,r.height);if(lay.desktop&&py>=lay.y){outbreakPointerCommand(e);return;}}
   if(e.pointerType!=='touch'){
     if(outbreakPointerCommand(e))return;
     if(e.button===0&&!storySceneState)touch.fires.add(e.pointerId);
     return;
   }
-  const ab = abilityBtn(),swap=touchSwapBtn(),cr=cv.getBoundingClientRect(),sx=(e.clientX-cr.left)*W/Math.max(1,cr.width),sy=(e.clientY-cr.top)*H/Math.max(1,cr.height);
+  const ab = abilityBtn(),swap=touchSwapBtn(),map=touchMapBtn(),cr=cv.getBoundingClientRect(),sx=(e.clientX-cr.left)*W/Math.max(1,cr.width),sy=(e.clientY-cr.top)*H/Math.max(1,cr.height);
   const ib=interactBtn(),hb=healBtn(),outbreak=gmode==='zombies'&&campaign&&campaign.open;
+  const actionHit=(outbreak?[['interact',ib],['heal',hb],['ability',ab]]:[['ability',ab]]).map(([k,b])=>({k,b,d:Math.hypot(sx-b.x,sy-b.y)/(b.r+8)})).filter(a=>a.d<=1).sort((a,b)=>a.d-b.d)[0];
   const pack=outbreak?touchPackLayout().find(b=>pointInRect(sx,sy,b)):null;
-  if(pack){touch.packId=e.pointerId;touch.packSlot=pack.i;touch.packDownAt=tnow();touch.packX=sx;touch.packY=sy;touch.packCancel=false;}
+  if(outbreak&&Math.hypot(sx-map.x,sy-map.y)<map.r+8){touch.caseFile=true;touch.fires.clear();}
+  else if(pack){touch.packId=e.pointerId;touch.packSlot=pack.i;touch.packDownAt=tnow();touch.packX=sx;touch.packY=sy;touch.packCancel=false;}
   else if(outbreak&&Math.hypot(sx-swap.x,sy-swap.y)<swap.r+8){outbreakCommandAction('swap');}
-  else if(outbreak&&Math.hypot(sx-ib.x,sy-ib.y)<ib.r+8){ touch.interactId=e.pointerId; }
-  else if(outbreak&&Math.hypot(sx-hb.x,sy-hb.y)<hb.r+8){ touch.healId=e.pointerId; }
-  else if(Math.hypot(sx-ab.x,sy-ab.y)<ab.r+8){ touch.abilityId = e.pointerId; }   // ability button (bottom-center)
+  else if(actionHit){if(actionHit.k==='interact')touch.interactId=e.pointerId;else if(actionHit.k==='heal')touch.healId=e.pointerId;else touch.abilityId=e.pointerId;}
   else if(e.clientX < W*0.5 && touch.stick===null){ touch.stick=e.pointerId; touch.ox=e.clientX; touch.oy=e.clientY; touch.vx=0; touch.vy=0; }
   else touch.fires.add(e.pointerId);
 }, {passive:true});
 addEventListener('pointermove', e => {
   if(e.pointerType!=='touch'){
-    if(outbreakCommandActive()&&!storySceneState){const r=cv.getBoundingClientRect(),sx=(e.clientX-r.left)*W/Math.max(1,r.width),sy=(e.clientY-r.top)*H/Math.max(1,r.height),layout=outbreakHudLayout(),p=players[me];if(layout.desktop&&sy>=layout.y){outbreakCommand.hover=null;cv.style.cursor=layout.buttons.some(q=>pointInRect(sx,sy,q))||layout.actions.some(q=>pointInRect(sx,sy,q))||layout.items.some(q=>pointInRect(sx,sy,q))||pointInRect(sx,sy,layout.map)?'pointer':'default';}
+    if(outbreakCommandActive()&&!storySceneState){const r=cv.getBoundingClientRect(),sx=(e.clientX-r.left)*W/Math.max(1,r.width),sy=(e.clientY-r.top)*H/Math.max(1,r.height),layout=outbreakHudLayout(),p=players[me];if(layout.desktop&&sy>=layout.y){outbreakCommand.hover=null;cv.style.cursor=layout.buttons.some(q=>pointInRect(sx,sy,q))||layout.actions.some(q=>pointInRect(sx,sy,q))||(layout.weapons||[]).some(q=>pointInRect(sx,sy,q))||layout.items.some(q=>pointInRect(sx,sy,q))||pointInRect(sx,sy,layout.map)?'pointer':'default';}
       else if(p&&p.alive){const x=clamp(cam.x+sx/VIEW,0,WORLD.w),y=clamp(cam.y+sy/VIEW,0,WORLD.h),{enemy,context}=outbreakPointerHit(p,x,y,Math.max(28,34/VIEW)),pending=outbreakCommand.pending;outbreakCommand.hover=enemy?{type:'enemy',id:enemy.uid}:context?{type:context.type,id:outbreakContextId(context.type,context.o)}:null;cv.style.cursor=pending==='attack'?(enemy?'crosshair':'not-allowed'):pending==='interact'?(context?'pointer':'not-allowed'):pending?'crosshair':enemy?'crosshair':context?'pointer':'default';}}
     else{outbreakCommand.hover=null;cv.style.cursor='default';}
   }
@@ -3985,7 +4074,7 @@ const pEnd = (e,cancel=false) => { if(e.pointerId===touch.stick){ touch.stick=nu
   touch.fires.delete(e.pointerId); };
 addEventListener('pointerup', pEnd, {passive:true});
 addEventListener('pointercancel', e=>pEnd(e,true), {passive:true});
-addEventListener('touchmove', e => { if(state==='play') e.preventDefault(); }, {passive:false});
+addEventListener('touchmove', e => { if(state==='play'&&!(campaign&&(campaign.upgrading||campaign.cinematic))) e.preventDefault(); }, {passive:false});
 addEventListener('contextmenu', e => { if(state==='play') e.preventDefault(); });
 addEventListener('beforeunload', () => { if(lobby && lobby.hosting && !lobby.starting)
   try{ lobby.ws.send(JSON.stringify({type:'sendToGroup', group:'rooms', dataType:'json', data:{t:'gone', from:lobby.cid}})); }catch(e){} });
@@ -4019,7 +4108,7 @@ function loop(t){
           c: citizens.filter(c=>c.alive).map(c=>[c.x|0,c.y|0,c.converting>0?1:0,c.following!=null?c.following:-1,c.role||'civilian',c.name||'Survivor',c.uid||'']),
           z: zombies.map(z=>[z.x|0,z.y|0,z.ti,z.hp,z.maxhp,z.elite?1:0,z.eliteName||'',z.uid||'']),
           k: zshots.map(s=>[s.x|0,s.y|0]),
-          pk: pickups.filter(p=>p.alive).map(p=>[p.x|0,p.y|0,p.type,p.uid||'',p.qty==null?null:p.qty,+((p.life||10).toFixed(1))]),
+          pk: pickups.filter(p=>p.alive).map(p=>[p.x|0,p.y|0,p.type,p.uid||'',p.qty==null?null:p.qty,+((p.life||10).toFixed(1)),p.claim==null?null:p.claim]),
           b: bullets.map(b=>[b.x|0,b.y|0,b.vx|0,b.vy|0,b.r,b.owner]) });
       } else {
         netBroadcast({ t:'s', ts:teamScore,
