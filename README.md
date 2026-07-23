@@ -61,9 +61,12 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
 - Everything saves on your device; your full build + level follow you online
 
 ## Controls
-- **Keyboard:** WASD / Arrows move · Space / mouse fire · **Shift / E** ability · Outbreak:
-  **F** interact/revive, **R** reload, **H** heal, **Tab** case file · **Touch:** left half = move, right half = aim/fire, dedicated ability,
-  interact, and heal buttons
+- **Brawl / Zombie Survival:** WASD / Arrows move · Space / mouse fire · **Shift / E** ability
+- **Raccoon Outbreak:** click ground to move; visible infected are attacked automatically. **C**, then click =
+  attack-move · **M**, then click = move · **P**, then click = patrol · **X** stop · **V** hold position ·
+  **T** toggle auto-fire · Shift-click queues orders · WASD / Arrows directly override an order · **F** interact/revive ·
+  **R** reload · **H** heal · **Tab** case file. The bottom command card also exposes every order and field action.
+- **Touch:** left half = move, right half = aim/fire, with dedicated ability, interact, and heal buttons
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
