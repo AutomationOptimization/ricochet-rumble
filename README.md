@@ -23,14 +23,18 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
   - **Project Crown secret case:** every recovered document contains part of a seven-file cipher. Completing it
     reveals Umbra Lab B-12 as a playable secret objective; surviving its purge protocol secures the Crown ledger
     and changes the ending.
-  - **Survival systems:** condition damage, persistent infection, herbs, first-aid spray, antivirals, finite ammo,
-    magazine reserves, manual reloads, downed/bleed-out states, co-op revives, reinforcements, and fortifications.
+  - **Survival systems:** a real six-slot field pack, two carried weapons, the scavenged M37 riot gun, separate 9mm
+    and shell reserves, manual weapon swaps/reloads, condition damage, infection, herbs, spray, antivirals,
+    downed/bleed-out states, co-op revives, reinforcements, and fortifications. Mission compounds have physical,
+    key-gated doors that the squad must clear and breach before searching.
   - **Exploration:** nine named districts, fifteen authored landmark compounds, seven optional operations,
     repeatable field incidents, searchable containers, medical, ammunition and tool caches, seven interconnected
     lore files, key-item inventory, named survivor records, patrol/service-truck road traversal, an objective
     compass, minimap, and full-screen city operations map.
-  - **Visibility:** Outbreak uses the Brawl-style overhead view with persistent fog of war. Nearby space is visible,
-    buildings and barricades block sight, and explored city blocks remain dimly remembered as the squad travels.
+  - **Visibility:** Outbreak uses persistent line-of-sight fog. Buildings and barricades block sight; the minimap
+    distinguishes unknown, explored, and currently visible blocks and only reveals local threats and discoveries.
+  - **Tactical display:** a WC3-style 3×3 command card, six inventory slots, selected-target health panel,
+    interaction/breach progress, persistent focus-fire markers, queued-order acknowledgements, and camera-box minimap.
   - **Dynamic campaign:** specialist survivors (medics, officers, and engineers), a secured clinic safe room,
     blackouts, roaming hordes, distress calls, infested nests, armored convoys, hound ambushes, noise-driven
     pressure, eleven enemy classes, multiple unlockable safe rooms, and a 60-second, three-wave extraction siege
@@ -62,11 +66,13 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
 
 ## Controls
 - **Brawl / Zombie Survival:** WASD / Arrows move · Space / mouse fire · **Shift / E** ability
-- **Raccoon Outbreak:** click ground to move; visible infected are attacked automatically. **C**, then click =
-  attack-move · **M**, then click = move · **P**, then click = patrol · **X** stop · **V** hold position ·
-  **T** toggle auto-fire · Shift-click queues orders · WASD / Arrows directly override an order · **F** interact/revive ·
-  **R** reload · **H** heal · **Tab** case file. The bottom command card also exposes every order and field action.
-- **Touch:** left half = move, right half = aim/fire, with dedicated ability, interact, and heal buttons
+- **Raccoon Outbreak:** smart-click ground to move, infected to focus fire, and survivors/supplies/doors/objectives to
+  interact. **B**, then click = focus · **C**, then click = attack-move · **M** move · **P** patrol · **X** stop ·
+  **V** hold · **G** swap weapon · **T** auto-fire · Shift-click queues movement · **1–6** use pack slot ·
+  **Shift+1–6** drop stack · WASD / Arrows override orders · **F** interact/revive · **R** reload · **H** heal ·
+  **Tab** case file.
+- **Touch:** left half moves, right half fires, with ability/interact/heal/auto/swap buttons and a six-slot pack strip;
+  tap a slot to use it and hold to drop it.
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
 - **Azure Web PubSub** (`rr-lobby-*`, Free_F1) — live room lobby + WebRTC signaling
