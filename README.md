@@ -66,12 +66,12 @@ Arena hits are lethal. Bullets ricochet. Outbreak adds full survival-horror cond
 
 ## Controls
 - **Brawl / Zombie Survival:** WASD / Arrows move · Space / mouse fire · **Shift / E** ability
-- **Raccoon Outbreak:** smart-click ground to move, infected to focus fire, and survivors/supplies/doors/objectives to
-  interact. **B**, then click = focus · **C**, then click = attack-move · **M** move · **P** patrol · **X** stop ·
-  **V** hold · **G** swap weapon · **T** auto-fire · Shift-click queues movement · **1–6** use pack slot ·
-  **Shift+1–6** drop stack · WASD / Arrows override orders · **F** interact/revive · **R** reload · **H** heal ·
-  **Tab** case file.
-- **Touch:** left half moves, right half fires, with ability/interact/heal/auto/swap buttons and a six-slot pack strip;
+- **Raccoon Outbreak:** left-click selects; right-click issues a smart move, attack, or use order. **B**, then click =
+  focus target · **C**, then click = attack-move (lock, chase, fight, then resume) · **M** move without engaging ·
+  **P** patrol · **X** stop, then guard · **V** hold without chasing · **G** swap weapon · Shift-click queues orders ·
+  **1–6** use pack slot · **Shift+1–6** drop stack · WASD / Arrows override orders · **F**, then click = use/rescue ·
+  **R** reload · **H** heal · **Tab** case file.
+- **Touch:** left half moves, right half fires, with ability/interact/heal/swap buttons and a six-slot pack strip;
   tap a slot to use it and hold to drop it.
 
 ## Backend (all Azure, free/consumption tiers — resource group `ricochet-rumble-rg`)
